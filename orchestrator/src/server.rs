@@ -111,6 +111,7 @@ impl ProxyService for ProxyServiceImpl {
         let broadcast = self.broadcast_tx.clone();
         let db = self.db.clone();
         let agent_id_cl = agent_id.clone();
+        let registry = self.agent_registry.clone();
 
         // Spawn task to handle inbound traffic events
         tokio::spawn(async move {
@@ -132,6 +133,17 @@ impl ProxyService for ProxyServiceImpl {
                 }
             }
             info!("🔌 Agent {} stream ended (processed {} events)", agent_id_cl, event_count);
+            
+            // Mark agent as offline in database
+            if let Err(e) = db.mark_agent_offline(&agent_id_cl).await {
+                error!("   ✗ Failed to mark agent {} as offline: {}", agent_id_cl, e);
+            } else {
+                info!("   ✓ Agent {} marked as offline in database", agent_id_cl);
+            }
+            
+            // Remove agent from registry
+            registry.remove_agent(&agent_id_cl);
+            info!("   ✓ Agent {} removed from session registry", agent_id_cl);
         });
 
         Ok(Response::new(ReceiverStream::new(rx)))
@@ -159,6 +171,7 @@ impl ProxyService for ProxyServiceImpl {
         let metrics_broadcast = self.metrics_broadcast_tx.clone();
         let db = self.db.clone();
         let agent_id_cl = agent_id.clone();
+        let registry = self.agent_registry.clone();
 
         // Spawn task to handle inbound metrics events
         tokio::spawn(async move {
@@ -184,6 +197,17 @@ impl ProxyService for ProxyServiceImpl {
                 }
             }
             info!("📊 Agent {} metrics stream ended (processed {} metrics)", agent_id_cl, metrics_count);
+            
+            // Mark agent as offline in database (if not already marked by traffic stream)
+            if let Err(e) = db.mark_agent_offline(&agent_id_cl).await {
+                // This might fail if already marked offline by traffic stream, which is fine
+                debug!("   ℹ️  Could not mark agent {} as offline: {}", agent_id_cl, e);
+            } else {
+                info!("   ✓ Agent {} marked as offline (metrics stream ended)", agent_id_cl);
+            }
+            
+            // Remove agent from registry (if not already removed)
+            registry.remove_agent(&agent_id_cl);
         });
 
         // For now, return an empty command stream

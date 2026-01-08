@@ -27,7 +27,11 @@ impl QueryRoot {
         let agents = registry.list_agents();
         Ok(agents.into_iter().map(|a| AgentGql {
             id: a.id,
+            name: a.name,
             hostname: a.hostname,
+            status: a.status,
+            version: a.version,
+            last_heartbeat: a.last_heartbeat,
         }).collect())
     }
 
@@ -132,7 +136,11 @@ impl From<TrafficEvent> for TrafficEventGql {
 #[derive(SimpleObject)]
 pub struct AgentGql {
     pub id: String,
+    pub name: String,
     pub hostname: String,
+    pub status: String,
+    pub version: String,
+    pub last_heartbeat: String,
 }
 
 #[derive(SimpleObject)]

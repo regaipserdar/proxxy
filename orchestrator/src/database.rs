@@ -67,6 +67,22 @@ impl Database {
         Ok(row.map(|r| r.get("name")))
     }
 
+    pub async fn mark_agent_offline(&self, agent_id: &str) -> Result<(), sqlx::Error> {
+        let timestamp = chrono::Utc::now().timestamp();
+        sqlx::query(
+            r#"
+            UPDATE agents 
+            SET status = 'Offline', last_heartbeat = ?
+            WHERE id = ?
+            "#
+        )
+        .bind(timestamp)
+        .bind(agent_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     pub async fn save_request(&self, event: &TrafficEvent, agent_id: &str) -> Result<(), sqlx::Error> {
         match &event.event {
             Some(traffic_event::Event::Request(req)) => {

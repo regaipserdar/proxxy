@@ -62,4 +62,8 @@ impl AgentRegistry {
     pub fn list_agents(&self) -> Vec<AgentData> {
         self.agents.iter().map(|entry| entry.value().clone()).collect()
     }
+
+    pub fn remove_agent(&self, id: &str) {
+        self.agents.remove(id);
+    }
 }
