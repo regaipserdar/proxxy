@@ -1,0 +1,2523 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Proxxy Documentation</title>
+        <meta name="robots" content="noindex">
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-2459343d.css">
+        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-5a954cec.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-11e4d50a.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Proxxy Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="proxxy---dağıtık-mitm-proxy-sistemi"><a class="header" href="#proxxy---dağıtık-mitm-proxy-sistemi">Proxxy - Dağıtık MITM Proxy Sistemi</a></h1>
+<p>Proxxy, HTTP/HTTPS trafiğini incelemek ve manipüle etmek için tasarlanmış, kurumsal düzeyde dağıtık bir Man-in-the-Middle (MITM) proxy çözümüdür. Merkezi bir Orchestrator, birden fazla Agent ve modern bir GUI’den oluşan modüler bir mimari sunar.</p>
+<blockquote>
+<p><strong>💡 Vizyon:</strong> Bu stack, <strong>Zero-Cost Abstractions</strong> (Sıfır Maliyetli Soyutlamalar) ve <strong>Memory Safety</strong> (Bellek Güvenliği) prensiplerine dayanır. Python veya Node.js tabanlı rakiplerine (Puppeteer, Selenium) göre <strong>10x daha az RAM</strong> ve çok daha düşük latency hedefliyoruz.</p>
+</blockquote>
+<h2 id="-temel-özellikler"><a class="header" href="#-temel-özellikler">🎯 Temel Özellikler</a></h2>
+<ul>
+<li><strong>Dağıtık Mimari</strong>: Birden fazla agent’ı merkezi bir noktadan yönetin</li>
+<li><strong>Gerçek Zamanlı Trafik İzleme</strong>: HTTP/HTTPS isteklerini canlı olarak görüntüleyin</li>
+<li><strong>Dinamik Trafik Politikaları</strong>: Runtime’da kurallar ekleyin/değiştirin (restart gerekmez)</li>
+<li><strong>Merkezi CA Yönetimi</strong>: Tek bir Root CA sertifikası tüm agent’lar için</li>
+<li><strong>İstek Durdurma (Intercept)</strong>: Kritik istekleri manuel onay bekletme</li>
+<li><strong>gRPC Sistem Metrikleri</strong>: CPU, RAM, network kullanımını gerçek zamanlı izleme</li>
+<li><strong>GraphQL + REST API</strong>: Esnek sorgulama ve entegrasyon</li>
+<li><strong>Modern GUI</strong>: Tauri tabanlı masaüstü uygulaması</li>
+<li><strong>🚀 Flow Engine</strong> (v1.2+): Zero-copy automation &amp; replay system
+<ul>
+<li><strong>10x daha az RAM</strong> (Python/Node.js rakiplerine göre)</li>
+<li><strong>Visual &amp; Protocol Mode</strong>: Browser veya HTTP-only execution</li>
+<li><strong>Self-Healing Selectors</strong>: DOM değişikliklerine dayanıklı</li>
+<li><strong>Login Sequence Recorder</strong>: Otomatik akış kaydı</li>
+<li>Detaylar: <a href="docs/src/flow-engine.html"><code>docs/src/flow-engine.md</code></a></li>
+</ul>
+</li>
+</ul>
+<h2 id="-hızlı-başlangıç"><a class="header" href="#-hızlı-başlangıç">🚀 Hızlı Başlangıç</a></h2>
+<h3 id="cli-kullanımı"><a class="header" href="#cli-kullanımı">CLI Kullanımı</a></h3>
+<pre><code class="language-bash"># Orchestrator başlatma
+cargo run -p orchestrator -- --help
+cargo run -p orchestrator -- --grpc-port 50051 --http-port 9090
+
+# Proxy Agent başlatma
+cargo run -p proxy-agent -- --help
+cargo run -p proxy-agent -- --name "MyAgent" --listen-port 9095
+
+# Database kontrolü
+sqlite3 proxxy.db "SELECT id, name, status FROM agents;"
+sqlite3 proxxy.db "SELECT COUNT(*) FROM http_transactions;"
+</code></pre>
+<p><strong>Not:</strong> <code>cargo run</code> ile argüman geçmek için <code>--</code> kullanılır. Bu, cargo’ya “bundan sonraki argümanlar programa gidiyor” der.</p>
+<h2 id="-proje-yapısı"><a class="header" href="#-proje-yapısı">📁 Proje Yapısı</a></h2>
+<pre><code>proxxy/
+├── orchestrator/          # Merkezi yönetim sunucusu
+│   ├── src/
+│   │   ├── main.rs       # CLI ve başlangıç noktası
+│   │   ├── lib.rs        # REST/GraphQL API
+│   │   ├── server.rs     # gRPC sunucu implementasyonu
+│   │   ├── database.rs   # SQLite veritabanı işlemleri
+│   │   └── session_manager.rs  # Agent oturum yönetimi
+│   └── migrations/       # Veritabanı migration dosyaları
+│
+├── proxy-core/           # Paylaşılan MITM kütüphanesi
+│   └── src/
+│       ├── proxy.rs      # Hudsucker tabanlı proxy sunucusu
+│       ├── ca.rs         # Sertifika otoritesi yönetimi
+│       ├── policy.rs     # Runtime trafik politikaları
+│       ├── controller.rs # İstek durdurma/devam ettirme
+│       └── system_metrics.rs # Sistem metrikleri toplama
+│
+├── proxy-agent/          # Headless CLI agent
+│   └── src/
+│       ├── main.rs       # Agent başlangıç noktası
+│       └── client.rs     # Orchestrator ile gRPC iletişimi
+│
+├── proxxy-gui/           # Tauri tabanlı masaüstü uygulaması
+│   ├── src/              # React frontend
+│   └── src-tauri/        # Tauri backend
+│
+├── proto/                # gRPC protokol tanımları
+│   └── proxy.proto       # Agent-Orchestrator iletişim protokolü
+│                         # (Traffic + System Metrics streaming)
+│
+└── docs/                 # Dokümantasyon
+    └── TRAFFIC_POLICY.md # Trafik politikası sistemi detayları
+</code></pre>
+<h2 id="-mimari"><a class="header" href="#-mimari">🏗️ Mimari</a></h2>
+<h3 id="sistem-bileşenleri"><a class="header" href="#sistem-bileşenleri">Sistem Bileşenleri</a></h3>
+<h4 id="1-orchestrator---merkezi-yönetim-sunucusu"><a class="header" href="#1-orchestrator---merkezi-yönetim-sunucusu">1. <strong>Orchestrator</strong> - Merkezi Yönetim Sunucusu</a></h4>
+<ul>
+<li><strong>gRPC Sunucusu</strong> (<code>port 50051</code>): Agent’larla iletişim (traffic + metrics)</li>
+<li><strong>REST API</strong> (<code>port 9090</code>): GUI için HTTP endpoint’leri</li>
+<li><strong>GraphQL API</strong> (<code>port 9090/graphql</code>): Gelişmiş sorgular ve playground</li>
+<li><strong>SQLite Veritabanı</strong>: Trafik logları, agent metadata ve sistem metrikleri</li>
+<li><strong>CA Yönetimi</strong>: Root sertifika üretimi ve dağıtımı</li>
+<li><strong>Metrics Aggregation</strong>: Tüm agent’lardan gelen sistem metriklerini toplama</li>
+<li><strong>Health Check Sistemi</strong>: Agent’ların durumunu otomatik izleme</li>
+</ul>
+<h4 id="2-proxy-core---paylaşılan-kütüphane"><a class="header" href="#2-proxy-core---paylaşılan-kütüphane">2. <strong>Proxy Core</strong> - Paylaşılan Kütüphane</a></h4>
+<ul>
+<li><strong>MITM Engine</strong>: Hudsucker tabanlı HTTP/HTTPS proxy motoru</li>
+<li><strong>TLS Interceptor</strong>: Dinamik sertifika üretimi (on-the-fly)</li>
+<li><strong>Policy Engine</strong>: Runtime’da değiştirilebilir trafik kuralları</li>
+<li><strong>Request/Response Capture</strong>: Tam HTTP transaction logging</li>
+<li><strong>System Metrics Collector</strong>: CPU, RAM, network, disk kullanımı izleme</li>
+<li><strong>Match &amp; Replace</strong>: Otomatik içerik değiştirme</li>
+</ul>
+<h4 id="3-proxy-agent---headless-cli-uygulaması"><a class="header" href="#3-proxy-agent---headless-cli-uygulaması">3. <strong>Proxy Agent</strong> - Headless CLI Uygulaması</a></h4>
+<ul>
+<li><strong>Lightweight Runner</strong>: Uzak sunucularda çalışır</li>
+<li><strong>gRPC Client</strong>: Orchestrator’a bağlanır ve komut alır</li>
+<li><strong>Traffic Streaming</strong>: HTTP işlemlerini gerçek zamanlı akıtır</li>
+<li><strong>Metrics Streaming</strong>: Sistem metriklerini gRPC ile sürekli gönderir</li>
+<li><strong>Memory-Only CA</strong>: CA sertifikasını disk’e yazmaz (güvenlik)</li>
+<li><strong>Dynamic Configuration</strong>: Orchestrator’dan gelen metric config’leri uygular</li>
+</ul>
+<h4 id="4-proxxy-gui---masaüstü-uygulaması"><a class="header" href="#4-proxxy-gui---masaüstü-uygulaması">4. <strong>Proxxy GUI</strong> - Masaüstü Uygulaması</a></h4>
+<ul>
+<li><strong>React + TypeScript</strong>: Modern, responsive UI</li>
+<li><strong>Tauri Backend</strong>: Hafif, güvenli cross-platform wrapper</li>
+<li><strong>Real-time Updates</strong>: GraphQL subscriptions ile canlı trafik ve metrikler</li>
+<li><strong>Agent Management</strong>: Agent’ları görüntüleme ve yönetme</li>
+<li><strong>System Metrics Dashboard</strong>: CPU, RAM, network kullanım grafikleri</li>
+<li><strong>Policy Editor</strong>: Drag-and-drop kural editörü (planlı)</li>
+</ul>
+<h3 id="grpc-protocol-yapısı"><a class="header" href="#grpc-protocol-yapısı">gRPC Protocol Yapısı</a></h3>
+<pre><code class="language-protobuf">service ProxyService {
+  // HTTP/HTTPS trafik streaming
+  rpc StreamTraffic (stream TrafficEvent) returns (stream InterceptCommand);
+  
+  // Agent registration
+  rpc RegisterAgent (RegisterAgentRequest) returns (RegisterAgentResponse);
+  
+  // Sistem metrikleri streaming (YENİ!)
+  rpc StreamMetrics (stream SystemMetricsEvent) returns (stream MetricsCommand);
+}
+
+message SystemMetricsEvent {
+  string agent_id = 1;
+  int64 timestamp = 2;
+  SystemMetrics metrics = 3;
+}
+
+message SystemMetrics {
+  float cpu_usage_percent = 1;        // CPU kullanım yüzdesi
+  uint64 memory_used_bytes = 2;       // Kullanılan RAM (bytes)
+  uint64 memory_total_bytes = 3;      // Toplam RAM (bytes)
+  NetworkMetrics network = 4;         // Network I/O istatistikleri
+  DiskMetrics disk = 5;               // Disk I/O istatistikleri
+  ProcessMetrics process = 6;         // Process-specific metrikler
+}
+</code></pre>
+<h3 id="port-haritası"><a class="header" href="#port-haritası">Port Haritası</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Port</th><th>Bileşen</th><th>Amaç</th></tr>
+</thead>
+<tbody>
+<tr><td>50051</td><td>Orchestrator gRPC</td><td>Agent bağlantıları, trafik ve metrik streaming</td></tr>
+<tr><td>9090</td><td>Orchestrator HTTP</td><td>REST API + GraphQL + Swagger UI</td></tr>
+<tr><td>9095</td><td>Agent Proxy (varsayılan)</td><td>Tarayıcı/uygulama trafiği buraya gelir</td></tr>
+<tr><td>9091</td><td>Agent Admin API</td><td>Health check ve local metrics endpoint’leri</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="-hızlı-başlangıç-1"><a class="header" href="#-hızlı-başlangıç-1">🚀 Hızlı Başlangıç</a></h2>
+<h3 id="gereksinimler"><a class="header" href="#gereksinimler">Gereksinimler</a></h3>
+<pre><code class="language-bash"># Rust (1.70+)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Protobuf Compiler (gRPC için)
+# macOS:
+brew install protobuf
+
+# Ubuntu/Debian:
+sudo apt install -y protobuf-compiler
+
+# Arch Linux:
+sudo pacman -S protobuf
+
+# Node.js (18+, GUI için)
+# https://nodejs.org/
+</code></pre>
+<h3 id="kurulum"><a class="header" href="#kurulum">Kurulum</a></h3>
+<pre><code class="language-bash"># 1. Projeyi klonlayın
+git clone &lt;repo-url&gt;
+cd proxxy
+
+# 2. Tüm workspace'i derleyin
+cargo build --release
+
+# 3. GUI bağımlılıkları (opsiyonel)
+cd proxxy-gui
+npm install
+</code></pre>
+<h2 id="-kullanım-kılavuzu"><a class="header" href="#-kullanım-kılavuzu">📖 Kullanım Kılavuzu</a></h2>
+<h3 id="1-orchestratorı-başlatma"><a class="header" href="#1-orchestratorı-başlatma">1. Orchestrator’ı Başlatma</a></h3>
+<pre><code class="language-bash"># Varsayılan ayarlarla başlat
+cargo run -p orchestrator
+
+# Özel konfigürasyon ile
+cargo run -p orchestrator -- \
+  --grpc-port 50051 \
+  --http-port 9090 \
+  --database-url sqlite:./my-proxxy.db \
+  --health-check-interval 30 \
+  --agent-timeout 300
+</code></pre>
+<p><strong>CLI Parametreleri:</strong></p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Parametre</th><th>Açıklama</th><th>Varsayılan</th></tr>
+</thead>
+<tbody>
+<tr><td><code>--grpc-port &lt;PORT&gt;</code></td><td>gRPC sunucu portu</td><td>50051</td></tr>
+<tr><td><code>--http-port &lt;PORT&gt;</code></td><td>HTTP API portu</td><td>9090</td></tr>
+<tr><td><code>--database-url &lt;URL&gt;</code></td><td>SQLite bağlantı URL’i</td><td>sqlite:./proxxy.db</td></tr>
+<tr><td><code>--health-check-interval &lt;SEC&gt;</code></td><td>Health check aralığı (saniye)</td><td>30</td></tr>
+<tr><td><code>--agent-timeout &lt;SEC&gt;</code></td><td>Agent timeout süresi (saniye)</td><td>300</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Orchestrator Endpoint’leri:</strong></p>
+<pre><code class="language-bash"># gRPC Endpoint (Agent'lar için)
+http://127.0.0.1:50051
+
+# REST API
+http://127.0.0.1:9090/health/detailed    # Sistem sağlık durumu
+http://127.0.0.1:9090/agents             # Kayıtlı agent listesi
+http://127.0.0.1:9090/metrics            # Trafik metrikleri (legacy)
+http://127.0.0.1:9090/system-metrics     # Sistem metrikleri (tüm agent'lar)
+http://127.0.0.1:9090/traffic            # Son HTTP işlemleri
+
+# GraphQL Playground (Sistem metrikleri dahil)
+http://127.0.0.1:9090/graphql
+
+# Swagger UI (REST API Dokümantasyonu)
+http://127.0.0.1:9090/swagger-ui
+http://127.0.0.1:9090/api-docs/openapi.json
+</code></pre>
+<h3 id="2-proxy-agentı-başlatma"><a class="header" href="#2-proxy-agentı-başlatma">2. Proxy Agent’ı Başlatma</a></h3>
+<pre><code class="language-bash"># Tek agent (varsayılan ayarlar + sistem metrikleri)
+cargo run -p proxy-agent -- --name "Agent-1"
+
+# İkinci agent (farklı portlar + özel metrik konfigürasyonu)
+cargo run -p proxy-agent -- \
+  --name "Agent-2" \
+  --listen-port 9096 \
+  --admin-port 9092 \
+  --metrics-interval 10  # 10 saniye metrik toplama
+
+# Uzak Orchestrator'a bağlanma (production metrikleri)
+cargo run -p proxy-agent -- \
+  --name "Production-Agent" \
+  --orchestrator-url http://203.0.113.10:50051 \
+  --listen-port 8080 \
+  --admin-port 8091 \
+  --metrics-interval 5 \
+  --enable-detailed-metrics
+</code></pre>
+<p><strong>CLI Parametreleri:</strong></p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Parametre</th><th>Açıklama</th><th>Varsayılan</th></tr>
+</thead>
+<tbody>
+<tr><td><code>--listen-addr &lt;ADDR&gt;</code></td><td>Proxy dinleme adresi</td><td>127.0.0.1</td></tr>
+<tr><td><code>--listen-port &lt;PORT&gt;</code></td><td>Proxy dinleme portu</td><td>9095</td></tr>
+<tr><td><code>--admin-port &lt;PORT&gt;</code></td><td>Admin API portu</td><td>9091</td></tr>
+<tr><td><code>--orchestrator-url &lt;URL&gt;</code></td><td>Orchestrator gRPC endpoint’i</td><td>http://127.0.0.1:50051</td></tr>
+<tr><td><code>--name &lt;NAME&gt;</code></td><td>Agent için friendly isim (opsiyonel)</td><td>-</td></tr>
+<tr><td><code>--metrics-interval &lt;SEC&gt;</code></td><td>Sistem metrikleri toplama aralığı (saniye)</td><td>5</td></tr>
+<tr><td><code>--enable-detailed-metrics</code></td><td>Detaylı network/disk metrikleri</td><td>false</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Agent Admin API Endpoint’leri:</strong></p>
+<pre><code class="language-bash"># Health Check
+curl http://127.0.0.1:9091/health
+# Çıktı: {"status": "ok"}
+
+# Local Metrics (proxy-specific)
+curl http://127.0.0.1:9091/metrics
+# Çıktı: {"total_requests": 42, "active_connections": 3}
+
+# System Metrics (local snapshot)
+curl http://127.0.0.1:9091/system
+# Çıktı: {
+#   "cpu_usage_percent": 15.7,
+#   "memory_used_bytes": 2147483648,
+#   "memory_total_bytes": 8589934592,
+#   "network_rx_bytes_per_sec": 1048576,
+#   "network_tx_bytes_per_sec": 524288,
+#   "process_cpu_percent": 2.3,
+#   "process_memory_bytes": 67108864
+# }
+</code></pre>
+<p><strong>Admin Port ve Sistem Metrikleri:</strong></p>
+<p>Admin Port, her agent’ın kendi health check ve metrics bilgilerini sunduğu dahili bir HTTP endpoint’idir. <strong>Yeni sistem metrikleri özelliği ile:</strong></p>
+<ul>
+<li><strong>Local System Snapshot</strong>: <code>/system</code> endpoint’i ile anlık sistem durumu</li>
+<li><strong>gRPC Streaming</strong>: Sürekli metrikler Orchestrator’a gRPC ile gönderilir</li>
+<li><strong>Kubernetes/Docker Health Checks</strong>: Container orchestration için liveness/readiness probe</li>
+<li><strong>Monitoring (Prometheus/Grafana)</strong>: Metrics scraping</li>
+<li><strong>Load Balancer Health Checks</strong>: HAProxy, Nginx health check endpoint’leri</li>
+</ul>
+<pre><code class="language-yaml"># Kubernetes örneği (sistem metrikleri ile)
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 9091
+  initialDelaySeconds: 10
+  periodSeconds: 5
+
+# Sistem metrikleri için ek probe
+readinessProbe:
+  httpGet:
+    path: /system
+    port: 9091
+  initialDelaySeconds: 5
+  periodSeconds: 10
+</code></pre>
+<h3 id="3-guiyi-başlatma"><a class="header" href="#3-guiyi-başlatma">3. GUI’yi Başlatma</a></h3>
+<pre><code class="language-bash">cd proxxy-gui
+
+# İlk seferinde bağımlılıkları kur
+npm install
+
+# Geliştirme modunda çalıştır (sistem metrikleri dashboard dahil)
+npm run tauri dev
+
+# Production build
+npm run tauri build
+</code></pre>
+<p>GUI otomatik olarak <code>http://127.0.0.1:9090</code> adresindeki Orchestrator’a bağlanır ve sistem metriklerini gerçek zamanlı görüntüler.</p>
+<h2 id="-sistem-metrikleri-özellikleri"><a class="header" href="#-sistem-metrikleri-özellikleri">📊 Sistem Metrikleri Özellikleri</a></h2>
+<h3 id="grpc-streaming-metrikleri"><a class="header" href="#grpc-streaming-metrikleri">gRPC Streaming Metrikleri</a></h3>
+<p>Her proxy agent sürekli olarak sistem metriklerini Orchestrator’a gönderir:</p>
+<pre><code class="language-bash"># Agent'dan Orchestrator'a sürekli akan metrikler:
+SystemMetricsEvent {
+  agent_id: "agent-1",
+  timestamp: 1704738420,
+  metrics: {
+    cpu_usage_percent: 15.7,
+    memory_used_bytes: 2147483648,
+    memory_total_bytes: 8589934592,
+    network: {
+      rx_bytes_per_sec: 1048576,
+      tx_bytes_per_sec: 524288
+    },
+    disk: {
+      read_bytes_per_sec: 65536,
+      write_bytes_per_sec: 32768
+    },
+    process: {
+      cpu_usage_percent: 2.3,
+      memory_bytes: 67108864,
+      uptime_seconds: 3600
+    }
+  }
+}
+</code></pre>
+<h3 id="graphql-sistem-metrikleri"><a class="header" href="#graphql-sistem-metrikleri">GraphQL Sistem Metrikleri</a></h3>
+<pre><code class="language-graphql"># Tüm agent'ların mevcut sistem durumu
+query {
+  agents {
+    id
+    name
+    status
+    currentMetrics {
+      cpuUsagePercent
+      memoryUsedBytes
+      memoryTotalBytes
+      networkRxBytesPerSec
+      networkTxBytesPerSec
+      processCpuPercent
+      processMemoryBytes
+    }
+  }
+}
+
+# Belirli bir agent'ın metrik geçmişi
+query {
+  agent(id: "agent-1") {
+    name
+    metricsHistory(limit: 60) {
+      timestamp
+      cpuUsagePercent
+      memoryUsedBytes
+      networkRxBytesPerSec
+    }
+  }
+}
+
+# Real-time metrik güncellemeleri
+subscription {
+  systemMetricsUpdated {
+    agentId
+    cpuUsagePercent
+    memoryUsedBytes
+    networkRxBytesPerSec
+  }
+}
+</code></pre>
+<h2 id="-kullanım-senaryoları"><a class="header" href="#-kullanım-senaryoları">🔧 Kullanım Senaryoları</a></h2>
+<h3 id="senaryo-1-yerel-tek-agent-test-sistem-metrikleri-ile"><a class="header" href="#senaryo-1-yerel-tek-agent-test-sistem-metrikleri-ile">Senaryo 1: Yerel Tek Agent Test (Sistem Metrikleri ile)</a></h3>
+<p><strong>Amaç</strong>: Hızlı development/testing için minimal setup + metrik izleme</p>
+<pre><code class="language-bash"># Terminal 1: Orchestrator
+cargo run -p orchestrator
+
+# Terminal 2: Agent (sistem metrikleri aktif)
+cargo run -p proxy-agent -- --name "Dev-Agent" --metrics-interval 5
+
+# Terminal 3: GUI (sistem metrikleri dashboard ile)
+cd proxxy-gui &amp;&amp; npm run tauri dev
+
+# Terminal 4: Test traffic + metrik izleme
+curl -x http://127.0.0.1:9095 http://example.com
+
+# Terminal 5: Sistem metriklerini kontrol et
+curl http://127.0.0.1:9091/system | jq
+</code></pre>
+<h3 id="senaryo-2-çoklu-agent-yerel-setup-sistem-metrikleri-ile"><a class="header" href="#senaryo-2-çoklu-agent-yerel-setup-sistem-metrikleri-ile">Senaryo 2: Çoklu Agent Yerel Setup (Sistem Metrikleri ile)</a></h3>
+<p><strong>Amaç</strong>: Load balancing, multi-region testleri + merkezi metrik toplama</p>
+<pre><code class="language-bash"># Terminal 1: Orchestrator
+cargo run -p orchestrator
+
+# Terminal 2: Agent 1 (US Region) - Yüksek frekanslı metrikler
+cargo run -p proxy-agent -- \
+  --name "US-East-Agent" \
+  --listen-port 9095 \
+  --admin-port 9091 \
+  --metrics-interval 3 \
+  --enable-detailed-metrics
+
+# Terminal 3: Agent 2 (EU Region) - Standart metrikler
+cargo run -p proxy-agent -- \
+  --name "EU-West-Agent" \
+  --listen-port 9096 \
+  --admin-port 9092 \
+  --metrics-interval 5
+
+# Terminal 4: Agent 3 (Asia Region) - Düşük frekanslı metrikler
+cargo run -p proxy-agent -- \
+  --name "Asia-South-Agent" \
+  --listen-port 9097 \
+  --admin-port 9093 \
+  --metrics-interval 10
+</code></pre>
+<p><strong>Farklı agent’ları test etme ve metrik karşılaştırma:</strong></p>
+<pre><code class="language-bash"># US Agent üzerinden (yüksek load)
+curl -x http://127.0.0.1:9095 http://api.example.com
+
+# EU Agent üzerinden (orta load)
+curl -x http://127.0.0.1:9096 http://api.example.com
+
+# Sistem metriklerini karşılaştır
+curl http://127.0.0.1:9091/system | jq '.cpu_usage_percent'  # US Agent
+curl http://127.0.0.1:9092/system | jq '.cpu_usage_percent'  # EU Agent
+curl http://127.0.0.1:9093/system | jq '.cpu_usage_percent'  # Asia Agent
+
+# Orchestrator'dan tüm agent metrikleri
+curl http://127.0.0.1:9090/system-metrics | jq
+</code></pre>
+<h3 id="senaryo-3-production-deployment-uzak-sunucular"><a class="header" href="#senaryo-3-production-deployment-uzak-sunucular">Senaryo 3: Production Deployment (Uzak Sunucular)</a></h3>
+<p><strong>Amaç</strong>: Gerçek kurumsal ortamda dağıtık proxy</p>
+<pre><code class="language-bash"># Sunucu 1: Orchestrator (Public IP: 203.0.113.10)
+cargo run -p orchestrator --release -- \
+  --grpc-port 50051 \
+  --http-port 9090 \
+  --database-url sqlite:/var/lib/proxxy/data.db
+
+# Sunucu 2: AWS Worker Agent
+cargo run -p proxy-agent --release -- \
+  --name "AWS-US-East-1" \
+  --orchestrator-url http://203.0.113.10:50051 \
+  --listen-port 8080 \
+  --admin-port 8081
+
+# Sunucu 3: Azure Worker Agent
+cargo run -p proxy-agent --release -- \
+  --name "Azure-West-EU" \
+  --orchestrator-url http://203.0.113.10:50051 \
+  --listen-port 8080 \
+  --admin-port 8081
+</code></pre>
+<h3 id="senaryo-4-docker-compose-deployment"><a class="header" href="#senaryo-4-docker-compose-deployment">Senaryo 4: Docker Compose Deployment</a></h3>
+<pre><code class="language-yaml"># docker-compose.yml
+version: '3.8'
+
+services:
+  orchestrator:
+    build: ./orchestrator
+    ports:
+      - "50051:50051"
+      - "9090:9090"
+    volumes:
+      - proxxy-data:/data
+    environment:
+      - DATABASE_URL=sqlite:/data/proxxy.db
+
+  agent-1:
+    build: ./proxy-agent
+    depends_on:
+      - orchestrator
+    environment:
+      - ORCHESTRATOR_URL=http://orchestrator:50051
+      - AGENT_NAME=Docker-Agent-1
+    ports:
+      - "9095:9095"
+      - "9091:9091"
+
+  agent-2:
+    build: ./proxy-agent
+    depends_on:
+      - orchestrator
+    environment:
+      - ORCHESTRATOR_URL=http://orchestrator:50051
+      - AGENT_NAME=Docker-Agent-2
+    ports:
+      - "9096:9096"
+      - "9092:9092"
+
+volumes:
+  proxxy-data:
+</code></pre>
+<h2 id="-proxy-kullanımı-ve-ca-sertifikası"><a class="header" href="#-proxy-kullanımı-ve-ca-sertifikası">🌐 Proxy Kullanımı ve CA Sertifikası</a></h2>
+<h3 id="tarayıcıyı-yapılandırma"><a class="header" href="#tarayıcıyı-yapılandırma">Tarayıcıyı Yapılandırma</a></h3>
+<p>Agent başladıktan sonra, tarayıcınızı proxy kullanacak şekilde ayarlayın:</p>
+<p><strong>Manuel Proxy Ayarları:</strong></p>
+<pre><code>HTTP Proxy:  127.0.0.1:9095
+HTTPS Proxy: 127.0.0.1:9095
+SOCKS Proxy: (yok)
+Bypass list: localhost, 127.0.0.1
+</code></pre>
+<p><strong>Chrome/Chromium (Linux/Mac):</strong></p>
+<pre><code class="language-bash">google-chrome --proxy-server="http://127.0.0.1:9095"
+</code></pre>
+<p><strong>Firefox (about:preferences):</strong></p>
+<pre><code>Network Settings → Manual proxy configuration
+HTTP Proxy: 127.0.0.1, Port: 9095
+✓ Also use this proxy for HTTPS
+</code></pre>
+<p><strong>curl ile test:</strong></p>
+<pre><code class="language-bash"># HTTP
+curl -x http://127.0.0.1:9095 http://example.com
+
+# HTTPS (CA sertifikası gerekli)
+curl -x http://127.0.0.1:9095 --cacert ./certs/ca.crt https://example.com
+</code></pre>
+<h3 id="ca-sertifikasını-yükleme"><a class="header" href="#ca-sertifikasını-yükleme">CA Sertifikasını Yükleme</a></h3>
+<p><strong>Adım 1: Sertifikayı Bul</strong></p>
+<p>Orchestrator başladığında <code>./certs/ca.crt</code> dosyası otomatik oluşturulur.</p>
+<pre><code class="language-bash">ls -la ./certs/
+# ca.crt  - Root CA sertifikası (tarayıcıya yüklenecek)
+# ca.key  - Private key (GİZLİ, paylaşma!)
+</code></pre>
+<p><strong>Adım 2: Sisteme Yükle</strong></p>
+<p><strong>macOS (Keychain):</strong></p>
+<pre><code class="language-bash">sudo security add-trusted-cert -d -r trustRoot \
+  -k /Library/Keychains/System.keychain ./certs/ca.crt
+</code></pre>
+<p><strong>Ubuntu/Debian:</strong></p>
+<pre><code class="language-bash">sudo cp ./certs/ca.crt /usr/local/share/ca-certificates/proxxy-ca.crt
+sudo update-ca-certificates
+</code></pre>
+<p><strong>Arch Linux:</strong></p>
+<pre><code class="language-bash">sudo trust anchor --store ./certs/ca.crt
+</code></pre>
+<p><strong>Windows:</strong></p>
+<pre><code class="language-powershell"># PowerShell (Yönetici olarak çalıştır)
+Import-Certificate -FilePath ".\certs\ca.crt" -CertStoreLocation Cert:\LocalMachine\Root
+</code></pre>
+<p><strong>Firefox (Özel):</strong></p>
+<p>Firefox sistem sertifikalarını kullanmaz, kendi sertifika deposu var:</p>
+<ol>
+<li><code>about:preferences#privacy</code> → Security → Certificates → View Certificates</li>
+<li>“Authorities” sekmesi → Import</li>
+<li><code>ca.crt</code> dosyasını seç</li>
+<li>✓ “Trust this CA to identify websites”</li>
+</ol>
+<p><strong>Adım 3: Doğrulama</strong></p>
+<pre><code class="language-bash"># Chrome DevTools
+# Network → Bir HTTPS sitesine git → Connection → Certificate Issuer
+# Görmelisin: "Proxxy Root CA"
+
+# Firefox
+# URL yanındaki kilit ikonu → Connection → More Information → View Certificate
+# Issuer: Proxxy Root CA
+</code></pre>
+<h2 id="-veritabanı-şeması"><a class="header" href="#-veritabanı-şeması">📊 Veritabanı Şeması</a></h2>
+<p>Orchestrator SQLite kullanır ve otomatik migration yapar. Veritabanı dosyası varsayılan olarak <code>./proxxy.db</code> konumundadır.</p>
+<h3 id="agents-tablosu"><a class="header" href="#agents-tablosu"><code>agents</code> Tablosu</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Kolon</th><th>Tip</th><th>Açıklama</th></tr>
+</thead>
+<tbody>
+<tr><td><code>id</code></td><td>TEXT PK</td><td>Agent UUID (gRPC’den gelen)</td></tr>
+<tr><td><code>name</code></td><td>TEXT</td><td>Friendly isim (“Production-Agent”)</td></tr>
+<tr><td><code>hostname</code></td><td>TEXT</td><td>Agent’ın çalıştığı sunucu hostname’i</td></tr>
+<tr><td><code>version</code></td><td>TEXT</td><td>Agent versiyonu (semantic versioning)</td></tr>
+<tr><td><code>status</code></td><td>TEXT</td><td>Online / Offline / Disconnected</td></tr>
+<tr><td><code>last_heartbeat</code></td><td>INTEGER</td><td>Unix timestamp (son görülme zamanı)</td></tr>
+<tr><td><code>created_at</code></td><td>INTEGER</td><td>Unix timestamp (ilk kayıt zamanı)</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Örnek Satır:</strong></p>
+<pre><code class="language-sql">INSERT INTO agents VALUES (
+  'a1b2c3d4-5678-90ab-cdef-1234567890ab',
+  'AWS-US-East-1',
+  'ip-172-31-45-67.ec2.internal',
+  '1.0.0',
+  'Online',
+  1704738420,
+  1704738000
+);
+</code></pre>
+<h3 id="http_transactions-tablosu"><a class="header" href="#http_transactions-tablosu"><code>http_transactions</code> Tablosu</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Kolon</th><th>Tip</th><th>Açıklama</th></tr>
+</thead>
+<tbody>
+<tr><td><code>request_id</code></td><td>TEXT PK</td><td>İstek UUID</td></tr>
+<tr><td><code>agent_id</code></td><td>TEXT FK</td><td>Hangi agent yakaladı (agents.id)</td></tr>
+<tr><td><code>req_method</code></td><td>TEXT</td><td>HTTP metodu (GET, POST, etc.)</td></tr>
+<tr><td><code>req_url</code></td><td>TEXT</td><td>Tam URL (https://example.com/api/users)</td></tr>
+<tr><td><code>req_headers</code></td><td>TEXT JSON</td><td>Request header’ları (JSON serialized)</td></tr>
+<tr><td><code>req_body</code></td><td>BLOB</td><td>Request body (binary safe)</td></tr>
+<tr><td><code>req_timestamp</code></td><td>INTEGER</td><td>Unix timestamp (istek zamanı)</td></tr>
+<tr><td><code>res_status</code></td><td>INTEGER</td><td>HTTP status code (200, 404, etc.)</td></tr>
+<tr><td><code>res_headers</code></td><td>TEXT JSON</td><td>Response header’ları</td></tr>
+<tr><td><code>res_body</code></td><td>BLOB</td><td>Response body</td></tr>
+<tr><td><code>res_timestamp</code></td><td>INTEGER</td><td>Unix timestamp (yanıt zamanı)</td></tr>
+<tr><td><code>duration_ms</code></td><td>INTEGER</td><td>İstek süresi (milisaniye)</td></tr>
+<tr><td><code>tls_info</code></td><td>TEXT JSON</td><td>TLS handshake bilgileri (cipher, version)</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="system_metrics-tablosu-yeni"><a class="header" href="#system_metrics-tablosu-yeni"><code>system_metrics</code> Tablosu (YENİ!)</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Kolon</th><th>Tip</th><th>Açıklama</th></tr>
+</thead>
+<tbody>
+<tr><td><code>id</code></td><td>INTEGER</td><td>Primary key (auto increment)</td></tr>
+<tr><td><code>agent_id</code></td><td>TEXT FK</td><td>Hangi agent’tan geldi (agents.id)</td></tr>
+<tr><td><code>timestamp</code></td><td>INTEGER</td><td>Unix timestamp (metrik zamanı)</td></tr>
+<tr><td><code>cpu_usage_percent</code></td><td>REAL</td><td>CPU kullanım yüzdesi (0-100)</td></tr>
+<tr><td><code>memory_used_bytes</code></td><td>INTEGER</td><td>Kullanılan RAM (bytes)</td></tr>
+<tr><td><code>memory_total_bytes</code></td><td>INTEGER</td><td>Toplam RAM (bytes)</td></tr>
+<tr><td><code>network_rx_bytes</code></td><td>INTEGER</td><td>Network alınan bytes (toplam)</td></tr>
+<tr><td><code>network_tx_bytes</code></td><td>INTEGER</td><td>Network gönderilen bytes (toplam)</td></tr>
+<tr><td><code>network_rx_bytes_per_sec</code></td><td>INTEGER</td><td>Network alım hızı (bytes/saniye)</td></tr>
+<tr><td><code>network_tx_bytes_per_sec</code></td><td>INTEGER</td><td>Network gönderim hızı (bytes/saniye)</td></tr>
+<tr><td><code>disk_read_bytes</code></td><td>INTEGER</td><td>Disk okuma bytes (toplam)</td></tr>
+<tr><td><code>disk_write_bytes</code></td><td>INTEGER</td><td>Disk yazma bytes (toplam)</td></tr>
+<tr><td><code>disk_read_bytes_per_sec</code></td><td>INTEGER</td><td>Disk okuma hızı (bytes/saniye)</td></tr>
+<tr><td><code>disk_write_bytes_per_sec</code></td><td>INTEGER</td><td>Disk yazma hızı (bytes/saniye)</td></tr>
+<tr><td><code>process_cpu_percent</code></td><td>REAL</td><td>Process CPU kullanımı (0-100)</td></tr>
+<tr><td><code>process_memory_bytes</code></td><td>INTEGER</td><td>Process RAM kullanımı (bytes)</td></tr>
+<tr><td><code>process_uptime_seconds</code></td><td>INTEGER</td><td>Process çalışma süresi (saniye)</td></tr>
+<tr><td><code>created_at</code></td><td>INTEGER</td><td>Kayıt oluşturma zamanı (Unix timestamp)</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Örnek Sorgular:</strong></p>
+<pre><code class="language-sql">-- En yavaş 10 istek
+SELECT req_url, duration_ms 
+FROM http_transactions 
+ORDER BY duration_ms DESC 
+LIMIT 10;
+
+-- Belirli bir agent'ın trafiği
+SELECT COUNT(*) as total_requests
+FROM http_transactions
+WHERE agent_id = 'a1b2c3d4-5678-90ab-cdef-1234567890ab';
+
+-- Agent'ların son 1 saatteki ortalama CPU kullanımı
+SELECT 
+  a.name,
+  AVG(sm.cpu_usage_percent) as avg_cpu,
+  AVG(sm.memory_used_bytes / 1024.0 / 1024.0) as avg_memory_mb
+FROM agents a
+JOIN system_metrics sm ON a.id = sm.agent_id
+WHERE sm.timestamp &gt; strftime('%s', 'now', '-1 hour')
+GROUP BY a.id, a.name
+ORDER BY avg_cpu DESC;
+
+-- Yüksek CPU kullanımı olan anlar
+SELECT 
+  agent_id,
+  datetime(timestamp, 'unixepoch') as time,
+  cpu_usage_percent,
+  memory_used_bytes / 1024.0 / 1024.0 as memory_mb
+FROM system_metrics
+WHERE cpu_usage_percent &gt; 80
+ORDER BY timestamp DESC
+LIMIT 20;
+
+-- Network I/O en yüksek olan agent'lar
+SELECT 
+  agent_id,
+  MAX(network_rx_bytes_per_sec + network_tx_bytes_per_sec) as max_network_io,
+  AVG(network_rx_bytes_per_sec + network_tx_bytes_per_sec) as avg_network_io
+FROM system_metrics
+WHERE timestamp &gt; strftime('%s', 'now', '-1 hour')
+GROUP BY agent_id
+ORDER BY max_network_io DESC;
+</code></pre>
+<h3 id="migration-sistemi"><a class="header" href="#migration-sistemi">Migration Sistemi</a></h3>
+<p>Veritabanı versiyonu otomatik takip edilir. <code>migrations/</code> klasöründeki SQL dosyaları sırayla uygulanır:</p>
+<pre><code>migrations/
+├── 001_initial_schema.sql
+├── 002_add_tls_info.sql
+├── 003_agent_metadata.sql
+└── 004_system_metrics.sql    # YENİ!
+</code></pre>
+<h2 id="-traffic-policy-sistemi"><a class="header" href="#-traffic-policy-sistemi">🎯 Traffic Policy Sistemi</a></h2>
+<p>Proxxy’nin en güçlü özelliği, <strong>runtime’da değiştirilebilen trafik politikalarıdır</strong>. Agent’ı yeniden başlatmadan kurallar ekleyebilir, değiştirebilir veya silebilirsiniz.</p>
+<h3 id="mimari-static-config-vs-dynamic-policy"><a class="header" href="#mimari-static-config-vs-dynamic-policy">Mimari: Static Config vs Dynamic Policy</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// STATIC: Agent başlangıcında bir kere ayarlanır
+ProxyStartupConfig {
+    listen_address: "127.0.0.1",
+    listen_port: 9095,
+    orchestrator_endpoint: "http://127.0.0.1:50051",
+    admin_port: 9091,
+}
+
+// DYNAMIC: Runtime'da Orchestrator'dan güncellenir
+Arc&lt;RwLock&lt;TrafficPolicy&gt;&gt; {
+    scope: ScopeConfig { ... },           // Hangi domainler
+    interception_rules: Vec&lt;Rule&gt;,         // Ne yapılacak
+    match_replace_rules: Vec&lt;Replace&gt;,     // Otomatik değişiklikler
+}
+<span class="boring">}</span></code></pre>
+<h3 id="temel-bileşenler"><a class="header" href="#temel-bileşenler">Temel Bileşenler</a></h3>
+<h4 id="1-scope-configuration"><a class="header" href="#1-scope-configuration">1. Scope Configuration</a></h4>
+<p>Hangi domainlerin yakalanacağını belirler:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use proxy_core::{ScopeConfig, OutOfScopeAction};
+
+let scope = ScopeConfig {
+    // Dahil edilecek domainler (wildcard destekli)
+    include: vec![
+        "*.target.com".to_string(),
+        "api.example.com".to_string(),
+        "staging.*.internal".to_string(),
+    ],
+    
+    // Hariç tutulacak domainler
+    exclude: vec![
+        "*.google-analytics.com".to_string(),
+        "tracking.ads.com".to_string(),
+    ],
+    
+    // Scope dışı trafik için aksiyon
+    out_of_scope_action: OutOfScopeAction::Pass,
+};
+<span class="boring">}</span></code></pre>
+<p><strong>Out-of-Scope Actions:</strong></p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Aksiyon</th><th>Davranış</th><th>Kullanım</th></tr>
+</thead>
+<tbody>
+<tr><td><code>Pass</code></td><td>Trafiği işlemeden geçir</td><td>Normal proxy davranışı</td></tr>
+<tr><td><code>LogOnly</code></td><td>DB’ye kaydet ama UI’da gösterme</td><td>Bant genişliği tasarrufu</td></tr>
+<tr><td><code>Drop</code></td><td>TCP RST gönder, bağlantıyı kes</td><td>Firewall testi, stealth mod</td></tr>
+</tbody>
+</table>
+</div>
+<h4 id="2-interception-rules"><a class="header" href="#2-interception-rules">2. Interception Rules</a></h4>
+<p>İstekleri yakalama ve işleme kuralları:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use proxy_core::{InterceptionRule, RuleCondition, RuleAction};
+
+// Örnek 1: Admin paneli engelle
+let block_admin = InterceptionRule {
+    id: "block-admin".to_string(),
+    name: "Block Admin Panel".to_string(),
+    enabled: true,
+    conditions: vec![
+        RuleCondition::UrlContains("/admin".to_string()),
+        RuleCondition::Method("POST".to_string()),
+    ],
+    action: RuleAction::Block {
+        reason: "Admin access not allowed".to_string(),
+    },
+};
+
+// Örnek 2: Login isteklerini durdur (manuel onay bekle)
+let pause_login = InterceptionRule {
+    id: "pause-login".to_string(),
+    name: "Intercept Login Requests".to_string(),
+    enabled: true,
+    conditions: vec![
+        RuleCondition::UrlRegex(r"/api/v1/login$".to_string()),
+        RuleCondition::HasHeader("Authorization".to_string()),
+    ],
+    action: RuleAction::Pause,
+};
+
+// Örnek 3: Belirli istekleri yavaşlat
+let slow_api = InterceptionRule {
+    id: "slow-api".to_string(),
+    name: "Simulate Slow API".to_string(),
+    enabled: true,
+    conditions: vec![
+        RuleCondition::UrlContains("/api/slow".to_string()),
+    ],
+    action: RuleAction::Delay(2000), // 2 saniye
+};
+<span class="boring">}</span></code></pre>
+<p><strong>Mevcut Condition Türleri:</strong></p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum RuleCondition {
+    UrlContains(String),              // Substring arama
+    UrlRegex(String),                 // Regex pattern
+    Method(String),                   // GET, POST, PUT, DELETE, etc.
+    HasHeader(String),                // Header var mı?
+    HeaderValueMatch { key, regex },  // Header değeri regex match
+    BodyRegex(String),                // Request body'de arama
+    Port(u16),                        // Port numarası
+}
+<span class="boring">}</span></code></pre>
+<p><strong>Mevcut Action Türleri:</strong></p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum RuleAction {
+    Pause,                           // UI'da manuel onay bekle
+    Block { reason: String },        // HTTP 403 dön
+    Drop,                            // TCP RST gönder
+    Delay(u64),                      // N milisaniye bekle
+    InjectHeader { key, value },     // Header ekle/değiştir
+    ModifyBody { find, replace },    // Body'de replace
+}
+<span class="boring">}</span></code></pre>
+<h4 id="3-match--replace-rules"><a class="header" href="#3-match--replace-rules">3. Match &amp; Replace Rules</a></h4>
+<p>Otomatik içerik değiştirme:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use proxy_core::{MatchReplaceRule, MatchLocation};
+
+// Örnek 1: Authorization token'ı redact et
+let redact_token = MatchReplaceRule {
+    enabled: true,
+    match_regex: r"Authorization: Bearer (\S+)".to_string(),
+    replace_string: "Authorization: Bearer [REDACTED]".to_string(),
+    location: MatchLocation::RequestHeader,
+};
+
+// Örnek 2: API key'leri gizle
+let hide_keys = MatchReplaceRule {
+    enabled: true,
+    match_regex: r#""api_key"\s*:\s*"([^"]+)""#.to_string(),
+    replace_string: r#""api_key": "***HIDDEN***""#.to_string(),
+    location: MatchLocation::RequestBody,
+};
+
+// Örnek 3: Response'ta email adreslerini maskele
+let mask_emails = MatchReplaceRule {
+    enabled: true,
+    match_regex: r"([a-zA-Z0-9._%+-]+)@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})".to_string(),
+    replace_string: "***@$2".to_string(),
+    location: MatchLocation::ResponseBody,
+};
+<span class="boring">}</span></code></pre>
+<p><strong>Mevcut Location Türleri:</strong></p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum MatchLocation {
+    RequestHeader,    // Request header'ları
+    RequestBody,      // Request body
+    ResponseHeader,   // Response header'ları
+    ResponseBody,     // Response body
+}
+<span class="boring">}</span></code></pre>
+<h3 id="runtime-policy-update"><a class="header" href="#runtime-policy-update">Runtime Policy Update</a></h3>
+<p>Policy güncellemeleri Orchestrator’dan gRPC ile gelir:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Orchestrator UI'dan gönderilen yeni policy
+let new_policy = TrafficPolicy {
+    scope: ScopeConfig {
+        include: vec!["*.target.com".to_string()],
+        exclude: vec![],
+        out_of_scope_action: OutOfScopeAction::Drop,
+    },
+    interception_rules: vec![pause_login],
+    match_replace_rules: vec![redact_token],
+};
+
+// Agent otomatik uygular (RwLock ile thread-safe)
+*policy.write().unwrap() = new_policy;
+<span class="boring">}</span></code></pre>
+<h3 id="block-vs-drop-karşılaştırması"><a class="header" href="#block-vs-drop-karşılaştırması">Block vs Drop Karşılaştırması</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Özellik</th><th>Block (403)</th><th>Drop (TCP RST)</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Davranış</strong></td><td>HTTP 403 Forbidden döner</td><td>Bağlantıyı aniden keser</td></tr>
+<tr><td><strong>Kullanıcı Görür</strong></td><td>“403 Forbidden” hata sayfası</td><td>“Connection reset” / Timeout</td></tr>
+<tr><td><strong>Logging</strong></td><td>Full HTTP transaction loglanır</td><td>Partial log (sadece istek)</td></tr>
+<tr><td><strong>Use Case</strong></td><td>Polite rejection, test environment</td><td>Firewall testing, stealth mode</td></tr>
+<tr><td><strong>Güvenlik</strong></td><td>Açık reddedilme</td><td>Gizli engelleme (port kapalı gibi)</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Örnek Kullanımlar:</strong></p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Geliştirme ortamında (Block)
+RuleAction::Block { 
+    reason: "This endpoint is deprecated, use /v2/api instead".to_string() 
+}
+
+// Production firewall testi (Drop)
+RuleAction::Drop  // Hiçbir cevap yok, sessizce kes
+<span class="boring">}</span></code></pre>
+<h3 id="detaylı-dokümantasyon"><a class="header" href="#detaylı-dokümantasyon">Detaylı Dokümantasyon</a></h3>
+<p>Traffic Policy sisteminin tüm detayları için: <strong><a href="docs/TRAFFIC_POLICY.html">docs/TRAFFIC_POLICY.md</a></strong></p>
+<h2 id="-sorun-giderme"><a class="header" href="#-sorun-giderme">🐛 Sorun Giderme</a></h2>
+<h3 id="address-already-in-use-hatası"><a class="header" href="#address-already-in-use-hatası">“Address already in use” Hatası</a></h3>
+<p><strong>Problem:</strong> Port zaten kullanılıyor.</p>
+<pre><code class="language-bash"># Hangi process kullanıyor?
+lsof -i :9095  # macOS/Linux
+netstat -ano | findstr :9095  # Windows
+netstat -ano | findstr :9095  # Windows
+
+# Farklı port kullan
+cargo run -p proxy-agent -- --listen-port 9096 --admin-port 9092
+</code></pre>
+<h3 id="failed-to-connect-to-orchestrator-hatası"><a class="header" href="#failed-to-connect-to-orchestrator-hatası">“Failed to connect to Orchestrator” Hatası</a></h3>
+<p><strong>Problem:</strong> Agent Orchestrator’a bağlanamıyor.</p>
+<pre><code class="language-bash"># 1. Orchestrator çalışıyor mu?
+curl http://127.0.0.1:9090/health/detailed
+
+# 2. gRPC portu açık mı?
+telnet 127.0.0.1 50051
+
+# 3. Firewall kontrolü (Linux)
+sudo iptables -L -n | grep 50051
+
+# 4. Doğru URL'i kullan
+cargo run -p proxy-agent -- --orchestrator-url http://127.0.0.1:50051
+</code></pre>
+<h3 id="database-error-hatası"><a class="header" href="#database-error-hatası">“Database error” Hatası</a></h3>
+<p><strong>Problem:</strong> Veritabanı bozuk veya migration hatası.</p>
+<pre><code class="language-bash"># Veritabanını sıfırla (DİKKAT: Tüm veri silinir!)
+rm proxxy.db
+cargo run -p orchestrator  # Otomatik yeniden oluşturulur
+
+# Veritabanını backup'la
+cp proxxy.db proxxy-backup.db
+
+# Migration log'larını kontrol et
+cargo run -p orchestrator 2&gt;&amp;1 | grep migration
+</code></pre>
+<h3 id="gui-bağlanamıyor-hatası"><a class="header" href="#gui-bağlanamıyor-hatası">“GUI bağlanamıyor” Hatası</a></h3>
+<p><strong>Problem:</strong> GUI, Orchestrator API’sine erişemiyor.</p>
+<pre><code class="language-bash"># HTTP API çalışıyor mu?
+curl http://127.0.0.1:9090/health/detailed
+
+# CORS sorunu var mı?
+curl -H "Origin: http://localhost:3000" \
+     -H "Access-Control-Request-Method: GET" \
+     -H "Access-Control-Request-Headers: content-type" \
+     -X OPTIONS \
+     http://127.0.0.1:9090/agents
+
+# GUI'nin config dosyasını kontrol et
+cd proxxy-gui
+cat src/config.ts  # API_BASE_URL doğru mu?
+</code></pre>
+<h3 id="ca-certificate-not-trusted-hatası"><a class="header" href="#ca-certificate-not-trusted-hatası">“CA certificate not trusted” Hatası</a></h3>
+<p><strong>Problem:</strong> Tarayıcı CA sertifikasını güvenmiyor.</p>
+<pre><code class="language-bash"># Sertifika yüklü mü kontrol et (macOS)
+security find-certificate -c "Proxxy Root CA" -a
+
+# Sertifika yüklü mü kontrol et (Linux)
+ls /usr/local/share/ca-certificates/ | grep proxxy
+
+# Firefox özel sertifika deposu
+# about:preferences#privacy → Certificates → View Certificates → Authorities
+# "Proxxy Root CA" arayın
+
+# Tarayıcıyı yeniden başlat
+# Sertifika yüklemeden sonra mutlaka!
+</code></pre>
+<h3 id="agent-disconnected-mesajı"><a class="header" href="#agent-disconnected-mesajı">“Agent disconnected” Mesajı</a></h3>
+<p><strong>Problem:</strong> Agent bağlantısı koptu.</p>
+<pre><code class="language-bash"># Agent health check
+curl http://127.0.0.1:9091/health
+
+# Orchestrator log'ları
+cargo run -p orchestrator 2&gt;&amp;1 | grep -i "agent\|disconnect"
+
+# Network timeout kontrolü
+# Orchestrator --agent-timeout değerini artır
+cargo run -p orchestrator -- --agent-timeout 600
+
+# Agent heartbeat interval kontrolü (kod içinde)
+# proxy-agent/src/client.rs → HEARTBEAT_INTERVAL
+</code></pre>
+<h2 id="-ek-kaynaklar"><a class="header" href="#-ek-kaynaklar">📚 Ek Kaynaklar</a></h2>
+<h3 id="dokümantasyonlar"><a class="header" href="#dokümantasyonlar">Dokümantasyonlar</a></h3>
+<ul>
+<li><strong>Traffic Policy Sistemi</strong>: <a href="docs/TRAFFIC_POLICY.html">docs/TRAFFIC_POLICY.md</a></li>
+<li><strong>gRPC Protokolü</strong>: <a href="proto/proxy.proto">proto/proxy.proto</a></li>
+<li><strong>GraphQL Schema</strong>: <code>http://127.0.0.1:9090/graphql</code> (GraphiQL Playground)</li>
+<li><strong>REST API Dokümantasyonu</strong>: <code>http://127.0.0.1:9090/swagger-ui</code></li>
+</ul>
+<h3 id="api-örnekleri"><a class="header" href="#api-örnekleri">API Örnekleri</a></h3>
+<p><strong>REST API Kullanımı:</strong></p>
+<pre><code class="language-bash"># Tüm agent'ları listele (sistem metrikleri dahil)
+curl http://127.0.0.1:9090/agents | jq
+
+# Son 10 HTTP işlemi
+curl http://127.0.0.1:9090/traffic?limit=10 | jq
+
+# Trafik metrikleri (legacy)
+curl http://127.0.0.1:9090/metrics | jq
+
+# Sistem metrikleri (tüm agent'lar)
+curl http://127.0.0.1:9090/system-metrics | jq
+
+# Belirli bir agent'ın sistem metrikleri
+curl "http://127.0.0.1:9090/system-metrics?agent_id=agent-1" | jq
+</code></pre>
+<p><strong>GraphQL Sorguları (Sistem Metrikleri ile):</strong></p>
+<pre><code class="language-graphql"># Tüm agent'lar, trafikler ve sistem metrikleri
+query {
+  agents {
+    id
+    name
+    status
+    lastHeartbeat
+    currentMetrics {
+      cpuUsagePercent
+      memoryUsedBytes
+      memoryTotalBytes
+      networkRxBytesPerSec
+      networkTxBytesPerSec
+      processCpuPercent
+      processMemoryBytes
+    }
+    transactions(limit: 5) {
+      requestId
+      method
+      url
+      status
+      durationMs
+    }
+  }
+}
+
+# Belirli bir agent'ın detaylı sistem metrikleri
+query {
+  agent(id: "agent-1") {
+    name
+    hostname
+    status
+    currentMetrics {
+      cpuUsagePercent
+      memoryUsedBytes
+      memoryTotalBytes
+      networkRxBytesPerSec
+      networkTxBytesPerSec
+      processCpuPercent
+      processMemoryBytes
+      processUptimeSeconds
+    }
+    metricsHistory(limit: 60) {
+      timestamp
+      cpuUsagePercent
+      memoryUsedBytes
+      networkRxBytesPerSec
+    }
+  }
+}
+
+# Real-time sistem metrikleri subscription
+subscription {
+  systemMetricsUpdated(agentId: "agent-1") {
+    agentId
+    cpuUsagePercent
+    memoryUsedBytes
+    networkRxBytesPerSec
+    networkTxBytesPerSec
+    processCpuPercent
+  }
+}
+
+# Tüm agent'ların sistem durumu
+query {
+  systemMetrics {
+    agentId
+    timestamp
+    cpuUsagePercent
+    memoryUsedBytes
+    memoryTotalBytes
+    networkRxBytesPerSec
+    networkTxBytesPerSec
+  }
+}
+</code></pre>
+<p><strong>Sistem Metrikleri Örnekleri:</strong></p>
+<pre><code class="language-bash"># Agent'ların CPU kullanımını karşılaştır
+curl http://127.0.0.1:9090/system-metrics | jq '.[] | {agent_id, cpu_usage_percent}'
+
+# Yüksek memory kullanımı olan agent'ları bul
+curl http://127.0.0.1:9090/system-metrics | jq '.[] | select(.memory_usage_percent &gt; 80)'
+
+# Network I/O en yüksek olan agent
+curl http://127.0.0.1:9090/system-metrics | jq 'max_by(.network_rx_bytes_per_sec + .network_tx_bytes_per_sec)'
+
+# Son 1 saatteki ortalama CPU kullanımı
+curl "http://127.0.0.1:9090/system-metrics?since=1h" | jq 'map(.cpu_usage_percent) | add / length'
+</code></pre>
+<h2 id="-geliştirme"><a class="header" href="#-geliştirme">🔨 Geliştirme</a></h2>
+<h1 id="sql"><a class="header" href="#sql">SQL</a></h1>
+<p>📊 SQLite Veritabanını Kontrol Etme
+Yöntem 1: Komut Satırı (sqlite3)
+bash</p>
+<h1 id="tüm-tabloları-listele"><a class="header" href="#tüm-tabloları-listele">Tüm tabloları listele</a></h1>
+<p>sqlite3 proxxy.db “.tables”</p>
+<h1 id="agents-tablosunu-görüntüle"><a class="header" href="#agents-tablosunu-görüntüle">Agents tablosunu görüntüle</a></h1>
+<p>sqlite3 proxxy.db “SELECT * FROM agents;”</p>
+<h1 id="daha-okunaklı-format-column-mode"><a class="header" href="#daha-okunaklı-format-column-mode">Daha okunaklı format (column mode)</a></h1>
+<p>sqlite3 proxxy.db -column -header “SELECT * FROM agents;”</p>
+<h1 id="traffic-sayısı"><a class="header" href="#traffic-sayısı">Traffic sayısı</a></h1>
+<p>sqlite3 proxxy.db “SELECT COUNT(*) as total FROM http_transactions;”</p>
+<h1 id="son-10-http-isteği"><a class="header" href="#son-10-http-isteği">Son 10 HTTP isteği</a></h1>
+<p>sqlite3 proxxy.db -column -header “
+SELECT
+req_method,
+req_url,
+res_status,
+datetime(req_timestamp, ‘unixepoch’) as timestamp
+FROM http_transactions
+ORDER BY req_timestamp DESC
+LIMIT 10;“</p>
+<h1 id="agent-başına-trafik-istatistikleri"><a class="header" href="#agent-başına-trafik-istatistikleri">Agent başına trafik istatistikleri</a></h1>
+<p>sqlite3 proxxy.db -column -header “
+SELECT
+a.name,
+COUNT(h.request_id) as total_requests,
+AVG(h.duration_ms) as avg_duration_ms
+FROM agents a
+LEFT JOIN http_transactions h ON a.id = h.agent_id
+GROUP BY a.id, a.name;“
+Yöntem 2: İnteraktif Mod
+bash</p>
+<h1 id="sqlite-shelle-gir"><a class="header" href="#sqlite-shelle-gir">SQLite shell’e gir</a></h1>
+<p>sqlite3 proxxy.db</p>
+<h1 id="içinde-şu-komutları-kullan"><a class="header" href="#içinde-şu-komutları-kullan">İçinde şu komutları kullan:</a></h1>
+<p>.tables                    # Tabloları listele
+.schema agents             # Tablo yapısını gör
+.mode column               # Column formatında göster
+.headers on                # Header’ları göster
+SELECT * FROM agents;      # Tüm agent’lar</p>
+<h1 id="çıkmak-için"><a class="header" href="#çıkmak-için">Çıkmak için</a></h1>
+<p>.quit
+Yöntem 3: GUI Araçlar
+DB Browser for SQLite (Ücretsiz):</p>
+<p>bash</p>
+<h1 id="macos"><a class="header" href="#macos">macOS</a></h1>
+<p>brew install –cask db-browser-for-sqlite</p>
+<h1 id="sonra-aç"><a class="header" href="#sonra-aç">Sonra aç</a></h1>
+<p>open -a “DB Browser for SQLite” proxxy.db
+Kullanışlı Sorgular
+sql
+– 1. Aktif agent’lar
+SELECT
+name,
+hostname,
+status,
+datetime(last_heartbeat, ‘unixepoch’) as last_seen
+FROM agents
+WHERE status = ‘Online’;
+– 2. En yavaş 10 istek
+SELECT
+req_method,
+req_url,
+duration_ms,
+res_status
+FROM http_transactions
+WHERE duration_ms IS NOT NULL
+ORDER BY duration_ms DESC
+LIMIT 10;
+– 3. HTTP metod dağılımı
+SELECT
+req_method,
+COUNT(<em>) as count
+FROM http_transactions
+GROUP BY req_method
+ORDER BY count DESC;
+– 4. Status code dağılımı
+SELECT
+res_status,
+COUNT(</em>) as count
+FROM http_transactions
+WHERE res_status IS NOT NULL
+GROUP BY res_status
+ORDER BY res_status;
+– 5. Son 1 saatteki trafik
+SELECT COUNT(<em>) as requests_last_hour
+FROM http_transactions
+WHERE req_timestamp &gt; strftime(‘%s’, ‘now’, ‘-1 hour’);
+– 6. En çok istenen domainler
+SELECT
+SUBSTR(req_url, 1, INSTR(SUBSTR(req_url, 9), ‘/’) + 8) as domain,
+COUNT(</em>) as requests
+FROM http_transactions
+GROUP BY domain
+ORDER BY requests DESC
+LIMIT 10;
+Hızlı Kontrol Script’i
+bash
+#!/bin/bash</p>
+<h1 id="check-dbsh"><a class="header" href="#check-dbsh">check-db.sh</a></h1>
+<p>echo “=== PROXXY DATABASE STATUS ===”
+echo “”
+echo “📊 Agents:”
+sqlite3 proxxy.db -column -header “
+SELECT name, status, datetime(last_heartbeat, ‘unixepoch’) as last_seen
+FROM agents;“
+echo “”
+echo “📈 Traffic Stats:”
+sqlite3 proxxy.db -column -header “
+SELECT
+COUNT(<em>) as total_requests,
+AVG(duration_ms) as avg_duration_ms,
+MIN(duration_ms) as min_duration_ms,
+MAX(duration_ms) as max_duration_ms
+FROM http_transactions
+WHERE duration_ms IS NOT NULL;“
+echo “”
+echo “🔢 HTTP Methods:”
+sqlite3 proxxy.db -column -header “
+SELECT req_method, COUNT(</em>) as count
+FROM http_transactions
+GROUP BY req_method
+ORDER BY count DESC;“</p>
+<h3 id="test-çalıştırma"><a class="header" href="#test-çalıştırma">Test Çalıştırma</a></h3>
+<pre><code class="language-bash"># Tüm testler
+cargo test --workspace
+
+# Belirli bir paket
+cargo test -p proxy-core
+cargo test -p orchestrator
+
+# Belirli bir test
+cargo test -p proxy-core test_scope_config_wildcard
+
+# Verbose output
+cargo test -- --nocapture
+
+# Test coverage (cargo-tarpaulin gerekli)
+cargo install cargo-tarpaulin
+cargo tarpaulin --workspace --out Html
+</code></pre>
+<h3 id="code-quality"><a class="header" href="#code-quality">Code Quality</a></h3>
+<pre><code class="language-bash"># Linting
+cargo clippy --workspace -- -D warnings
+
+# Formatting
+cargo fmt --workspace --check  # Sadece kontrol
+cargo fmt --workspace           # Otomatik düzelt
+
+# Audit (güvenlik açıkları)
+cargo audit
+
+# Outdated dependencies
+cargo outdated
+</code></pre>
+<h3 id="build-variants"><a class="header" href="#build-variants">Build Variants</a></h3>
+<pre><code class="language-bash"># Debug build (hızlı compile, yavaş runtime)
+cargo build
+
+# Release build (optimize edilmiş)
+cargo build --release
+
+# Profiling build
+cargo build --profile profiling
+
+# Size-optimized build
+cargo build --release --profile=release-lto
+</code></pre>
+<h3 id="profiling"><a class="header" href="#profiling">Profiling</a></h3>
+<pre><code class="language-bash"># CPU profiling (cargo-flamegraph gerekli)
+cargo install flamegraph
+cargo flamegraph -p orchestrator
+
+# Memory profiling (valgrind gerekli)
+cargo build
+valgrind --leak-check=full ./target/debug/orchestrator
+
+# Benchmarking (criterion)
+cargo bench --workspace
+</code></pre>
+<h2 id="-production-deployment"><a class="header" href="#-production-deployment">🚀 Production Deployment</a></h2>
+<h3 id="systemd-service-linux"><a class="header" href="#systemd-service-linux">Systemd Service (Linux)</a></h3>
+<pre><code class="language-ini"># /etc/systemd/system/proxxy-orchestrator.service
+[Unit]
+Description=Proxxy Orchestrator
+After=network.target
+
+[Service]
+Type=simple
+User=proxxy
+WorkingDirectory=/opt/proxxy
+ExecStart=/opt/proxxy/orchestrator \
+  --grpc-port 50051 \
+  --http-port 9090 \
+  --database-url sqlite:/var/lib/proxxy/data.db
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+</code></pre>
+<pre><code class="language-bash"># Service'i etkinleştir
+sudo systemctl daemon-reload
+sudo systemctl enable proxxy-orchestrator
+sudo systemctl start proxxy-orchestrator
+sudo systemctl status proxxy-orchestrator
+</code></pre>
+<h3 id="docker-deployment"><a class="header" href="#docker-deployment">Docker Deployment</a></h3>
+<pre><code class="language-dockerfile"># Dockerfile.orchestrator
+FROM rust:1.75 as builder
+WORKDIR /app
+COPY . .
+RUN cargo build --release -p orchestrator
+
+FROM debian:bookworm-slim
+RUN apt-get update &amp;&amp; apt-get install -y ca-certificates &amp;&amp; rm -rf /var/lib/apt/lists/*
+COPY --from=builder /app/target/release/orchestrator /usr/local/bin/
+EXPOSE 50051 9090
+CMD ["orchestrator"]
+</code></pre>
+<pre><code class="language-bash"># Build
+docker build -f Dockerfile.orchestrator -t proxxy-orchestrator:latest .
+
+# Run
+docker run -d \
+  -p 50051:50051 \
+  -p 9090:9090 \
+  -v proxxy-data:/data \
+  --name orchestrator \
+  proxxy-orchestrator:latest
+</code></pre>
+<h3 id="monitoring-stack"><a class="header" href="#monitoring-stack">Monitoring Stack</a></h3>
+<pre><code class="language-yaml"># Prometheus scrape config
+scrape_configs:
+  - job_name: 'proxxy-agents'
+    static_configs:
+      - targets: 
+          - 'agent1:9091'
+          - 'agent2:9092'
+          - 'agent3:9093'
+    metrics_path: '/metrics'
+</code></pre>
+<h2 id="-lisans"><a class="header" href="#-lisans">📝 Lisans</a></h2>
+<p>[Lisans bilgisi buraya eklenecek]</p>
+<h2 id="-katkıda-bulunma"><a class="header" href="#-katkıda-bulunma">🤝 Katkıda Bulunma</a></h2>
+<p>Pull request’ler memnuniyetle karşılanır! Büyük değişiklikler için önce bir issue açarak ne değiştirmek istediğinizi tartışalım.</p>
+<hr>
+<p><strong>İletişim</strong>: [Proje maintainer bilgileri]</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="proxxy-v11---backend-api-specification-for-ui"><a class="header" href="#proxxy-v11---backend-api-specification-for-ui">Proxxy v1.1 - Backend API Specification for UI</a></h1>
+<h2 id="-overview"><a class="header" href="#-overview">📋 Overview</a></h2>
+<p>This document outlines all backend features available for the UI implementation. The backend provides both GraphQL and REST APIs for comprehensive proxy management.</p>
+<hr>
+<h2 id="-api-endpoints"><a class="header" href="#-api-endpoints">🔌 API Endpoints</a></h2>
+<h3 id="base-urls"><a class="header" href="#base-urls">Base URLs</a></h3>
+<ul>
+<li><strong>GraphQL Endpoint:</strong> <code>http://localhost:9090/graphql</code></li>
+<li><strong>GraphQL Playground:</strong> <code>http://localhost:9090/graphql</code> (Interactive)</li>
+<li><strong>REST API:</strong> <code>http://localhost:9090/api/v1/*</code></li>
+<li><strong>gRPC (Internal):</strong> <code>http://localhost:50051</code></li>
+</ul>
+<hr>
+<h2 id="-graphql-api"><a class="header" href="#-graphql-api">📊 GraphQL API</a></h2>
+<h3 id="queries"><a class="header" href="#queries">Queries</a></h3>
+<h4 id="1-list-agents"><a class="header" href="#1-list-agents">1. <strong>List Agents</strong></a></h4>
+<pre><code class="language-graphql">query {
+  agents {
+    id
+    name
+    hostname
+    status          # "Online" | "Offline"
+    version
+    lastHeartbeat   # ISO 8601 timestamp
+  }
+}
+</code></pre>
+<p><strong>Use Case:</strong> Dashboard - Show all connected/disconnected agents</p>
+<hr>
+<h4 id="2-get-http-transactions"><a class="header" href="#2-get-http-transactions">2. <strong>Get HTTP Transactions</strong></a></h4>
+<pre><code class="language-graphql">query {
+  httpTransactions(limit: 100) {
+    requestId
+    method
+    url
+    statusCode
+    timestamp
+    agentId
+  }
+}
+</code></pre>
+<p><strong>Use Case:</strong> Traffic History - Display captured HTTP requests/responses</p>
+<hr>
+<h4 id="3-get-system-metrics"><a class="header" href="#3-get-system-metrics">3. <strong>Get System Metrics</strong></a></h4>
+<pre><code class="language-graphql">query {
+  systemMetrics(agentId: "agent-123", limit: 60) {
+    agentId
+    timestamp
+    cpuUsagePercent
+    memoryUsedBytes
+    memoryTotalBytes
+    networkRxBytes
+    networkTxBytes
+    diskReadBytes
+    diskWriteBytes
+    processCpuPercent
+    processMemoryBytes
+  }
+}
+</code></pre>
+<p><strong>Use Case:</strong> Agent Monitoring - Real-time system metrics charts</p>
+<hr>
+<h4 id="4-get-current-system-metrics"><a class="header" href="#4-get-current-system-metrics">4. <strong>Get Current System Metrics</strong></a></h4>
+<pre><code class="language-graphql">query {
+  currentSystemMetrics(agentId: "agent-123") {
+    cpuUsagePercent
+    memoryUsedBytes
+    # ... (same fields as systemMetrics)
+  }
+}
+</code></pre>
+<p><strong>Use Case:</strong> Dashboard - Show current agent health status</p>
+<hr>
+<h3 id="mutations"><a class="header" href="#mutations">Mutations</a></h3>
+<h4 id="1-replay-http-request"><a class="header" href="#1-replay-http-request">1. <strong>Replay HTTP Request</strong></a></h4>
+<pre><code class="language-graphql">mutation {
+  replayRequest(requestId: "req-123") {
+    success
+    message
+    replayRequestId
+    originalUrl
+    originalMethod
+  }
+}
+</code></pre>
+<p><strong>Use Case:</strong> Repeater Tool - Re-send captured requests</p>
+<hr>
+<h4 id="2-intercept-request-placeholder"><a class="header" href="#2-intercept-request-placeholder">2. <strong>Intercept Request</strong> (Placeholder)</a></h4>
+<pre><code class="language-graphql">mutation {
+  intercept(id: "req-123", action: "drop") {
+    success
+  }
+}
+</code></pre>
+<p><strong>Use Case:</strong> Intercept Tool - Modify/drop requests in real-time</p>
+<hr>
+<h3 id="subscriptions"><a class="header" href="#subscriptions">Subscriptions</a></h3>
+<h4 id="1-real-time-traffic-updates"><a class="header" href="#1-real-time-traffic-updates">1. <strong>Real-time Traffic Updates</strong></a></h4>
+<pre><code class="language-graphql">subscription {
+  trafficUpdates {
+    requestId
+    method
+    url
+    statusCode
+    timestamp
+  }
+}
+</code></pre>
+<p><strong>Use Case:</strong> Live Traffic View - WebSocket stream of new requests</p>
+<hr>
+<h4 id="2-real-time-system-metrics"><a class="header" href="#2-real-time-system-metrics">2. <strong>Real-time System Metrics</strong></a></h4>
+<pre><code class="language-graphql">subscription {
+  systemMetricsUpdates(agentId: "agent-123") {
+    agentId
+    timestamp
+    cpuUsagePercent
+    memoryUsedBytes
+    # ... (same fields)
+  }
+}
+</code></pre>
+<p><strong>Use Case:</strong> Live Monitoring - Real-time charts</p>
+<hr>
+<h2 id="-ui-components-needed"><a class="header" href="#-ui-components-needed">🎨 UI Components Needed</a></h2>
+<h3 id="1-dashboard-page"><a class="header" href="#1-dashboard-page">1. <strong>Dashboard Page</strong></a></h3>
+<p><strong>Features:</strong></p>
+<ul>
+<li><input disabled="" type="checkbox"> Agent status cards (Online/Offline count)</li>
+<li><input disabled="" type="checkbox"> Recent traffic summary (total requests, methods breakdown)</li>
+<li><input disabled="" type="checkbox"> System health overview (CPU, Memory for all agents)</li>
+<li><input disabled="" type="checkbox"> Quick actions (Start/Stop agents, View logs)</li>
+</ul>
+<p><strong>GraphQL Queries:</strong></p>
+<ul>
+<li><code>agents</code> - Agent list with status</li>
+<li><code>currentSystemMetrics</code> - Current health for each agent</li>
+<li><code>httpTransactions(limit: 10)</code> - Recent traffic</li>
+</ul>
+<hr>
+<h3 id="2-agents-page"><a class="header" href="#2-agents-page">2. <strong>Agents Page</strong></a></h3>
+<p><strong>Features:</strong></p>
+<ul>
+<li><input disabled="" type="checkbox"> Agent list table (ID, Name, Status, Version, Last Seen)</li>
+<li><input disabled="" type="checkbox"> Agent detail view (System metrics, Configuration)</li>
+<li><input disabled="" type="checkbox"> Agent actions (Restart, Remove, Configure)</li>
+<li><input disabled="" type="checkbox"> Add new agent button</li>
+</ul>
+<p><strong>GraphQL Queries:</strong></p>
+<ul>
+<li><code>agents</code> - Full agent list</li>
+<li><code>systemMetrics(agentId)</code> - Historical metrics for selected agent</li>
+</ul>
+<p><strong>GraphQL Subscriptions:</strong></p>
+<ul>
+<li><code>systemMetricsUpdates(agentId)</code> - Real-time metrics</li>
+</ul>
+<hr>
+<h3 id="3-traffic-history-page"><a class="header" href="#3-traffic-history-page">3. <strong>Traffic History Page</strong></a></h3>
+<p><strong>Features:</strong></p>
+<ul>
+<li><input disabled="" type="checkbox"> Request/Response list (Method, URL, Status, Time)</li>
+<li><input disabled="" type="checkbox"> Filters (Method, Status Code, Agent, Time Range)</li>
+<li><input disabled="" type="checkbox"> Search (URL, Headers, Body)</li>
+<li><input disabled="" type="checkbox"> Request detail view (Headers, Body, TLS info)</li>
+<li><input disabled="" type="checkbox"> Response detail view (Headers, Body)</li>
+<li><input disabled="" type="checkbox"> Export (JSON, HAR format)</li>
+</ul>
+<p><strong>GraphQL Queries:</strong></p>
+<ul>
+<li><code>httpTransactions(limit, filters)</code> - Traffic list</li>
+</ul>
+<p><strong>GraphQL Subscriptions:</strong></p>
+<ul>
+<li><code>trafficUpdates</code> - Live traffic stream</li>
+</ul>
+<hr>
+<h3 id="4-repeater-tool"><a class="header" href="#4-repeater-tool">4. <strong>Repeater Tool</strong></a></h3>
+<p><strong>Features:</strong></p>
+<ul>
+<li><input disabled="" type="checkbox"> Request editor (Method, URL, Headers, Body)</li>
+<li><input disabled="" type="checkbox"> Send button (triggers replay)</li>
+<li><input disabled="" type="checkbox"> Response viewer</li>
+<li><input disabled="" type="checkbox"> History of replayed requests</li>
+<li><input disabled="" type="checkbox"> Compare original vs replayed response</li>
+</ul>
+<p><strong>GraphQL Queries:</strong></p>
+<ul>
+<li><code>httpTransactions</code> - Get request to replay</li>
+</ul>
+<p><strong>GraphQL Mutations:</strong></p>
+<ul>
+<li><code>replayRequest(requestId)</code> - Trigger replay</li>
+</ul>
+<hr>
+<h3 id="5-intercept-tool-future"><a class="header" href="#5-intercept-tool-future">5. <strong>Intercept Tool</strong> (Future)</a></h3>
+<p><strong>Features:</strong></p>
+<ul>
+<li><input disabled="" type="checkbox"> Live request stream</li>
+<li><input disabled="" type="checkbox"> Pause/Resume interception</li>
+<li><input disabled="" type="checkbox"> Modify request before forwarding</li>
+<li><input disabled="" type="checkbox"> Drop request</li>
+<li><input disabled="" type="checkbox"> Match &amp; Replace rules</li>
+</ul>
+<p><strong>GraphQL Mutations:</strong></p>
+<ul>
+<li><code>intercept(id, action)</code> - Control interception</li>
+</ul>
+<hr>
+<h3 id="6-system-metrics-page"><a class="header" href="#6-system-metrics-page">6. <strong>System Metrics Page</strong></a></h3>
+<p><strong>Features:</strong></p>
+<ul>
+<li><input disabled="" type="checkbox"> Agent selector dropdown</li>
+<li><input disabled="" type="checkbox"> CPU usage chart (line chart, last 60 points)</li>
+<li><input disabled="" type="checkbox"> Memory usage chart</li>
+<li><input disabled="" type="checkbox"> Network I/O chart (RX/TX)</li>
+<li><input disabled="" type="checkbox"> Disk I/O chart</li>
+<li><input disabled="" type="checkbox"> Process metrics (CPU, Memory, Threads)</li>
+<li><input disabled="" type="checkbox"> Time range selector (1h, 6h, 24h)</li>
+</ul>
+<p><strong>GraphQL Queries:</strong></p>
+<ul>
+<li><code>systemMetrics(agentId, limit)</code> - Historical data</li>
+</ul>
+<p><strong>GraphQL Subscriptions:</strong></p>
+<ul>
+<li><code>systemMetricsUpdates(agentId)</code> - Real-time updates</li>
+</ul>
+<hr>
+<h2 id="-database-schema-sqlite"><a class="header" href="#-database-schema-sqlite">🗄️ Database Schema (SQLite)</a></h2>
+<h3 id="tables"><a class="header" href="#tables">Tables</a></h3>
+<h4 id="agents"><a class="header" href="#agents"><code>agents</code></a></h4>
+<pre><code class="language-sql">id TEXT PRIMARY KEY
+name TEXT NOT NULL
+hostname TEXT NOT NULL
+version TEXT NOT NULL
+status TEXT NOT NULL  -- 'Online' | 'Offline'
+last_heartbeat INTEGER NOT NULL
+</code></pre>
+<h4 id="http_transactions"><a class="header" href="#http_transactions"><code>http_transactions</code></a></h4>
+<pre><code class="language-sql">request_id TEXT PRIMARY KEY
+agent_id TEXT NOT NULL
+req_method TEXT NOT NULL
+req_url TEXT NOT NULL
+req_headers TEXT  -- JSON
+req_body BLOB
+req_timestamp INTEGER NOT NULL
+tls_info TEXT  -- JSON
+res_status INTEGER
+res_headers TEXT  -- JSON
+res_body BLOB
+res_timestamp INTEGER
+</code></pre>
+<h4 id="system_metrics"><a class="header" href="#system_metrics"><code>system_metrics</code></a></h4>
+<pre><code class="language-sql">id INTEGER PRIMARY KEY AUTOINCREMENT
+agent_id TEXT NOT NULL
+timestamp INTEGER NOT NULL
+cpu_usage_percent REAL NOT NULL
+memory_used_bytes INTEGER NOT NULL
+memory_total_bytes INTEGER NOT NULL
+network_rx_bytes INTEGER NOT NULL
+network_tx_bytes INTEGER NOT NULL
+disk_read_bytes INTEGER NOT NULL
+disk_write_bytes INTEGER NOT NULL
+process_cpu_percent REAL NOT NULL
+process_memory_bytes INTEGER NOT NULL
+</code></pre>
+<hr>
+<h2 id="-authentication-future"><a class="header" href="#-authentication-future">🔐 Authentication (Future)</a></h2>
+<p>Currently, the API is <strong>unauthenticated</strong>. For production:</p>
+<ul>
+<li><input disabled="" type="checkbox"> Add JWT authentication</li>
+<li><input disabled="" type="checkbox"> Add API key support</li>
+<li><input disabled="" type="checkbox"> Add role-based access control (RBAC)</li>
+</ul>
+<hr>
+<h2 id="-websocket-support"><a class="header" href="#-websocket-support">📡 WebSocket Support</a></h2>
+<p>GraphQL subscriptions use WebSocket protocol:</p>
+<ul>
+<li><strong>Endpoint:</strong> <code>ws://localhost:9090/graphql</code></li>
+<li><strong>Protocol:</strong> GraphQL over WebSocket</li>
+<li><strong>Libraries:</strong> Apollo Client, urql, or graphql-ws</li>
+</ul>
+<hr>
+<h2 id="-ui-technology-recommendations"><a class="header" href="#-ui-technology-recommendations">🎯 UI Technology Recommendations</a></h2>
+<h3 id="frontend-framework"><a class="header" href="#frontend-framework">Frontend Framework</a></h3>
+<ul>
+<li><strong>React</strong> + TypeScript (Recommended)</li>
+<li><strong>Next.js</strong> for SSR/SSG</li>
+<li><strong>Vite</strong> for fast development</li>
+</ul>
+<h3 id="graphql-client"><a class="header" href="#graphql-client">GraphQL Client</a></h3>
+<ul>
+<li><strong>Apollo Client</strong> (Full-featured, caching)</li>
+<li><strong>urql</strong> (Lightweight, flexible)</li>
+<li><strong>graphql-request</strong> (Simple, no caching)</li>
+</ul>
+<h3 id="ui-components"><a class="header" href="#ui-components">UI Components</a></h3>
+<ul>
+<li><strong>shadcn/ui</strong> (Tailwind-based, customizable)</li>
+<li><strong>Ant Design</strong> (Enterprise-ready)</li>
+<li><strong>Material-UI</strong> (Google Material Design)</li>
+</ul>
+<h3 id="charts"><a class="header" href="#charts">Charts</a></h3>
+<ul>
+<li><strong>Recharts</strong> (React-friendly)</li>
+<li><strong>Chart.js</strong> (Popular, flexible)</li>
+<li><strong>Apache ECharts</strong> (Feature-rich)</li>
+</ul>
+<h3 id="state-management"><a class="header" href="#state-management">State Management</a></h3>
+<ul>
+<li><strong>Zustand</strong> (Simple, minimal)</li>
+<li><strong>Redux Toolkit</strong> (Complex apps)</li>
+<li><strong>Jotai</strong> (Atomic state)</li>
+</ul>
+<hr>
+<h2 id="-quick-start-for-ui-development"><a class="header" href="#-quick-start-for-ui-development">🚀 Quick Start for UI Development</a></h2>
+<h3 id="1-start-backend"><a class="header" href="#1-start-backend">1. Start Backend</a></h3>
+<pre><code class="language-bash"># Terminal 1: Start Orchestrator
+cargo run -p orchestrator
+
+# Terminal 2: Start Agent
+cargo run -p proxy-agent -- --name "Dev-Agent"
+</code></pre>
+<h3 id="2-test-graphql-api"><a class="header" href="#2-test-graphql-api">2. Test GraphQL API</a></h3>
+<p>Open browser: <code>http://localhost:9090/graphql</code></p>
+<p>Try this query:</p>
+<pre><code class="language-graphql">query {
+  agents {
+    id
+    name
+    status
+  }
+}
+</code></pre>
+<h3 id="3-test-subscription"><a class="header" href="#3-test-subscription">3. Test Subscription</a></h3>
+<pre><code class="language-graphql">subscription {
+  systemMetricsUpdates(agentId: "your-agent-id") {
+    cpuUsagePercent
+    memoryUsedBytes
+  }
+}
+</code></pre>
+<hr>
+<h2 id="-example-ui-flows"><a class="header" href="#-example-ui-flows">📝 Example UI Flows</a></h2>
+<h3 id="flow-1-view-live-traffic"><a class="header" href="#flow-1-view-live-traffic">Flow 1: View Live Traffic</a></h3>
+<ol>
+<li>User opens “Traffic History” page</li>
+<li>UI subscribes to <code>trafficUpdates</code></li>
+<li>New requests appear in real-time</li>
+<li>User clicks a request → Detail view opens</li>
+<li>User clicks “Replay” → <code>replayRequest</code> mutation</li>
+<li>Response appears in Repeater tool</li>
+</ol>
+<h3 id="flow-2-monitor-agent-health"><a class="header" href="#flow-2-monitor-agent-health">Flow 2: Monitor Agent Health</a></h3>
+<ol>
+<li>User opens “Agents” page</li>
+<li>UI queries <code>agents</code> → Shows list</li>
+<li>User selects an agent</li>
+<li>UI subscribes to <code>systemMetricsUpdates(agentId)</code></li>
+<li>Charts update in real-time (CPU, Memory, Network)</li>
+</ol>
+<h3 id="flow-3-replay-request"><a class="header" href="#flow-3-replay-request">Flow 3: Replay Request</a></h3>
+<ol>
+<li>User opens “Traffic History”</li>
+<li>User selects a request</li>
+<li>Request details populate Repeater tool</li>
+<li>User modifies headers/body (optional)</li>
+<li>User clicks “Send”</li>
+<li>UI calls <code>replayRequest(requestId)</code></li>
+<li>Response appears below</li>
+</ol>
+<hr>
+<h2 id="-backend-features-ready-for-ui"><a class="header" href="#-backend-features-ready-for-ui">✅ Backend Features Ready for UI</a></h2>
+<ul>
+<li><input disabled="" type="checkbox" checked=""> Agent registration and status tracking</li>
+<li><input disabled="" type="checkbox" checked=""> HTTP traffic capture (Request/Response)</li>
+<li><input disabled="" type="checkbox" checked=""> System metrics collection (CPU, Memory, Network, Disk)</li>
+<li><input disabled="" type="checkbox" checked=""> GraphQL API (Queries, Mutations, Subscriptions)</li>
+<li><input disabled="" type="checkbox" checked=""> Request replay functionality</li>
+<li><input disabled="" type="checkbox" checked=""> Real-time traffic streaming</li>
+<li><input disabled="" type="checkbox" checked=""> Real-time metrics streaming</li>
+<li><input disabled="" type="checkbox" checked=""> Database persistence (SQLite)</li>
+<li><input disabled="" type="checkbox" checked=""> Agent disconnect handling</li>
+<li><input disabled="" type="checkbox" checked=""> TLS certificate management</li>
+</ul>
+<hr>
+<h2 id="-ui-design-priorities"><a class="header" href="#-ui-design-priorities">🎨 UI Design Priorities</a></h2>
+<h3 id="phase-1-core-features-mvp"><a class="header" href="#phase-1-core-features-mvp">Phase 1: Core Features (MVP)</a></h3>
+<ol>
+<li><strong>Dashboard</strong> - Agent status + Traffic summary</li>
+<li><strong>Traffic History</strong> - List view with filters</li>
+<li><strong>Agents</strong> - List view with status</li>
+</ol>
+<h3 id="phase-2-advanced-features"><a class="header" href="#phase-2-advanced-features">Phase 2: Advanced Features</a></h3>
+<ol start="4">
+<li><strong>Repeater Tool</strong> - Request replay</li>
+<li><strong>System Metrics</strong> - Charts and monitoring</li>
+<li><strong>Request Detail</strong> - Full request/response viewer</li>
+</ol>
+<h3 id="phase-3-power-features"><a class="header" href="#phase-3-power-features">Phase 3: Power Features</a></h3>
+<ol start="7">
+<li><strong>Intercept Tool</strong> - Real-time modification</li>
+<li><strong>Search &amp; Filters</strong> - Advanced querying</li>
+<li><strong>Export</strong> - HAR, JSON export</li>
+</ol>
+<hr>
+<h2 id="-related-documentation"><a class="header" href="#-related-documentation">🔗 Related Documentation</a></h2>
+<ul>
+<li><a href="../../orchestrator/src/graphql/mod.rs">GraphQL Schema</a></li>
+<li><a href="../../orchestrator/migrations/20240101_init.sql">Database Schema</a></li>
+<li><a href="../../proto/proxy.proto">Proto Definitions</a></li>
+<li><a href="README.html">Introduction</a></li>
+</ul>
+<hr>
+<p><strong>Version:</strong> 1.1.0<br><strong>Last Updated:</strong> 2026-01-08<br><strong>Status:</strong> ✅ Ready for UI Development</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="traffic-policy-system"><a class="header" href="#traffic-policy-system">Traffic Policy System</a></h1>
+<h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
+<p>The Proxxy traffic policy system separates <strong>static configuration</strong> (startup settings) from <strong>dynamic policy</strong> (runtime rules). This allows operators to modify traffic handling rules on-the-fly via the UI without restarting the proxy.</p>
+<h2 id="architecture"><a class="header" href="#architecture">Architecture</a></h2>
+<h3 id="1-static-configuration-proxystartupconfig"><a class="header" href="#1-static-configuration-proxystartupconfig">1. Static Configuration (<code>ProxyStartupConfig</code>)</a></h3>
+<p>Set once at startup, never changes:</p>
+<ul>
+<li>Listen address/port</li>
+<li>Orchestrator endpoint</li>
+<li>Admin API port</li>
+<li>Certificate paths</li>
+</ul>
+<h3 id="2-dynamic-policy-trafficpolicy"><a class="header" href="#2-dynamic-policy-trafficpolicy">2. Dynamic Policy (<code>TrafficPolicy</code>)</a></h3>
+<p>Updated at runtime via gRPC from Orchestrator UI:</p>
+<ul>
+<li><strong>Scope</strong>: Which domains to intercept</li>
+<li><strong>Interception Rules</strong>: Block, Drop, Pause, Delay, Inject</li>
+<li><strong>Match &amp; Replace</strong>: Automatic content modification</li>
+</ul>
+<h2 id="components"><a class="header" href="#components">Components</a></h2>
+<h3 id="scope-configuration"><a class="header" href="#scope-configuration">Scope Configuration</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use proxy_core::{ScopeConfig, OutOfScopeAction};
+
+let scope = ScopeConfig {
+    include: vec!["*.target.com".to_string(), "api.example.com".to_string()],
+    exclude: vec!["*.google-analytics.com".to_string()],
+    out_of_scope_action: OutOfScopeAction::Pass,
+};
+<span class="boring">}</span></code></pre>
+<p><strong>Out-of-Scope Actions:</strong></p>
+<ul>
+<li><code>LogOnly</code>: Save to DB but don’t show in UI</li>
+<li><code>Drop</code>: Kill connection immediately (save bandwidth)</li>
+<li><code>Pass</code>: Forward without processing</li>
+</ul>
+<h3 id="interception-rules"><a class="header" href="#interception-rules">Interception Rules</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use proxy_core::{InterceptionRule, RuleCondition, RuleAction};
+
+let rule = InterceptionRule {
+    id: "block-admin".to_string(),
+    name: "Block Admin Panel".to_string(),
+    enabled: true,
+    conditions: vec![
+        RuleCondition::UrlContains("/admin".to_string()),
+        RuleCondition::Method("POST".to_string()),
+    ],
+    action: RuleAction::Block {
+        reason: "Admin access not allowed".to_string(),
+    },
+};
+<span class="boring">}</span></code></pre>
+<p><strong>Available Conditions:</strong></p>
+<ul>
+<li><code>UrlContains(String)</code>: Simple substring match</li>
+<li><code>UrlRegex(String)</code>: Regex pattern matching</li>
+<li><code>Method(String)</code>: HTTP method (GET, POST, etc.)</li>
+<li><code>HasHeader(String)</code>: Check if header exists</li>
+<li><code>HeaderValueMatch { key, regex }</code>: Match header value</li>
+<li><code>BodyRegex(String)</code>: Search in request body</li>
+<li><code>Port(u16)</code>: Match specific port</li>
+</ul>
+<p><strong>Available Actions:</strong></p>
+<ul>
+<li><code>Pause</code>: Stop request and wait for UI approval (Intercept mode)</li>
+<li><code>Block { reason }</code>: Return 403 Forbidden</li>
+<li><code>Drop</code>: Send TCP RST (silent kill)</li>
+<li><code>Delay(u64)</code>: Delay request by N milliseconds</li>
+<li><code>InjectHeader { key, value }</code>: Add/modify headers</li>
+<li><code>ModifyBody { find, replace }</code>: Replace body content</li>
+</ul>
+<h3 id="match--replace-rules"><a class="header" href="#match--replace-rules">Match &amp; Replace Rules</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use proxy_core::{MatchReplaceRule, MatchLocation};
+
+let rule = MatchReplaceRule {
+    enabled: true,
+    match_regex: r"Authorization: Bearer (.+)".to_string(),
+    replace_string: "Authorization: Bearer REDACTED".to_string(),
+    location: MatchLocation::RequestHeader,
+};
+<span class="boring">}</span></code></pre>
+<h2 id="usage-example"><a class="header" href="#usage-example">Usage Example</a></h2>
+<h3 id="agent-startup"><a class="header" href="#agent-startup">Agent Startup</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use proxy_core::{ProxyStartupConfig, TrafficPolicy, CertificateAuthority};
+use std::sync::{Arc, RwLock};
+
+// 1. Static config (from CLI args or config file)
+let config = ProxyStartupConfig {
+    listen_address: "127.0.0.1".to_string(),
+    listen_port: 8080,
+    orchestrator_endpoint: "http://127.0.0.1:50051".to_string(),
+    admin_port: 9091,
+    certificate_config: Default::default(),
+};
+
+// 2. Dynamic policy (starts with defaults, updated via gRPC)
+let policy = Arc::new(RwLock::new(TrafficPolicy::default()));
+
+// 3. Start proxy with both
+let ca = CertificateAuthority::from_pem(&amp;ca_cert, &amp;ca_key)?;
+let proxy = ProxyServer::new(config, ca, policy.clone())?;
+<span class="boring">}</span></code></pre>
+<h3 id="runtime-policy-update-from-orchestrator"><a class="header" href="#runtime-policy-update-from-orchestrator">Runtime Policy Update (from Orchestrator)</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Orchestrator sends new policy via gRPC
+let new_policy = TrafficPolicy {
+    scope: ScopeConfig {
+        include: vec!["*.target.com".to_string()],
+        exclude: vec![],
+        out_of_scope_action: OutOfScopeAction::Drop,
+    },
+    interception_rules: vec![
+        InterceptionRule {
+            id: "pause-login".to_string(),
+            name: "Intercept Login Requests".to_string(),
+            enabled: true,
+            conditions: vec![
+                RuleCondition::UrlContains("/login".to_string()),
+                RuleCondition::Method("POST".to_string()),
+            ],
+            action: RuleAction::Pause,
+        },
+    ],
+    match_replace_rules: vec![],
+};
+
+// Agent receives and applies
+*policy.write().unwrap() = new_policy;
+<span class="boring">}</span></code></pre>
+<h3 id="request-handler-integration"><a class="header" href="#request-handler-integration">Request Handler Integration</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>async fn handle_request(req: Request, policy: Arc&lt;RwLock&lt;TrafficPolicy&gt;&gt;) -&gt; Result&lt;Response&gt; {
+    let policy = policy.read().unwrap();
+    
+    // 1. Scope check
+    if !policy.scope.is_allowed(&amp;req.url) {
+        match policy.scope.out_of_scope_action {
+            OutOfScopeAction::Drop =&gt; return Err(Error::DropConnection),
+            OutOfScopeAction::LogOnly =&gt; {
+                // Save to DB but don't process
+                return forward_passthrough(req).await;
+            }
+            OutOfScopeAction::Pass =&gt; {
+                return forward_passthrough(req).await;
+            }
+        }
+    }
+    
+    // 2. Rule evaluation
+    let req_context = RequestContext {
+        url: req.url.clone(),
+        method: req.method.clone(),
+        headers: req.headers.clone(),
+        body: req.body.clone(),
+        port: 443,
+    };
+    
+    for rule in &amp;policy.interception_rules {
+        if rule.matches(&amp;req_context) {
+            match &amp;rule.action {
+                RuleAction::Pause =&gt; {
+                    // Send to UI and wait for decision
+                    let decision = wait_for_ui_decision(&amp;req.id).await?;
+                    // Process decision...
+                }
+                RuleAction::Block { reason } =&gt; {
+                    return Ok(Response::forbidden(reason));
+                }
+                RuleAction::Drop =&gt; {
+                    return Err(Error::DropConnection);
+                }
+                RuleAction::Delay(ms) =&gt; {
+                    tokio::time::sleep(Duration::from_millis(*ms)).await;
+                }
+                RuleAction::InjectHeader { key, value } =&gt; {
+                    req.headers.insert(key.clone(), value.clone());
+                }
+                RuleAction::ModifyBody { find, replace } =&gt; {
+                    // Apply body modification...
+                }
+            }
+        }
+    }
+    
+    // 3. Forward request
+    forward_request(req).await
+}
+<span class="boring">}</span></code></pre>
+<h2 id="key-differences-drop-vs-block"><a class="header" href="#key-differences-drop-vs-block">Key Differences: Drop vs Block</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Action</th><th>Behavior</th><th>Use Case</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Block</strong></td><td>Returns HTTP 403 Forbidden</td><td>Polite rejection, user sees error page</td></tr>
+<tr><td><strong>Drop</strong></td><td>Sends TCP RST, kills socket</td><td>Firewall testing, stealth mode</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="testing"><a class="header" href="#testing">Testing</a></h2>
+<pre><code class="language-bash"># Run policy tests
+cargo test -p proxy-core --lib policy
+
+# Check specific test
+cargo test -p proxy-core test_scope_config_wildcard
+</code></pre>
+<h2 id="protocol-integration"><a class="header" href="#protocol-integration">Protocol Integration</a></h2>
+<p>The <code>TrafficPolicy</code> is serialized to JSON and sent via gRPC:</p>
+<pre><code class="language-protobuf">message UpdatePolicyRequest {
+  string agent_id = 1;
+  string policy_json = 2; // Serialized TrafficPolicy
+}
+</code></pre>
+<p>Orchestrator UI → gRPC → Agent → <code>Arc&lt;RwLock&lt;TrafficPolicy&gt;&gt;</code></p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="flow-engine--login-sequence-recorder"><a class="header" href="#flow-engine--login-sequence-recorder">Flow Engine &amp; Login Sequence Recorder</a></h1>
+<h2 id="-vision"><a class="header" href="#-vision">🎯 Vision</a></h2>
+<p>Proxxy v1.1+ introduces <strong>Flow Engine</strong> and <strong>Login Sequence Recorder (LSR)</strong> - a revolutionary automation and replay system built on Rust’s <strong>Zero-Cost Abstractions</strong> and <strong>Memory Safety</strong> principles.</p>
+<h3 id="performance-goals"><a class="header" href="#performance-goals">Performance Goals</a></h3>
+<ul>
+<li><strong>10x less RAM</strong> than Python/Node.js competitors (Puppeteer, Selenium)</li>
+<li><strong>Ultra-low latency</strong> through zero-copy parsing</li>
+<li><strong>Concurrent execution</strong> of thousands of flows</li>
+<li><strong>Self-healing selectors</strong> for resilient automation</li>
+</ul>
+<hr>
+<h2 id="-1-flow-engine-automation--replay-core"><a class="header" href="#-1-flow-engine-automation--replay-core">🧱 1. Flow Engine (Automation &amp; Replay Core)</a></h2>
+<p>The Flow Engine executes recorded scenarios in two modes:</p>
+<ul>
+<li><strong>Visual Mode</strong>: Browser-based execution (Chrome DevTools Protocol)</li>
+<li><strong>Protocol Mode</strong>: HTTP-only execution (no browser overhead)</li>
+</ul>
+<h3 id="technology-stack"><a class="header" href="#technology-stack">Technology Stack</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Component</th><th>Crate</th><th>Why This Choice?</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Browser Control</strong></td><td><code>chromiumoxide</code></td><td>Rust equivalent of Puppeteer. Direct Chrome DevTools Protocol (CDP) communication via WebSocket. Much lighter than WebDriver, event-driven architecture.</td></tr>
+<tr><td><strong>Async Runtime</strong></td><td><code>tokio</code></td><td>Rust’s standardized async engine. Multi-thread work-stealing scheduler enables concurrent management of thousands of flows.</td></tr>
+<tr><td><strong>HTTP Client (Protocol Mode)</strong></td><td><code>hyper</code> + <code>tower</code></td><td>Raw packet-level replay capability. Unlike <code>reqwest</code> (opinionated with built-in cookie store), <code>hyper</code> gives us full control. <code>tower</code> provides retry and timeout middleware.</td></tr>
+<tr><td><strong>Data Extraction</strong></td><td><code>jsonpath-rust</code> + <code>scraper</code></td><td>JSONPath for API responses, <code>scraper</code> (CSS selector engine) for HTML parsing.</td></tr>
+<tr><td><strong>Template Engine</strong></td><td><code>tera</code></td><td>Runtime variable substitution (<code>{{username}}</code>, <code>{{csrf_token}}</code>). Jinja2-like, fast and secure.</td></tr>
+<tr><td><strong>Scripting (Optional)</strong></td><td><code>rhai</code></td><td>Embedded scripting for complex logic (e.g., “if captcha appears, wait”). Rust-integrated, safe scripting language.</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="-performance-architecture"><a class="header" href="#-performance-architecture">🚀 Performance Architecture</a></h3>
+<p><strong>Zero-Copy Parsing</strong>: Instead of converting HTTP response body to String (copying), we parse directly from <code>Bytes</code> (using <code>bytes</code> crate) by reference.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use bytes::Bytes;
+
+// ❌ Bad: Copies data
+let body_string = String::from_utf8(response_body)?;
+let json: Value = serde_json::from_str(&amp;body_string)?;
+
+// ✅ Good: Zero-copy
+let body_bytes = Bytes::from(response_body);
+let json: Value = serde_json::from_slice(&amp;body_bytes)?;
+<span class="boring">}</span></code></pre>
+<hr>
+<h2 id="-2-login-sequence-recorder-lsr"><a class="header" href="#-2-login-sequence-recorder-lsr">🎥 2. Login Sequence Recorder (LSR)</a></h2>
+<p>LSR monitors user actions, analyzes them, and generates <strong>resilient selectors</strong> that survive DOM changes.</p>
+<h3 id="technology-stack-1"><a class="header" href="#technology-stack-1">Technology Stack</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Component</th><th>Crate</th><th>Why This Choice?</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Event Stream</strong></td><td><code>tokio-stream</code></td><td>Process hundreds of events (mouse move, click, keypress) as an async stream.</td></tr>
+<tr><td><strong>Selector Generation</strong></td><td><code>scraper</code> + Custom Logic</td><td>Calculate shortest, unique CSS/XPath for clicked elements using HTML parsing engine.</td></tr>
+<tr><td><strong>Event Correlation</strong></td><td><code>uuid</code> + <code>std::time</code></td><td>Match DOM events with Network requests by timestamp.</td></tr>
+<tr><td><strong>Keylogging Prevention</strong></td><td><code>secrecy</code></td><td>Keep password field data encrypted in RAM, prevent accidental logging.</td></tr>
+<tr><td><strong>State Storage</strong></td><td><code>sled</code></td><td><strong>Critical</strong>: Lock-free, embedded key-value store. Much faster than SQLite for recording. Eliminates I/O bottleneck.</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="-common-library-integration--data-structures"><a class="header" href="#-common-library-integration--data-structures">🧬 Common Library (Integration &amp; Data Structures)</a></h2>
+<h3 id="a-data-serialization"><a class="header" href="#a-data-serialization">A. Data Serialization</a></h3>
+<p><strong>Formats:</strong></p>
+<ul>
+<li><strong>JSON</strong>: User-readable storage</li>
+<li><strong>Bincode</strong>: Internal Agent ↔ Orchestrator communication</li>
+</ul>
+<p><strong>Crates:</strong> <code>serde</code>, <code>serde_json</code>, <code>bincode</code></p>
+<p><strong>Why:</strong> <code>serde</code> is Rust’s standard. <code>bincode</code> is much faster and smaller than JSON, ideal for binary communication.</p>
+<h3 id="b-smart-selector-algorithm"><a class="header" href="#b-smart-selector-algorithm">B. Smart Selector Algorithm</a></h3>
+<p>LSR’s core innovation: <strong>Self-Healing Selectors</strong></p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct ElementSelector {
+    pub css_id: Option&lt;String&gt;,           // #submit
+    pub css_class: Option&lt;String&gt;,        // .btn.btn-primary
+    pub xpath: String,                    // //div[@id='app']/button[1]
+    pub text_content: Option&lt;String&gt;,     // "Giriş Yap"
+    pub attributes: HashMap&lt;String, String&gt;, // name="submit", data-testid="login-button"
+}
+<span class="boring">}</span></code></pre>
+<p><strong>Self-Healing Logic:</strong></p>
+<ol>
+<li>Try <code>css_id</code> (#submit)</li>
+<li>If not found, try <code>xpath</code></li>
+<li>If not found, try <code>text_content</code> (“Giriş Yap” button)</li>
+<li>If not found, try <code>attributes</code> (data-testid=“login-button”)</li>
+</ol>
+<p>This is done using <code>scraper</code> crate for real-time HTML analysis during replay.</p>
+<hr>
+<h2 id="-implementation-roadmap"><a class="header" href="#-implementation-roadmap">📦 Implementation Roadmap</a></h2>
+<h3 id="phase-1-foundation-v12"><a class="header" href="#phase-1-foundation-v12">Phase 1: Foundation (v1.2)</a></h3>
+<ul>
+<li><input disabled="" type="checkbox"> Add <code>chromiumoxide</code> dependency</li>
+<li><input disabled="" type="checkbox"> Implement basic CDP connection</li>
+<li><input disabled="" type="checkbox"> Create Flow data structures</li>
+<li><input disabled="" type="checkbox"> Add <code>sled</code> for state storage</li>
+</ul>
+<h3 id="phase-2-lsr-core-v13"><a class="header" href="#phase-2-lsr-core-v13">Phase 2: LSR Core (v1.3)</a></h3>
+<ul>
+<li><input disabled="" type="checkbox"> Event stream processing</li>
+<li><input disabled="" type="checkbox"> Smart selector generation</li>
+<li><input disabled="" type="checkbox"> Event correlation (DOM ↔ Network)</li>
+<li><input disabled="" type="checkbox"> Password field encryption</li>
+</ul>
+<h3 id="phase-3-flow-engine-v14"><a class="header" href="#phase-3-flow-engine-v14">Phase 3: Flow Engine (v1.4)</a></h3>
+<ul>
+<li><input disabled="" type="checkbox"> Visual mode execution (CDP)</li>
+<li><input disabled="" type="checkbox"> Protocol mode execution (HTTP-only)</li>
+<li><input disabled="" type="checkbox"> Template engine integration</li>
+<li><input disabled="" type="checkbox"> Self-healing selector logic</li>
+</ul>
+<h3 id="phase-4-advanced-features-v15"><a class="header" href="#phase-4-advanced-features-v15">Phase 4: Advanced Features (v1.5)</a></h3>
+<ul>
+<li><input disabled="" type="checkbox"> Scripting support (<code>rhai</code>)</li>
+<li><input disabled="" type="checkbox"> Flow debugging tools</li>
+<li><input disabled="" type="checkbox"> Performance profiling</li>
+<li><input disabled="" type="checkbox"> Parallel flow execution</li>
+</ul>
+<hr>
+<h2 id="-dependencies-to-add"><a class="header" href="#-dependencies-to-add">🔧 Dependencies to Add</a></h2>
+<pre><code class="language-toml">[dependencies]
+# Browser Control
+chromiumoxide = "0.5"
+
+# Data Storage
+sled = "0.34"
+
+# Parsing &amp; Extraction
+scraper = "0.18"
+jsonpath-rust = "0.3"
+
+# Template Engine
+tera = "1.19"
+
+# Scripting (Optional)
+rhai = "1.16"
+
+# Security
+secrecy = "0.8"
+
+# Zero-Copy
+bytes = "1.5"
+</code></pre>
+<hr>
+<h2 id="-performance-benchmarks-target"><a class="header" href="#-performance-benchmarks-target">🎯 Performance Benchmarks (Target)</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Metric</th><th>Puppeteer (Node.js)</th><th>Selenium (Python)</th><th>Proxxy (Rust)</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Memory per Flow</strong></td><td>~100 MB</td><td>~150 MB</td><td><strong>~10 MB</strong></td></tr>
+<tr><td><strong>Startup Time</strong></td><td>~2s</td><td>~3s</td><td><strong>~100ms</strong></td></tr>
+<tr><td><strong>Concurrent Flows</strong></td><td>~10</td><td>~5</td><td><strong>~1000</strong></td></tr>
+<tr><td><strong>Selector Lookup</strong></td><td>~5ms</td><td>~10ms</td><td><strong>~0.5ms</strong></td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="-example-recording-a-login-flow"><a class="header" href="#-example-recording-a-login-flow">🚀 Example: Recording a Login Flow</a></h2>
+<pre class="playground"><code class="language-rust">use proxxy_lsr::{Recorder, Event};
+
+#[tokio::main]
+async fn main() {
+    let mut recorder = Recorder::new("https://example.com/login").await?;
+    
+    // Start recording
+    recorder.start().await?;
+    
+    // User performs actions (clicks, types)
+    // LSR automatically captures:
+    // - DOM events
+    // - Network requests
+    // - Smart selectors
+    
+    // Stop and save
+    let flow = recorder.stop().await?;
+    flow.save("login_flow.json")?;
+}</code></pre>
+<hr>
+<h2 id="-example-replaying-a-flow"><a class="header" href="#-example-replaying-a-flow">🎬 Example: Replaying a Flow</a></h2>
+<pre class="playground"><code class="language-rust">use proxxy_flow::{FlowEngine, ExecutionMode};
+
+#[tokio::main]
+async fn main() {
+    let engine = FlowEngine::new(ExecutionMode::Visual).await?;
+    
+    // Load flow
+    let flow = Flow::load("login_flow.json")?;
+    
+    // Execute with variables
+    let result = engine.execute(flow, hashmap! {
+        "username" =&gt; "test@example.com",
+        "password" =&gt; "secret123"
+    }).await?;
+    
+    println!("Login successful: {}", result.success);
+}</code></pre>
+<hr>
+<h2 id="-security-considerations"><a class="header" href="#-security-considerations">🔐 Security Considerations</a></h2>
+<ol>
+<li><strong>Password Encryption</strong>: All password fields use <code>secrecy</code> crate</li>
+<li><strong>No Plaintext Logs</strong>: Sensitive data never appears in logs</li>
+<li><strong>Secure Storage</strong>: <code>sled</code> database encrypted at rest</li>
+<li><strong>Memory Safety</strong>: Rust’s ownership prevents data leaks</li>
+</ol>
+<hr>
+<h2 id="-architecture-diagram"><a class="header" href="#-architecture-diagram">📊 Architecture Diagram</a></h2>
+<pre><code>┌─────────────────────────────────────────────────────────┐
+│                    Proxxy Flow System                    │
+├─────────────────────────────────────────────────────────┤
+│                                                           │
+│  ┌──────────────┐         ┌──────────────┐              │
+│  │     LSR      │────────▶│  Flow Engine │              │
+│  │  (Recorder)  │         │  (Executor)  │              │
+│  └──────────────┘         └──────────────┘              │
+│         │                        │                       │
+│         │                        │                       │
+│         ▼                        ▼                       │
+│  ┌──────────────┐         ┌──────────────┐              │
+│  │     Sled     │         │ chromiumoxide│              │
+│  │  (Storage)   │         │   (Browser)  │              │
+│  └──────────────┘         └──────────────┘              │
+│                                  │                       │
+│                                  ▼                       │
+│                           ┌──────────────┐              │
+│                           │    Chrome    │              │
+│                           │     CDP      │              │
+│                           └──────────────┘              │
+└─────────────────────────────────────────────────────────┘
+</code></pre>
+<hr>
+<p><strong>Version:</strong> 1.1.0 (Planned for v1.2+)<br><strong>Status:</strong> 📋 Design Phase<br><strong>Target:</strong> 10x Performance Improvement over Competitors</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="architecture-1"><a class="header" href="#architecture-1">Architecture</a></h1>
+<p>Proxxy is built with a distributed architecture:</p>
+<ol>
+<li><strong>Orchestrator</strong>: The central brain that manages agents and stores data.</li>
+<li><strong>Proxy Agent</strong>: Lightweight nodes that execute the actual proxying and automation.</li>
+<li><strong>Proxy Core</strong>: The shared engine used by agents for traffic handling.</li>
+</ol>
+<p>Detailed architecture diagrams and module breakdowns will be added here.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="contributing"><a class="header" href="#contributing">Contributing</a></h1>
+<p>We welcome contributions to Proxxy!</p>
+<h2 id="environment-setup"><a class="header" href="#environment-setup">Environment Setup</a></h2>
+<ul>
+<li>Install Rust (1.70+)</li>
+<li>Install Protobuf compiler</li>
+<li>Install Node.js (for GUI)</li>
+</ul>
+<h2 id="running-tests"><a class="header" href="#running-tests">Running Tests</a></h2>
+<pre><code class="language-bash">cargo test
+</code></pre>
+<p>More details on coding standards and branching strategy coming soon.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+        <!-- Livereload script (if served using the cli tool) -->
+        <script>
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
+            const socket = new WebSocket(wsAddress);
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload();
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-c2a407aa.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+
+        <script>
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+
+
+    </div>
+    </body>
+</html>

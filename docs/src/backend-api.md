@@ -453,10 +453,10 @@ subscription {
 
 ## 🔗 Related Documentation
 
-- [GraphQL Schema](./orchestrator/src/graphql/mod.rs)
-- [Database Schema](./orchestrator/migrations/20240101_init.sql)
-- [Proto Definitions](./proto/proxy.proto)
-- [README](./README.md)
+- [GraphQL Schema](../../orchestrator/src/graphql/mod.rs)
+- [Database Schema](../../orchestrator/migrations/20240101_init.sql)
+- [Proto Definitions](../../proto/proxy.proto)
+- [Introduction](./README.md)
 
 ---
 
