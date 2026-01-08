@@ -13,6 +13,26 @@ Proxxy, HTTP/HTTPS trafiğini incelemek ve manipüle etmek için tasarlanmış, 
 - **GraphQL + REST API**: Esnek sorgulama ve entegrasyon
 - **Modern GUI**: Tauri tabanlı masaüstü uygulaması
 
+## 🚀 Hızlı Başlangıç
+
+### CLI Kullanımı
+
+```bash
+# Orchestrator başlatma
+cargo run -p orchestrator -- --help
+cargo run -p orchestrator -- --grpc-port 50051 --http-port 9090
+
+# Proxy Agent başlatma
+cargo run -p proxy-agent -- --help
+cargo run -p proxy-agent -- --name "MyAgent" --listen-port 9095
+
+# Database kontrolü
+sqlite3 proxxy.db "SELECT id, name, status FROM agents;"
+sqlite3 proxxy.db "SELECT COUNT(*) FROM http_transactions;"
+```
+
+**Not:** `cargo run` ile argüman geçmek için `--` kullanılır. Bu, cargo'ya "bundan sonraki argümanlar programa gidiyor" der.
+
 ## 📁 Proje Yapısı
 
 ```
