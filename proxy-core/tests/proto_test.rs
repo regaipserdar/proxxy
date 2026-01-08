@@ -9,6 +9,7 @@ fn test_register_agent_serialization() {
         agent_id: "test-agent-1".to_string(),
         hostname: "localhost".to_string(),
         version: "0.1.0".to_string(),
+        name: "Test Agent".to_string(),
     };
     
     // In a real gRPC scenario, tonic handles serialization. 

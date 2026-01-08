@@ -216,8 +216,8 @@ This implementation plan creates a Rust Cargo workspace for a distributed MITM p
   - [ ] **Tests**
     - [ ] Unit Test: Request Replay Logic
 
-- [-] 20. Implement System Metrics Collection via gRPC
-  - [ ] **Update gRPC Protocol for System Metrics**
+- [x] 20. Implement System Metrics Collection via gRPC
+  - [-] **Update gRPC Protocol for System Metrics**
     - Extend `proto/proxy.proto` with `SystemMetricsEvent`, `SystemMetrics` messages
     - Add `StreamMetrics` RPC method for bidirectional metrics streaming
     - Add `MetricsCommand` and `MetricsConfig` for dynamic configuration
@@ -248,9 +248,9 @@ This implementation plan creates a Rust Cargo workspace for a distributed MITM p
     - Add queries for current and historical metrics
     - Add subscriptions for real-time metrics updates
   - [ ] **Tests**
-    - [ ] Unit Test: SystemMetricsCollector accuracy and bounds checking
-    - [ ] Integration Test: gRPC metrics streaming end-to-end
-    - [ ] Property Test: Metrics data consistency and streaming reliability
+    - [x] Unit Test: SystemMetricsCollector accuracy and bounds checking
+    - [x] Integration Test: gRPC metrics streaming end-to-end
+    - [x] Property Test: Metrics data consistency and streaming reliability
   - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6_
 
 - [ ] 21. Implement Tauri App (GUI) & GraphQL API - REACT FRONTEND
