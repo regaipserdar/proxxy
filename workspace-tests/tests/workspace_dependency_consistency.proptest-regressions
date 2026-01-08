@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 7cc9518549cf58e9cfdc9be0b28b710309a2c556067b9bcfa6393f0e56c9ab80 # shrinks to crate_name = "proxy-core"

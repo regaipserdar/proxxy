@@ -1,0 +1,151 @@
+syntax = "proto3";
+
+package proxy;
+
+service ProxyService {
+  // Bidirectional streaming for traffic interception and control
+  rpc StreamTraffic (stream TrafficEvent) returns (stream InterceptCommand);
+
+  // Register a new agent with the orchestrator
+  rpc RegisterAgent (RegisterAgentRequest) returns (RegisterAgentResponse);
+  
+  // Stream system metrics from agent to orchestrator
+  rpc StreamMetrics (stream SystemMetricsEvent) returns (stream MetricsCommand);
+}
+
+message RegisterAgentRequest {
+  string agent_id = 1;
+  string hostname = 2;
+  string version = 3;
+  string name = 4;
+}
+
+message RegisterAgentResponse {
+  bool success = 1;
+  string message = 2;
+  string ca_cert_pem = 3;
+  string ca_key_pem = 4;
+}
+
+// System metrics messages
+message SystemMetricsEvent {
+  string agent_id = 1;
+  int64 timestamp = 2;  // Unix timestamp
+  SystemMetrics metrics = 3;
+}
+
+message SystemMetrics {
+  // System-wide metrics
+  float cpu_usage_percent = 1;
+  uint64 memory_used_bytes = 2;
+  uint64 memory_total_bytes = 3;
+  NetworkMetrics network = 4;
+  DiskMetrics disk = 5;
+  
+  // Process-specific metrics
+  ProcessMetrics process = 6;
+}
+
+message NetworkMetrics {
+  uint64 rx_bytes_total = 1;
+  uint64 tx_bytes_total = 2;
+  uint64 rx_bytes_per_sec = 3;
+  uint64 tx_bytes_per_sec = 4;
+  repeated NetworkInterface interfaces = 5;
+}
+
+message NetworkInterface {
+  string name = 1;
+  uint64 rx_bytes = 2;
+  uint64 tx_bytes = 3;
+}
+
+message DiskMetrics {
+  uint64 read_bytes_total = 1;
+  uint64 write_bytes_total = 2;
+  uint64 read_bytes_per_sec = 3;
+  uint64 write_bytes_per_sec = 4;
+  uint64 available_bytes = 5;
+  uint64 total_bytes = 6;
+}
+
+message ProcessMetrics {
+  float cpu_usage_percent = 1;
+  uint64 memory_bytes = 2;
+  uint64 uptime_seconds = 3;
+  uint32 thread_count = 4;
+  uint32 file_descriptor_count = 5;
+}
+
+message MetricsCommand {
+  oneof command {
+    MetricsConfig config = 1;
+    bool stop_metrics = 2;
+    bool start_metrics = 3;
+  }
+}
+
+message MetricsConfig {
+  uint32 collection_interval_seconds = 1;  // Default: 5
+  bool include_network_details = 2;        // Default: true
+  bool include_disk_details = 3;           // Default: true
+  bool include_process_details = 4;        // Default: true
+}
+
+message TlsDetails {
+  string version = 1;
+  string cipher = 2;
+  // potentially certificate chain later
+}
+
+message ScopeConfig {
+  repeated string allow_list = 1;
+  repeated string block_list = 2;
+}
+
+message WebSocketFrame {
+  bytes payload = 1;
+  bool is_binary = 2; // true = binary, false = text
+  bool direction_outbound = 3; // true = client->server, false = server->client
+}
+
+message HttpHeaders {
+  map<string, string> headers = 1;
+}
+
+message HttpRequestData {
+  string method = 1;
+  string url = 2;
+  HttpHeaders headers = 3;
+  bytes body = 4;
+  TlsDetails tls = 5;
+}
+
+message HttpResponseData {
+  int32 status_code = 1;
+  HttpHeaders headers = 2;
+  bytes body = 3;
+  TlsDetails tls = 4;
+}
+
+message TrafficEvent {
+  string request_id = 1;
+  oneof event {
+    HttpRequestData request = 2;
+    HttpResponseData response = 3; 
+    WebSocketFrame websocket = 4;
+  }
+}
+
+message ExecuteRequest {
+    string request_id = 1;
+    HttpRequestData request = 2;
+}
+
+message InterceptCommand {
+  oneof command {
+    bool drop = 1;
+    bool modify = 2;
+    ExecuteRequest execute = 3;
+  }
+}

@@ -1,0 +1,86 @@
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+Cargo.lock
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+proxxy.db*
+
+# Certificates (SENSITIVE!)
+/certs/
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Node.js (GUI)
+node_modules/
+dist/
+.next/
+out/
+build/
+
+# Tauri
+/proxxy-gui/src-tauri/target/
+/proxxy-gui/src-tauri/WixTools/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Build artifacts
+*.o
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Test coverage
+coverage/
+*.profraw
+*.profdata
+
+# Benchmarks
+criterion/
+
+# Documentation build
+/target/doc/
+
+# System metrics data (optional, comment out if you want to keep)
+# metrics/
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Lock files (keep Cargo.lock for binaries, ignore for libraries)
+# Uncomment if this is a library:
+# Cargo.lock
