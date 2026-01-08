@@ -1,6 +1,6 @@
 use sqlx::{sqlite::SqlitePoolOptions, Pool, Sqlite, Row};
 use crate::pb::{TrafficEvent, traffic_event, SystemMetricsEvent};
-use tracing::{info, warn};
+use tracing::info;
 
 #[derive(Debug, Clone)]
 pub struct Database {
@@ -9,9 +9,16 @@ pub struct Database {
 
 impl Database {
     pub async fn new(database_url: &str) -> Result<Self, sqlx::Error> {
+        use sqlx::sqlite::SqliteConnectOptions;
+        use std::str::FromStr;
+        
+        // Parse the database URL and ensure create_if_missing is set
+        let options = SqliteConnectOptions::from_str(database_url)?
+            .create_if_missing(true);
+        
         let pool = SqlitePoolOptions::new()
             .max_connections(5)
-            .connect(database_url)
+            .connect_with(options)
             .await?;
 
         // Run migrations (path is relative to orchestrator crate root)

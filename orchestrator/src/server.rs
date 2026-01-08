@@ -154,7 +154,7 @@ impl ProxyService for ProxyServiceImpl {
         info!("📊 Agent {} connected for metrics streaming", agent_id);
 
         let mut inbound = request.into_inner();
-        let (tx, rx) = mpsc::channel(10);
+        let (_tx, rx) = mpsc::channel(10);
         
         let metrics_broadcast = self.metrics_broadcast_tx.clone();
         let db = self.db.clone();

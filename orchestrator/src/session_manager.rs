@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use tonic::Status;
 use crate::pb::InterceptCommand;
-use serde::Serialize;
+
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct AgentData {
