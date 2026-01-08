@@ -208,13 +208,18 @@ This implementation plan creates a Rust Cargo workspace for a distributed MITM p
     - [x] Integration Test: Database Operations
 
 - [x] 19. Repeater Engine (Phase 5)
- - [x] Implement  logic,logs,metrics
+ - [x] Implement logic, logs, metrics
  - [x] **Tests**: Replay Integration Test
-  - [ ] Implement `ExecuteRepeater` logic
-  - [ ] Allow re-sending captured requests from Orchestrator/Agent
-  - [ ] Capture and return responses with TLS details
-  - [ ] **Tests**
-    - [ ] Unit Test: Request Replay Logic
+ - [x] Implement `ExecuteRepeater` logic
+ - [x] Allow re-sending captured requests from Orchestrator/Agent
+ - [x] Capture and return responses with TLS details
+ - [x] GraphQL mutation for replay requests
+ - [x] Database methods for request retrieval
+ - [x] **Tests**
+   - [x] Unit Test: Request Replay Logic
+   - [x] Integration Test: End-to-end replay flow
+   - [x] Database retrieval tests
+  - _Requirements: 11.1, 11.2, 11.3_
 
 - [x] 20. Implement System Metrics Collection via gRPC
   - [-] **Update gRPC Protocol for System Metrics**

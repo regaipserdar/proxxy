@@ -181,6 +181,45 @@ impl Database {
         Ok(events)
     }
 
+    pub async fn get_request_by_id(&self, request_id: &str) -> Result<Option<crate::pb::HttpRequestData>, sqlx::Error> {
+        let row = sqlx::query(
+            "SELECT req_method, req_url, req_headers, req_body, tls_info, agent_id FROM http_transactions WHERE request_id = ?"
+        )
+        .bind(request_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        if let Some(row) = row {
+            let method: String = row.get("req_method");
+            let url: String = row.get("req_url");
+            let headers_json: String = row.get("req_headers");
+            let body: Vec<u8> = row.get("req_body");
+            let tls_json: String = row.get("tls_info");
+
+            let headers: Option<crate::pb::HttpHeaders> = serde_json::from_str(&headers_json).ok();
+            let tls: Option<crate::pb::TlsDetails> = serde_json::from_str(&tls_json).ok();
+
+            Ok(Some(crate::pb::HttpRequestData {
+                method,
+                url,
+                headers,
+                body,
+                tls,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub async fn get_agent_id_for_request(&self, request_id: &str) -> Result<Option<String>, sqlx::Error> {
+        let row = sqlx::query("SELECT agent_id FROM http_transactions WHERE request_id = ?")
+            .bind(request_id)
+            .fetch_optional(&self.pool)
+            .await?;
+        
+        Ok(row.map(|r| r.get("agent_id")))
+    }
+
     pub async fn save_system_metrics(&self, metrics_event: &SystemMetricsEvent) -> Result<(), sqlx::Error> {
         if let Some(metrics) = &metrics_event.metrics {
             let network_rx = metrics.network.as_ref().map(|n| n.rx_bytes_total as i64).unwrap_or(0);

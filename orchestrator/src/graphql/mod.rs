@@ -61,6 +61,50 @@ impl MutationRoot {
         // TODO: Implement interception logic
         true
     }
+
+    /// Replay a captured HTTP request
+    async fn replay_request(&self, ctx: &Context<'_>, request_id: String) -> async_graphql::Result<ReplayResult> {
+        use crate::pb::{InterceptCommand, intercept_command, ExecuteRequest};
+        
+        let db = ctx.data::<Arc<Database>>()?;
+        let registry = ctx.data::<Arc<crate::AgentRegistry>>()?;
+        
+        // 1. Get request from database
+        let request_data = db.get_request_by_id(&request_id).await
+            .map_err(|e| async_graphql::Error::new(format!("Database error: {}", e)))?
+            .ok_or_else(|| async_graphql::Error::new("Request not found"))?;
+        
+        // 2. Get agent ID for this request
+        let agent_id = db.get_agent_id_for_request(&request_id).await
+            .map_err(|e| async_graphql::Error::new(format!("Database error: {}", e)))?
+            .ok_or_else(|| async_graphql::Error::new("Agent not found for request"))?;
+        
+        // 3. Get agent command channel
+        let agent_tx = registry.get_agent_tx(&agent_id)
+            .ok_or_else(|| async_graphql::Error::new(format!("Agent {} is not online", agent_id)))?;
+        
+        // 4. Generate new request ID for replay
+        let replay_request_id = format!("{}-replay-{}", request_id, chrono::Utc::now().timestamp());
+        
+        // 5. Send execute command to agent
+        let execute_cmd = InterceptCommand {
+            command: Some(intercept_command::Command::Execute(ExecuteRequest {
+                request_id: replay_request_id.clone(),
+                request: Some(request_data.clone()),
+            }))
+        };
+        
+        agent_tx.send(Ok(execute_cmd)).await
+            .map_err(|e| async_graphql::Error::new(format!("Failed to send command to agent: {}", e)))?;
+        
+        Ok(ReplayResult {
+            success: true,
+            message: format!("Replay request sent to agent {}", agent_id),
+            replay_request_id: Some(replay_request_id),
+            original_url: request_data.url,
+            original_method: request_data.method,
+        })
+    }
 }
 
 pub struct SubscriptionRoot;
@@ -141,6 +185,15 @@ pub struct AgentGql {
     pub status: String,
     pub version: String,
     pub last_heartbeat: String,
+}
+
+#[derive(SimpleObject)]
+pub struct ReplayResult {
+    pub success: bool,
+    pub message: String,
+    pub replay_request_id: Option<String>,
+    pub original_url: String,
+    pub original_method: String,
 }
 
 #[derive(SimpleObject)]
