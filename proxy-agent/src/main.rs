@@ -4,7 +4,7 @@
 //! Communicates with the orchestrator via gRPC and uses proxy-core for traffic handling.
 
 use proxy_core::{ProxyServer, ProxyConfig, ProxyError, CertificateAuthority};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use clap::Parser;
 use tokio;
 use uuid::Uuid;
