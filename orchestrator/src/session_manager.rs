@@ -1,9 +1,8 @@
+use crate::pb::InterceptCommand;
 use dashmap::DashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tonic::Status;
-use crate::pb::InterceptCommand;
-
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct AgentData {
@@ -45,7 +44,7 @@ impl AgentRegistry {
             name,
             hostname,
             address: "127.0.0.1".to_string(), // Placeholder, ideally get from request remote addr
-            port: 9095, // Placeholder, normally sent in registration
+            port: 9095,                       // Placeholder, normally sent in registration
             status: "Online".to_string(),
             last_heartbeat: chrono::Utc::now().to_rfc3339(),
             version: "0.1.0".to_string(),
@@ -60,7 +59,10 @@ impl AgentRegistry {
     }
 
     pub fn list_agents(&self) -> Vec<AgentData> {
-        self.agents.iter().map(|entry| entry.value().clone()).collect()
+        self.agents
+            .iter()
+            .map(|entry| entry.value().clone())
+            .collect()
     }
 
     pub fn remove_agent(&self, id: &str) {

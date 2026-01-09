@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { 
-  initializeGraphQLConnection, 
+import {
+  initializeGraphQLConnection,
   subscribeToConnectionStatus,
   testGraphQLConnection,
-  resetConnection 
+  resetConnection
 } from '../graphql/client';
 import { useConnectionStore } from '../store/connectionStore';
 import { useErrorHandler } from './useErrorHandler';
@@ -24,12 +24,12 @@ export const useGraphQLConnection = () => {
     try {
       setConnectionStatus({ graphql: 'reconnecting' });
       const isConnected = await testGraphQLConnection();
-      
+
       if (isConnected) {
         clearError('graphql');
         clearError('network');
       }
-      
+
       return isConnected;
     } catch (error) {
       handleError(error as Error, 'Connection test failed');
@@ -57,7 +57,7 @@ export const useGraphQLConnection = () => {
       try {
         const status = await initializeGraphQLConnection();
         setConnectionStatus(status);
-        
+
         if (status.graphql === 'connected') {
           clearError('graphql');
           clearError('network');
@@ -85,6 +85,26 @@ export const useGraphQLConnection = () => {
 
     return unsubscribe;
   }, [setConnectionStatus]);
+
+  // Polling for reconnection if disconnected
+  useEffect(() => {
+    let reconnectTimer: ReturnType<typeof setInterval>;
+
+    if (connectionStatus.graphql === 'disconnected' && !isInitializing) {
+      reconnectTimer = setInterval(async () => {
+        console.log('[Auto Reconnect] Attempting to reconnect...');
+        const isConnected = await testConnection();
+        if (isConnected) {
+          // Connection restored!
+          console.log('[Auto Reconnect] Connection restored!');
+        }
+      }, 5000); // Try every 5 seconds
+    }
+
+    return () => {
+      if (reconnectTimer) clearInterval(reconnectTimer);
+    };
+  }, [connectionStatus.graphql, isInitializing]);
 
   return {
     connectionStatus,

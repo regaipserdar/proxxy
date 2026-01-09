@@ -210,8 +210,8 @@ async fn root_handler() -> Json<WelcomeResponse> {
     ];
     
     Json(WelcomeResponse {
-        service: "Distributed MITM Proxy Orchestrator".to_string(),
-        version: "0.1.0".to_string(),
+        service: "Distributed MITM Proxxy Orchestrator".to_string(),
+        version: "0.1.1".to_string(),
         status: "running".to_string(),
         endpoints,
     })

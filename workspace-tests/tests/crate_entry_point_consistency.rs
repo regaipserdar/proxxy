@@ -3,10 +3,10 @@ use std::fs;
 use std::path::Path;
 
 /// Property test for crate entry point consistency
-/// 
+///
 /// **Property 3: Crate Entry Point Consistency**
-/// For any crate in the workspace, library crates should have a `lib.rs` file 
-/// and binary crates should have a `main.rs` file, matching their declared 
+/// For any crate in the workspace, library crates should have a `lib.rs` file
+/// and binary crates should have a `main.rs` file, matching their declared
 /// crate type in Cargo.toml.
 /// **Validates: Requirements 7.4**
 #[cfg(test)]
@@ -26,7 +26,7 @@ mod crate_entry_point_tests {
     fn parse_crate_info(crate_name: &str) -> Result<CrateInfo, String> {
         let cargo_toml_path = format!("../{}/Cargo.toml", crate_name);
         let src_path = format!("../{}/src", crate_name);
-        
+
         if !Path::new(&cargo_toml_path).exists() {
             return Err(format!("Cargo.toml not found for crate: {}", crate_name));
         }
@@ -80,7 +80,7 @@ mod crate_entry_point_tests {
             crate_name in prop::sample::select(vec!["proxy-core", "proxy-agent", "orchestrator", "tauri-app"])
         ) {
             // Feature: distributed-mitm-proxy, Property 3: Crate Entry Point Consistency
-            
+
             let crate_info = match parse_crate_info(&crate_name) {
                 Ok(info) => info,
                 Err(_) => {
@@ -119,23 +119,35 @@ mod crate_entry_point_tests {
     #[test]
     fn test_specific_crate_entry_points() {
         // Unit test to verify specific expected crate configurations
-        
+
         // proxy-core should be a library crate with lib.rs
         if let Ok(proxy_core_info) = parse_crate_info("proxy-core") {
             assert!(proxy_core_info.has_lib_rs, "proxy-core should have lib.rs");
             // proxy-core should be primarily a library
-            assert!(proxy_core_info.has_lib_rs, "proxy-core should be a library crate");
+            assert!(
+                proxy_core_info.has_lib_rs,
+                "proxy-core should be a library crate"
+            );
         }
 
         // proxy-agent should be a binary crate with main.rs
         if let Ok(proxy_agent_info) = parse_crate_info("proxy-agent") {
-            assert!(proxy_agent_info.has_main_rs, "proxy-agent should have main.rs");
+            assert!(
+                proxy_agent_info.has_main_rs,
+                "proxy-agent should have main.rs"
+            );
         }
 
         // orchestrator can be both lib and bin (has both lib.rs and main.rs)
         if let Ok(orchestrator_info) = parse_crate_info("orchestrator") {
-            assert!(orchestrator_info.has_lib_rs, "orchestrator should have lib.rs");
-            assert!(orchestrator_info.has_main_rs, "orchestrator should have main.rs");
+            assert!(
+                orchestrator_info.has_lib_rs,
+                "orchestrator should have lib.rs"
+            );
+            assert!(
+                orchestrator_info.has_main_rs,
+                "orchestrator should have main.rs"
+            );
         }
 
         // tauri-app should be a binary crate with main.rs
@@ -147,7 +159,7 @@ mod crate_entry_point_tests {
     #[test]
     fn test_crate_info_parsing() {
         // Test the parsing logic with mock data
-        
+
         // Test case: Library crate with explicit [lib] section
         let lib_cargo_toml = r#"
 [package]
@@ -161,7 +173,7 @@ path = "src/lib.rs"
 
 [dependencies]
 "#;
-        
+
         // We can't easily test the file parsing without creating actual files,
         // but we can test that our parsing logic handles the content correctly
         assert!(lib_cargo_toml.contains("[lib]"));
@@ -180,7 +192,7 @@ path = "src/main.rs"
 
 [dependencies]
 "#;
-        
+
         assert!(bin_cargo_toml.contains("[[bin]]"));
         assert!(bin_cargo_toml.contains("name = \"test-bin\""));
     }

@@ -1,5 +1,5 @@
 //! Runtime Traffic Policy Configuration
-//! 
+//!
 //! This module defines the dynamic policy structures that can be updated
 //! at runtime via gRPC from the Orchestrator UI.
 
@@ -12,10 +12,10 @@ use std::collections::HashMap;
 pub struct TrafficPolicy {
     /// Scope: Which domains should we log? (To prevent noise)
     pub scope: ScopeConfig,
-    
+
     /// Rules: Blocking, Modification, and Interception rules
     pub interception_rules: Vec<InterceptionRule>,
-    
+
     /// Match & Replace: Automatic text replacement rules
     pub match_replace_rules: Vec<MatchReplaceRule>,
 }
@@ -36,11 +36,11 @@ pub struct ScopeConfig {
     /// Only process these domains (Whitelist)
     /// Examples: ["*.google.com", "api.target.com"]
     pub include: Vec<String>,
-    
+
     /// Ignore these domains (Blacklist)
     /// Examples: ["*.google-analytics.com", "*.facebook.com"]
     pub exclude: Vec<String>,
-    
+
     /// What to do with out-of-scope traffic?
     pub out_of_scope_action: OutOfScopeAction,
 }
@@ -100,10 +100,10 @@ pub struct InterceptionRule {
     pub id: String,
     pub name: String,
     pub enabled: bool,
-    
+
     /// Conditions that must be met for the rule to trigger (AND logic)
     pub conditions: Vec<RuleCondition>,
-    
+
     /// Action to take when conditions are met
     pub action: RuleAction,
 }
@@ -116,7 +116,9 @@ impl InterceptionRule {
         }
 
         // All conditions must match (AND logic)
-        self.conditions.iter().all(|condition| condition.matches(req))
+        self.conditions
+            .iter()
+            .all(|condition| condition.matches(req))
     }
 }
 
@@ -135,22 +137,22 @@ pub struct RequestContext {
 pub enum RuleCondition {
     /// URL contains string (e.g., "/admin")
     UrlContains(String),
-    
+
     /// URL matches regex
     UrlRegex(String),
-    
+
     /// HTTP Method matches (e.g., "POST")
     Method(String),
-    
+
     /// Check if a header exists (e.g., "X-Custom-Token")
     HasHeader(String),
-    
+
     /// Header value matches regex
     HeaderValueMatch { key: String, regex: String },
-    
+
     /// Body contains regex pattern
     BodyRegex(String),
-    
+
     /// Port matches
     Port(u16),
 }
@@ -160,20 +162,19 @@ impl RuleCondition {
     pub fn matches(&self, req: &RequestContext) -> bool {
         match self {
             RuleCondition::UrlContains(s) => req.url.contains(s),
-            RuleCondition::UrlRegex(pattern) => {
-                regex::Regex::new(pattern)
-                    .map(|re| re.is_match(&req.url))
-                    .unwrap_or(false)
-            }
+            RuleCondition::UrlRegex(pattern) => regex::Regex::new(pattern)
+                .map(|re| re.is_match(&req.url))
+                .unwrap_or(false),
             RuleCondition::Method(m) => req.method.eq_ignore_ascii_case(m),
             RuleCondition::HasHeader(key) => req.headers.contains_key(key),
-            RuleCondition::HeaderValueMatch { key, regex: pattern } => {
-                req.headers.get(key).map_or(false, |value| {
-                    regex::Regex::new(pattern)
-                        .map(|re| re.is_match(value))
-                        .unwrap_or(false)
-                })
-            }
+            RuleCondition::HeaderValueMatch {
+                key,
+                regex: pattern,
+            } => req.headers.get(key).map_or(false, |value| {
+                regex::Regex::new(pattern)
+                    .map(|re| re.is_match(value))
+                    .unwrap_or(false)
+            }),
             RuleCondition::BodyRegex(pattern) => {
                 let body_str = String::from_utf8_lossy(&req.body);
                 regex::Regex::new(pattern)
@@ -190,19 +191,19 @@ impl RuleCondition {
 pub enum RuleAction {
     /// Stop the request and present it to the user in the UI for approval (Intercept)
     Pause,
-    
+
     /// Return 403 Forbidden (Block)
     Block { reason: String },
-    
+
     /// Drop the TCP connection with RST packet (Drop - Silent Kill)
     Drop,
-    
+
     /// Delay the request by X milliseconds (Timeout testing)
     Delay(u64),
-    
+
     /// Automatically inject/modify a header
     InjectHeader { key: String, value: String },
-    
+
     /// Modify the request body
     ModifyBody { find: String, replace: String },
 }

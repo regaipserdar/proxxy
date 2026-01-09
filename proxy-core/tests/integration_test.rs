@@ -1,25 +1,25 @@
-use proxy_core::{ProxyServer, ProxyConfig, CertificateAuthority};
-use tempfile::tempdir;
+use proxy_core::{CertificateAuthority, ProxyConfig, ProxyServer};
 use std::time::Duration;
+use tempfile::tempdir;
 use tokio::net::TcpStream;
 
 #[tokio::test]
 async fn test_proxy_server_startup() {
     let dir = tempdir().unwrap();
     let ca = CertificateAuthority::new(dir.path()).unwrap();
-    
+
     // Use a high port to avoid conflicts
     let port = 19090;
-    
+
     let config = ProxyConfig {
         listen_address: "127.0.0.1".to_string(),
         listen_port: port,
         admin_port: 19091,
         ..Default::default()
     };
-    
+
     let server = ProxyServer::new(config.clone(), ca);
-    
+
     // Spawn server in background
     let _handle = tokio::spawn(async move {
         if let Err(e) = server.run().await {
@@ -29,7 +29,7 @@ async fn test_proxy_server_startup() {
 
     // Wait for server to start
     tokio::time::sleep(Duration::from_millis(500)).await;
-    
+
     // Try to connect to the proxy port
     let addr = format!("127.0.0.1:{}", port);
     match TcpStream::connect(&addr).await {

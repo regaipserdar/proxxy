@@ -1,13 +1,12 @@
-use axum::{
-    routing::get,
-    Router,
-    Json,
-};
+use crate::Result;
+use axum::{routing::get, Json, Router};
 use serde::Serialize;
 use std::net::SocketAddr;
-use std::sync::{Arc, atomic::{AtomicU64, Ordering}};
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Arc,
+};
 use tracing::info;
-use crate::Result;
 
 /// Shared state for metrics
 #[derive(Debug, Default)]
@@ -35,10 +34,12 @@ pub async fn start_admin_server(port: u16, metrics: Arc<Metrics>) -> Result<()> 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     info!("Starting Admin API on {}", addr);
 
-    let listener = tokio::net::TcpListener::bind(addr).await
-        .map_err(|e| crate::error::ProxyError::Network(format!("Failed to bind admin port {}: {}", port, e)))?;
+    let listener = tokio::net::TcpListener::bind(addr).await.map_err(|e| {
+        crate::error::ProxyError::Network(format!("Failed to bind admin port {}: {}", port, e))
+    })?;
 
-    axum::serve(listener, app).await
+    axum::serve(listener, app)
+        .await
         .map_err(|e| crate::error::ProxyError::Network(format!("Admin server failed: {}", e)))?;
 
     Ok(())

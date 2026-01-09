@@ -4,10 +4,10 @@ use std::fs;
 use std::path::Path;
 
 /// Property test for workspace dependency consistency
-/// 
+///
 /// **Property 1: Workspace Dependency Consistency**
-/// For any crate in the workspace that uses a shared dependency, 
-/// the dependency should be declared with `workspace = true` to inherit 
+/// For any crate in the workspace that uses a shared dependency,
+/// the dependency should be declared with `workspace = true` to inherit
 /// the version from the root workspace configuration.
 /// **Validates: Requirements 6.2**
 #[cfg(test)]
@@ -42,35 +42,43 @@ mod workspace_dependency_tests {
     fn parse_cargo_toml_dependencies(content: &str) -> HashMap<String, bool> {
         let mut dependencies = HashMap::new();
         let mut in_dependencies_section = false;
-        
+
         for line in content.lines() {
             let line = line.trim();
-            
+
             // Check if we're entering a dependencies section
-            if line == "[dependencies]" || line == "[dev-dependencies]" || line == "[build-dependencies]" {
+            if line == "[dependencies]"
+                || line == "[dev-dependencies]"
+                || line == "[build-dependencies]"
+            {
                 in_dependencies_section = true;
                 continue;
             }
-            
+
             // Check if we're leaving the dependencies section
-            if line.starts_with('[') && line.ends_with(']') && line != "[dependencies]" && line != "[dev-dependencies]" && line != "[build-dependencies]" {
+            if line.starts_with('[')
+                && line.ends_with(']')
+                && line != "[dependencies]"
+                && line != "[dev-dependencies]"
+                && line != "[build-dependencies]"
+            {
                 in_dependencies_section = false;
                 continue;
             }
-            
+
             // Parse dependency lines
             if in_dependencies_section && !line.is_empty() && !line.starts_with('#') {
                 if let Some(eq_pos) = line.find('=') {
                     let dep_name = line[..eq_pos].trim().to_string();
                     let dep_value = line[eq_pos + 1..].trim();
-                    
+
                     // Check if it uses workspace inheritance
                     let uses_workspace = dep_value.contains("workspace = true");
                     dependencies.insert(dep_name, uses_workspace);
                 }
             }
         }
-        
+
         dependencies
     }
 
@@ -80,23 +88,23 @@ mod workspace_dependency_tests {
             crate_name in prop::sample::select(vec!["proxy-core", "proxy-agent", "orchestrator", "tauri-app"])
         ) {
             // Feature: distributed-mitm-proxy, Property 1: Workspace Dependency Consistency
-            
+
             let cargo_toml_path = format!("../{}/Cargo.toml", crate_name);
-            
+
             // Skip test if the crate doesn't exist yet (this allows the test to pass
             // during early development phases)
             if !Path::new(&cargo_toml_path).exists() {
                 return Ok(());
             }
-            
+
             let cargo_toml_content = fs::read_to_string(&cargo_toml_path)
                 .map_err(|e| proptest::test_runner::TestCaseError::fail(
                     format!("Failed to read {}: {}", cargo_toml_path, e)
                 ))?;
-            
+
             let workspace_deps = get_workspace_dependencies();
             let crate_deps = parse_cargo_toml_dependencies(&cargo_toml_content);
-            
+
             // For any dependency that exists in both workspace and crate,
             // the crate should use workspace = true
             for (dep_name, _) in &workspace_deps {
@@ -116,7 +124,7 @@ mod workspace_dependency_tests {
     fn test_workspace_dependency_consistency_unit() {
         // Unit test to verify the property with a concrete example
         let workspace_deps = get_workspace_dependencies();
-        
+
         // Test with a sample Cargo.toml content that should pass
         let good_cargo_toml = r#"
 [package]
@@ -128,13 +136,13 @@ edition.workspace = true
 tokio = { workspace = true }
 serde = { workspace = true }
 "#;
-        
+
         let parsed_deps = parse_cargo_toml_dependencies(good_cargo_toml);
-        
+
         // Verify that tokio and serde are correctly marked as using workspace
         assert!(parsed_deps.get("tokio").copied().unwrap_or(false));
         assert!(parsed_deps.get("serde").copied().unwrap_or(false));
-        
+
         // Test with a sample Cargo.toml content that should fail
         let bad_cargo_toml = r#"
 [package]
@@ -146,9 +154,9 @@ edition.workspace = true
 tokio = "1.0"
 serde = { workspace = true }
 "#;
-        
+
         let parsed_deps_bad = parse_cargo_toml_dependencies(bad_cargo_toml);
-        
+
         // Verify that tokio is NOT marked as using workspace (should fail the property)
         assert!(!parsed_deps_bad.get("tokio").copied().unwrap_or(false));
         assert!(parsed_deps_bad.get("serde").copied().unwrap_or(false));

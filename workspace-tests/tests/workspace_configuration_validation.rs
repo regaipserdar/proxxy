@@ -2,10 +2,10 @@ use std::fs;
 use std::path::Path;
 
 /// Unit tests for workspace configuration validation
-/// 
+///
 /// Tests that validate the workspace structure, crate configurations,
 /// and dependency requirements as specified in the requirements.
-/// 
+///
 /// **Validates: Requirements 1.1, 1.2, 2.1-2.5, 3.1-3.3, 4.1-4.5, 5.1-5.4**
 #[cfg(test)]
 mod workspace_configuration_tests {
@@ -21,16 +21,16 @@ mod workspace_configuration_tests {
             "Root Cargo.toml should exist"
         );
 
-        let cargo_content = fs::read_to_string(root_cargo_path)
-            .expect("Should be able to read root Cargo.toml");
+        let cargo_content =
+            fs::read_to_string(root_cargo_path).expect("Should be able to read root Cargo.toml");
 
         // Expected member crates based on requirements
         let expected_members = vec![
             "proxy-core",
-            "proxy-agent", 
+            "proxy-agent",
             "orchestrator",
-            "UI",  // Note: UI is the actual directory name for tauri-app
-            "workspace-tests"
+            "UI", // Note: UI is the actual directory name for tauri-app
+            "workspace-tests",
         ];
 
         // Verify workspace section exists
@@ -240,11 +240,11 @@ mod workspace_configuration_tests {
 
         // Required dependencies for proxy-core (Requirements 2.2-2.5)
         let required_deps = vec![
-            "hudsucker",  // Requirement 2.2
-            "hyper",      // Requirement 2.3
-            "tower",      // Requirement 2.3
-            "tokio",      // Requirement 2.4
-            "rcgen",      // Requirement 2.5
+            "hudsucker", // Requirement 2.2
+            "hyper",     // Requirement 2.3
+            "tower",     // Requirement 2.3
+            "tokio",     // Requirement 2.4
+            "rcgen",     // Requirement 2.5
         ];
 
         for dep in required_deps {
@@ -253,7 +253,7 @@ mod workspace_configuration_tests {
                 "proxy-core should have {} dependency",
                 dep
             );
-            
+
             // Verify workspace inheritance
             assert!(
                 cargo_content.contains(&format!("{} = {{ workspace = true", dep)),
@@ -264,8 +264,8 @@ mod workspace_configuration_tests {
 
         // Verify tokio has full features (Requirement 2.4)
         assert!(
-            cargo_content.contains("tokio = { workspace = true, features = [\"full\"]") ||
-            cargo_content.contains("tokio = { workspace = true }"), // Features can be inherited from workspace
+            cargo_content.contains("tokio = { workspace = true, features = [\"full\"]")
+                || cargo_content.contains("tokio = { workspace = true }"), // Features can be inherited from workspace
             "proxy-core should have tokio with full features"
         );
     }
@@ -292,10 +292,10 @@ mod workspace_configuration_tests {
 
         // Required dependencies for orchestrator (Requirements 4.2-4.5)
         let required_deps = vec![
-            "tonic",   // Requirement 4.2 - gRPC server functionality
-            "prost",   // Requirement 4.3 - Protocol Buffers
-            "sqlx",    // Requirement 4.4 - SQLite database operations
-            "tokio",   // Requirement 4.5 - async operations
+            "tonic", // Requirement 4.2 - gRPC server functionality
+            "prost", // Requirement 4.3 - Protocol Buffers
+            "sqlx",  // Requirement 4.4 - SQLite database operations
+            "tokio", // Requirement 4.5 - async operations
         ];
 
         for dep in required_deps {
@@ -308,15 +308,16 @@ mod workspace_configuration_tests {
 
         // Verify sqlx has SQLite features (Requirement 4.4)
         assert!(
-            cargo_content.contains("sqlx = { workspace = true, features = [\"runtime-tokio-rustls\", \"sqlite\"]") ||
-            cargo_content.contains("sqlx = { workspace = true }"), // Features can be inherited from workspace
+            cargo_content.contains(
+                "sqlx = { workspace = true, features = [\"runtime-tokio-rustls\", \"sqlite\"]"
+            ) || cargo_content.contains("sqlx = { workspace = true }"), // Features can be inherited from workspace
             "orchestrator should have sqlx with SQLite features"
         );
     }
 
     fn test_tauri_app_dependencies() {
-        let cargo_content = fs::read_to_string("../UI/Cargo.toml")
-            .expect("Should be able to read UI/Cargo.toml");
+        let cargo_content =
+            fs::read_to_string("../UI/Cargo.toml").expect("Should be able to read UI/Cargo.toml");
 
         // Required dependencies for tauri-app (Requirements 5.2-5.4)
         assert!(
@@ -345,8 +346,8 @@ mod workspace_configuration_tests {
     /// **Validates: Requirements 6.1, 6.2**
     #[test]
     fn test_workspace_dependency_definitions() {
-        let root_cargo_content = fs::read_to_string("../Cargo.toml")
-            .expect("Should be able to read root Cargo.toml");
+        let root_cargo_content =
+            fs::read_to_string("../Cargo.toml").expect("Should be able to read root Cargo.toml");
 
         // Verify workspace.dependencies section exists
         assert!(
@@ -393,7 +394,9 @@ mod workspace_configuration_tests {
 
         // Verify sqlx has SQLite features
         assert!(
-            root_cargo_content.contains("sqlx = { version = \"0.7\", features = [\"runtime-tokio-rustls\", \"sqlite\"] }"),
+            root_cargo_content.contains(
+                "sqlx = { version = \"0.7\", features = [\"runtime-tokio-rustls\", \"sqlite\"] }"
+            ),
             "Workspace should define sqlx with SQLite features"
         );
     }
@@ -402,8 +405,8 @@ mod workspace_configuration_tests {
     /// **Validates: Requirements 1.4**
     #[test]
     fn test_workspace_package_configuration() {
-        let root_cargo_content = fs::read_to_string("../Cargo.toml")
-            .expect("Should be able to read root Cargo.toml");
+        let root_cargo_content =
+            fs::read_to_string("../Cargo.toml").expect("Should be able to read root Cargo.toml");
 
         // Verify workspace.package section exists
         assert!(
@@ -436,15 +439,15 @@ mod workspace_configuration_tests {
 
             // Check for workspace inheritance of version and edition
             assert!(
-                cargo_content.contains("version.workspace = true") ||
-                cargo_content.contains("version = \"0.1.0\""), // Direct version is also acceptable
+                cargo_content.contains("version.workspace = true")
+                    || cargo_content.contains("version = \"0.1.0\""), // Direct version is also acceptable
                 "Crate {} should inherit version from workspace or define it directly",
                 crate_name
             );
 
             assert!(
-                cargo_content.contains("edition.workspace = true") ||
-                cargo_content.contains("edition = \"2021\""), // Direct edition is also acceptable
+                cargo_content.contains("edition.workspace = true")
+                    || cargo_content.contains("edition = \"2021\""), // Direct edition is also acceptable
                 "Crate {} should inherit edition from workspace or define it directly",
                 crate_name
             );

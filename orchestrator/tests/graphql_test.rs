@@ -1,6 +1,6 @@
-use orchestrator::{Orchestrator, OrchestratorConfig, LoggingConfig};
-use tokio::time::Duration;
+use orchestrator::{LoggingConfig, Orchestrator, OrchestratorConfig};
 use reqwest::Client;
+use tokio::time::Duration;
 
 #[tokio::test]
 async fn test_graphql_endpoint() {
@@ -11,11 +11,13 @@ async fn test_graphql_endpoint() {
         database_url: "sqlite::memory:".to_string(),
         health_check_interval: 10,
         agent_timeout: 10,
-        logging: LoggingConfig { level: "info".to_string() },
+        logging: LoggingConfig {
+            level: "info".to_string(),
+        },
     };
 
     let orchestrator = Orchestrator::new(config).await.unwrap();
-    
+
     // 2. Spawn Server
     tokio::spawn(async move {
         orchestrator.start().await.unwrap();
@@ -27,8 +29,9 @@ async fn test_graphql_endpoint() {
     // 3. Query GraphQL
     let client = Client::new();
     let query = r#"{"query": "{ hello }"}"#;
-    
-    let res = client.post("http://127.0.0.1:50056/graphql")
+
+    let res = client
+        .post("http://127.0.0.1:50056/graphql")
         .header("Content-Type", "application/json")
         .body(query)
         .send()

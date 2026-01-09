@@ -1,6 +1,6 @@
+use clap::Parser;
 use orchestrator::{Orchestrator, OrchestratorConfig};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use clap::Parser;
 
 /// Proxxy Orchestrator - Central management server for distributed MITM proxy
 #[derive(Parser, Debug)]
@@ -35,11 +35,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "orchestrator=info,proxy_core=info".into())
+                .unwrap_or_else(|_| "orchestrator=info,proxy_core=info".into()),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
-    
+
     // Create configuration
     let config = OrchestratorConfig {
         grpc_port: args.grpc_port,
@@ -49,20 +49,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         agent_timeout: args.agent_timeout,
         logging: orchestrator::LoggingConfig::default(),
     };
-    
+
     // Create and start orchestrator
     let orchestrator = Orchestrator::new(config).await?;
-    
+
     println!("🚀 Orchestrator starting...");
-    println!("📡 gRPC server will be available at: http://127.0.0.1:{}", args.grpc_port);
-    println!("🌐 HTTP API will be available at: http://127.0.0.1:{}", args.http_port);
-    println!("📊 GraphiQL Playground: http://127.0.0.1:{}/graphql", args.http_port);
+    println!(
+        "📡 gRPC server will be available at: http://127.0.0.1:{}",
+        args.grpc_port
+    );
+    println!(
+        "🌐 HTTP API will be available at: http://127.0.0.1:{}",
+        args.http_port
+    );
+    println!(
+        "📊 GraphiQL Playground: http://127.0.0.1:{}/graphql",
+        args.http_port
+    );
     println!("💾 Database: {}", args.database_url);
     println!();
     println!("💡 Tip: Use --help to see all available options");
     println!();
-    
+
     orchestrator.start().await?;
-    
+
     Ok(())
 }

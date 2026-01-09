@@ -17,7 +17,7 @@ impl ScopeMatcher {
     }
 
     /// Check if a host is allowed by the scope configuration
-    /// 
+    ///
     /// Logic:
     /// 1. If block_list matches, return false (explicit deny).
     /// 2. If allow_list is empty, return true (allow all by default).
@@ -65,11 +65,11 @@ mod tests {
         let matcher = ScopeMatcher::new(vec!["*.example.com".to_string()], vec![]);
         assert!(matcher.is_allowed("api.example.com"));
         assert!(!matcher.is_allowed("google.com"));
-        
+
         // Test 4: Mixed
         let matcher = ScopeMatcher::new(
-            vec!["*.google.com".to_string()], 
-            vec!["ads.google.com".to_string()]
+            vec!["*.google.com".to_string()],
+            vec!["ads.google.com".to_string()],
         );
         assert!(matcher.is_allowed("mail.google.com"));
         assert!(!matcher.is_allowed("ads.google.com")); // Block takes precedence

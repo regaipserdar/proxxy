@@ -1,85 +1,48 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useSubscription } from '@apollo/client';
 import { BarChart3, ExternalLink, Cpu, Database, Network, HardDrive } from 'lucide-react';
-import { SystemMetrics } from '../../types/graphql';
+import { GET_CURRENT_SYSTEM_METRICS, SYSTEM_METRICS_UPDATES } from '../../graphql/operations';
 
 interface SystemMetricsOverviewProps {
   isOnline?: boolean;
+  agentId?: string;
 }
 
-// Mock data for development
-const mockMetrics: SystemMetrics = {
-  agentId: 'orchestrator',
-  timestamp: Date.now() / 1000,
-  cpuUsagePercent: 42.5,
-  memoryUsedBytes: '3221225472', // 3GB
-  memoryTotalBytes: '8589934592', // 8GB
-  networkRxBytesPerSec: '2097152', // 2MB/s
-  networkTxBytesPerSec: '1048576', // 1MB/s
-  diskReadBytesPerSec: '4194304', // 4MB/s
-  diskWriteBytesPerSec: '2097152', // 2MB/s
-  processCpuPercent: 15.2,
-  processMemoryBytes: '1073741824', // 1GB
-  processUptimeSeconds: 172800, // 48 hours
-};
-
-export const SystemMetricsOverview: React.FC<SystemMetricsOverviewProps> = ({ isOnline = false }) => {
+export const SystemMetricsOverview: React.FC<SystemMetricsOverviewProps> = ({
+  isOnline = false,
+  agentId = 'orchestrator' // Default to orchestrator metrics
+}) => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [latestMetrics, setLatestMetrics] = useState<SystemMetrics | null>(null);
 
-  // Simulate GraphQL query
-  useEffect(() => {
-    const fetchMetrics = async () => {
-      try {
-        setLoading(true);
-        
-        if (!isOnline) {
-          setLatestMetrics(null);
-          setError(new Error('Orchestrator offline'));
-          return;
-        }
-        
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Simulate some variation in metrics
-        const variationFactor = 0.7 + Math.random() * 0.6; // 0.7 to 1.3
-        setLatestMetrics({
-          ...mockMetrics,
-          cpuUsagePercent: mockMetrics.cpuUsagePercent * variationFactor,
-          networkRxBytesPerSec: (parseInt(mockMetrics.networkRxBytesPerSec) * variationFactor).toString(),
-          networkTxBytesPerSec: (parseInt(mockMetrics.networkTxBytesPerSec) * variationFactor).toString(),
-          timestamp: Date.now() / 1000,
-        });
-        setError(null);
-      } catch (err) {
-        setError(err as Error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // ✅ REAL DATA: Query current metrics
+  const { data, loading, error } = useQuery(GET_CURRENT_SYSTEM_METRICS, {
+    variables: { agentId },
+    skip: !isOnline,
+    pollInterval: 15000, // Poll every 15 seconds
+  });
 
-    fetchMetrics();
-    
-    // Poll every 15 seconds
-    const interval = setInterval(fetchMetrics, 15000);
-    return () => clearInterval(interval);
-  }, [isOnline]);
-  
+  // ✅ REAL DATA: Subscribe to real-time updates
+  const { data: subscriptionData } = useSubscription(SYSTEM_METRICS_UPDATES, {
+    variables: { agentId },
+    skip: !isOnline,
+  });
+
+  // Use subscription data if available, otherwise use query data
+  const latestMetrics = subscriptionData?.systemMetricsUpdates || data?.currentSystemMetrics;
+
   const formatBytes = (bytes: string | undefined) => {
     if (!bytes) return '0 B';
-    const num = parseInt(bytes);
-    const units = ['B', 'KB', 'MB', 'GB'];
+    const num = parseInt(bytes, 10);
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
     let unitIndex = 0;
     let value = num;
-    
+
     while (value >= 1024 && unitIndex < units.length - 1) {
       value /= 1024;
       unitIndex++;
     }
-    
+
     return `${value.toFixed(1)} ${units[unitIndex]}`;
   };
 
@@ -102,12 +65,17 @@ export const SystemMetricsOverview: React.FC<SystemMetricsOverviewProps> = ({ is
     return 'from-emerald-400 to-emerald-500';
   };
 
+  // ✅ REAL DATA: Calculate actual memory percentage
+  const memoryUsagePercent = latestMetrics?.memoryUsedBytes && latestMetrics?.memoryTotalBytes
+    ? (parseInt(latestMetrics.memoryUsedBytes, 10) / parseInt(latestMetrics.memoryTotalBytes, 10)) * 100
+    : 0;
+
   const metrics = [
     {
       id: 'cpu',
       label: 'CPU Usage',
       icon: Cpu,
-      value: isOnline && latestMetrics?.cpuUsagePercent || 0,
+      value: latestMetrics?.cpuUsagePercent || 0,
       unit: '%',
       color: isOnline ? 'text-blue-400' : 'text-gray-400',
     },
@@ -115,18 +83,18 @@ export const SystemMetricsOverview: React.FC<SystemMetricsOverviewProps> = ({ is
       id: 'memory',
       label: 'Memory Usage',
       icon: Database,
-      value: isOnline && latestMetrics?.memoryUsedBytes && latestMetrics?.memoryTotalBytes 
-        ? (parseInt(latestMetrics.memoryUsedBytes) / parseInt(latestMetrics.memoryTotalBytes)) * 100 
-        : 0,
+      value: memoryUsagePercent,
       unit: '%',
       color: isOnline ? 'text-emerald-400' : 'text-gray-400',
-      detail: isOnline && latestMetrics ? `${formatBytes(latestMetrics.memoryUsedBytes)} / ${formatBytes(latestMetrics.memoryTotalBytes)}` : 'N/A',
+      detail: isOnline && latestMetrics
+        ? `${formatBytes(latestMetrics.memoryUsedBytes)} / ${formatBytes(latestMetrics.memoryTotalBytes)}`
+        : 'N/A',
     },
     {
       id: 'network-rx',
       label: 'Network RX',
       icon: Network,
-      value: isOnline && latestMetrics?.networkRxBytesPerSec ? parseInt(latestMetrics.networkRxBytesPerSec) : 0,
+      value: latestMetrics?.networkRxBytesPerSec ? parseInt(latestMetrics.networkRxBytesPerSec, 10) : 0,
       unit: '',
       color: isOnline ? 'text-purple-400' : 'text-gray-400',
       detail: isOnline ? formatBytesPerSec(latestMetrics?.networkRxBytesPerSec) : 'N/A',
@@ -136,7 +104,7 @@ export const SystemMetricsOverview: React.FC<SystemMetricsOverviewProps> = ({ is
       id: 'disk-read',
       label: 'Disk Read',
       icon: HardDrive,
-      value: isOnline && latestMetrics?.diskReadBytesPerSec ? parseInt(latestMetrics.diskReadBytesPerSec) : 0,
+      value: latestMetrics?.diskReadBytesPerSec ? parseInt(latestMetrics.diskReadBytesPerSec, 10) : 0,
       unit: '',
       color: isOnline ? 'text-yellow-400' : 'text-gray-400',
       detail: isOnline ? formatBytesPerSec(latestMetrics?.diskReadBytesPerSec) : 'N/A',
@@ -161,11 +129,10 @@ export const SystemMetricsOverview: React.FC<SystemMetricsOverviewProps> = ({ is
         <button
           onClick={() => navigate('/metrics')}
           disabled={!isOnline}
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all text-sm ${
-            isOnline 
-              ? 'bg-white/5 hover:bg-white/10 text-white/80 hover:text-white' 
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all text-sm ${isOnline
+              ? 'bg-white/5 hover:bg-white/10 text-white/80 hover:text-white'
               : 'bg-white/5 text-white/40 cursor-not-allowed'
-          }`}
+            }`}
         >
           View Details
           <ExternalLink className="h-4 w-4" />
@@ -187,14 +154,14 @@ export const SystemMetricsOverview: React.FC<SystemMetricsOverviewProps> = ({ is
         <div className="text-center py-12">
           <BarChart3 className="h-12 w-12 text-white/20 mx-auto mb-4" />
           <p className="text-white/40 text-sm">Metrics unavailable</p>
-          <p className="text-white/20 text-xs mt-1">Check system connection</p>
+          <p className="text-white/20 text-xs mt-1">{error.message}</p>
         </div>
       ) : (
         <div className="space-y-4">
           {metrics.map((metric) => {
             const Icon = metric.icon;
-            const percentage = metric.isBytes ? 0 : metric.value; // Don't show percentage for byte values
-            
+            const percentage = metric.isBytes ? 0 : metric.value;
+
             return (
               <div key={metric.id} className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -211,10 +178,10 @@ export const SystemMetricsOverview: React.FC<SystemMetricsOverviewProps> = ({ is
                     )}
                   </div>
                 </div>
-                
+
                 {!metric.isBytes && (
                   <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
-                    <div 
+                    <div
                       className={`h-full bg-gradient-to-r ${getUsageBarColor(percentage)} transition-all duration-500`}
                       style={{ width: `${Math.min(percentage, 100)}%` }}
                     />

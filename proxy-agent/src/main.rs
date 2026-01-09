@@ -1,13 +1,13 @@
 //! Proxy Agent Binary Entry Point
 
 use clap::Parser;
-use proxy_agent::{Args, run_agent};
+use proxy_agent::{run_agent, Args};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logging
     tracing_subscriber::fmt::init();
-    
+
     let args = Args::parse();
 
     tokio::select! {
@@ -21,6 +21,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
              tracing::info!("Shutdown signal received, stopping proxy server...");
         }
     }
-    
+
     Ok(())
 }

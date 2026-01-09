@@ -1,76 +1,40 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { useQuery, useSubscription } from '@apollo/client';
 import { Cpu, Database, Zap, MemoryStick } from 'lucide-react';
-import { SystemMetrics } from '../../types/graphql';
+import { GET_CURRENT_SYSTEM_METRICS, SYSTEM_METRICS_UPDATES } from '../../graphql/operations';
 
 interface SystemHealthCardProps {
   isOnline?: boolean;
+  agentId?: string;
 }
 
-// Mock data for development
-const mockMetrics: SystemMetrics = {
-  agentId: 'orchestrator',
-  timestamp: Date.now() / 1000,
-  cpuUsagePercent: 45.2,
-  memoryUsedBytes: '2147483648', // 2GB
-  memoryTotalBytes: '8589934592', // 8GB
-  networkRxBytesPerSec: '1048576', // 1MB/s
-  networkTxBytesPerSec: '524288', // 512KB/s
-  diskReadBytesPerSec: '2097152', // 2MB/s
-  diskWriteBytesPerSec: '1048576', // 1MB/s
-  processCpuPercent: 12.5,
-  processMemoryBytes: '536870912', // 512MB
-  processUptimeSeconds: 86400, // 24 hours
-};
+export const SystemHealthCard: React.FC<SystemHealthCardProps> = ({
+  isOnline = false,
+  agentId = 'orchestrator'
+}) => {
+  // ✅ REAL DATA: Query current metrics
+  const { data, loading, error } = useQuery(GET_CURRENT_SYSTEM_METRICS, {
+    variables: { agentId },
+    skip: !isOnline,
+    pollInterval: 10000, // Poll every 10 seconds
+  });
 
-export const SystemHealthCard: React.FC<SystemHealthCardProps> = ({ isOnline = false }) => {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
+  // ✅ REAL DATA: Subscribe to real-time updates
+  const { data: subscriptionData } = useSubscription(SYSTEM_METRICS_UPDATES, {
+    variables: { agentId },
+    skip: !isOnline,
+  });
 
-  // Simulate GraphQL query
-  useEffect(() => {
-    const fetchMetrics = async () => {
-      try {
-        setLoading(true);
-        
-        if (!isOnline) {
-          setMetrics(null);
-          setError(new Error('Orchestrator offline'));
-          return;
-        }
-        
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Simulate some variation in metrics
-        const variationFactor = 0.8 + Math.random() * 0.4; // 0.8 to 1.2
-        setMetrics({
-          ...mockMetrics,
-          cpuUsagePercent: mockMetrics.cpuUsagePercent * variationFactor,
-          timestamp: Date.now() / 1000,
-        });
-        setError(null);
-      } catch (err) {
-        setError(err as Error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchMetrics();
-    
-    // Poll every 10 seconds
-    const interval = setInterval(fetchMetrics, 10000);
-    return () => clearInterval(interval);
-  }, [isOnline]);
+  // Use subscription data if available, otherwise use query data
+  const metrics = subscriptionData?.systemMetricsUpdates || data?.currentSystemMetrics;
 
   const getHealthStatus = () => {
     if (!isOnline) return { status: 'Offline', color: 'text-red-400' };
     if (loading || error || !metrics) return { status: 'Unknown', color: 'text-gray-400' };
-    
+
     const cpuUsage = metrics.cpuUsagePercent || 0;
-    const memoryUsage = metrics.memoryUsedBytes && metrics.memoryTotalBytes 
-      ? (parseInt(metrics.memoryUsedBytes) / parseInt(metrics.memoryTotalBytes)) * 100 
+    const memoryUsage = metrics.memoryUsedBytes && metrics.memoryTotalBytes
+      ? (parseInt(metrics.memoryUsedBytes, 10) / parseInt(metrics.memoryTotalBytes, 10)) * 100
       : 0;
 
     if (cpuUsage > 80 || memoryUsage > 90) {
@@ -86,16 +50,16 @@ export const SystemHealthCard: React.FC<SystemHealthCardProps> = ({ isOnline = f
 
   const formatBytes = (bytes: string | undefined) => {
     if (!bytes) return '0 B';
-    const num = parseInt(bytes);
-    const units = ['B', 'KB', 'MB', 'GB'];
+    const num = parseInt(bytes, 10);
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
     let unitIndex = 0;
     let value = num;
-    
+
     while (value >= 1024 && unitIndex < units.length - 1) {
       value /= 1024;
       unitIndex++;
     }
-    
+
     return `${value.toFixed(1)} ${units[unitIndex]}`;
   };
 
@@ -163,9 +127,9 @@ export const SystemHealthCard: React.FC<SystemHealthCardProps> = ({ isOnline = f
               <span className="text-sm text-white/60">Uptime</span>
             </div>
             <span className="text-sm font-bold text-white">
-              {!isOnline ? 'N/A' : loading ? '...' : error || !metrics ? 'N/A' : 
-                metrics?.processUptimeSeconds ? 
-                  `${Math.floor(metrics.processUptimeSeconds / 3600)}h ${Math.floor((metrics.processUptimeSeconds % 3600) / 60)}m` : 
+              {!isOnline ? 'N/A' : loading ? '...' : error || !metrics ? 'N/A' :
+                metrics?.processUptimeSeconds ?
+                  `${Math.floor(metrics.processUptimeSeconds / 3600)}h ${Math.floor((metrics.processUptimeSeconds % 3600) / 60)}m` :
                   'N/A'
               }
             </span>
@@ -204,15 +168,15 @@ export const SystemHealthCard: React.FC<SystemHealthCardProps> = ({ isOnline = f
                       <MemoryStick className="h-3 w-3 text-white/40" />
                       <span className="text-xs text-white/60">Memory</span>
                     </div>
-                    <span className={`text-xs font-bold ${getHealthColor((parseInt(metrics.memoryUsedBytes) / parseInt(metrics.memoryTotalBytes)) * 100)}`}>
-                      {((parseInt(metrics.memoryUsedBytes) / parseInt(metrics.memoryTotalBytes)) * 100).toFixed(1)}%
+                    <span className={`text-xs font-bold ${getHealthColor((parseInt(metrics.memoryUsedBytes, 10) / parseInt(metrics.memoryTotalBytes, 10)) * 100)}`}>
+                      {((parseInt(metrics.memoryUsedBytes, 10) / parseInt(metrics.memoryTotalBytes, 10)) * 100).toFixed(1)}%
                     </span>
                   </div>
                   <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
                     <div
-                      className={`h-full bg-gradient-to-r ${getHealthBg((parseInt(metrics.memoryUsedBytes) / parseInt(metrics.memoryTotalBytes)) * 100)} transition-all duration-1000 rounded-full`}
-                      style={{ 
-                        width: `${Math.min((parseInt(metrics.memoryUsedBytes) / parseInt(metrics.memoryTotalBytes)) * 100, 100)}%` 
+                      className={`h-full bg-gradient-to-r ${getHealthBg((parseInt(metrics.memoryUsedBytes, 10) / parseInt(metrics.memoryTotalBytes, 10)) * 100)} transition-all duration-1000 rounded-full`}
+                      style={{
+                        width: `${Math.min((parseInt(metrics.memoryUsedBytes, 10) / parseInt(metrics.memoryTotalBytes, 10)) * 100, 100)}%`
                       }}
                     />
                   </div>

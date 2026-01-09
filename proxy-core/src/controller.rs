@@ -1,7 +1,7 @@
+use crate::pb::InterceptCommand;
 use dashmap::DashMap;
 use tokio::sync::oneshot;
 use tracing::info;
-use crate::pb::InterceptCommand;
 
 use std::sync::Arc;
 

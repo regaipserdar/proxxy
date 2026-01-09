@@ -1,7 +1,7 @@
-import { 
-  ApolloClient, 
-  InMemoryCache, 
-  createHttpLink, 
+import {
+  ApolloClient,
+  InMemoryCache,
+  createHttpLink,
   split,
   from
 } from '@apollo/client';
@@ -44,18 +44,26 @@ const httpLink = createHttpLink({
 // Retry link for failed requests
 const retryLink = new RetryLink({
   delay: {
-    initial: 300,
-    max: Infinity,
+    initial: 1000,
+    max: 5000,
     jitter: true,
   },
   attempts: {
-    max: 3,
+    max: Infinity, // Retry forever
     retryIf: (error, _operation) => {
       // Retry on network errors and 5xx server errors
-      return !!error && (
+      const isNetworkError = !!error && (
         (error as any).networkError?.message?.includes('fetch') ||
-        (error as any).networkError?.statusCode >= 500
+        (error as any).networkError?.statusCode >= 500 ||
+        (error as any).message?.includes('Failed to fetch') ||
+        (error as any).message?.includes('Load failed')
       );
+
+      if (isNetworkError) {
+        console.log('[GraphQL Retry] Retrying request due to network error...');
+      }
+
+      return isNetworkError;
     },
   },
 });
@@ -66,10 +74,12 @@ const wsClient = createClient({
   connectionParams: {
     // Add authentication headers if needed in the future
   },
-  retryAttempts: 10,
+  retryAttempts: Infinity, // Retry forever
   shouldRetry: (errOrCloseEvent) => {
     // Retry on connection errors but not on authentication failures
     if (errOrCloseEvent instanceof CloseEvent) {
+      // 1000: Normal Closure, 1001: Going Away
+      // Retry for everything else
       return errOrCloseEvent.code !== 1000 && errOrCloseEvent.code !== 1001;
     }
     return true;
@@ -100,14 +110,14 @@ const wsLink = new GraphQLWsLink(wsClient);
 // Enhanced error handling link
 const errorLink = onError((errorResponse: any) => {
   const { graphQLErrors, networkError, operation } = errorResponse;
-  
+
   if (graphQLErrors) {
     graphQLErrors.forEach((error: any) => {
       console.error(
         `[GraphQL Error] Message: ${error.message}, Location: ${error.locations}, Path: ${error.path}`,
         { operation: operation.operationName, variables: operation.variables }
       );
-      
+
       // Handle specific GraphQL error types
       if (error.extensions?.code === 'UNAUTHENTICATED') {
         notifyConnectionStatus({ graphql: 'disconnected' });
@@ -120,10 +130,10 @@ const errorLink = onError((errorResponse: any) => {
       operation: operation.operationName,
       variables: operation.variables,
     });
-    
+
     // Update connection status based on network error
     notifyConnectionStatus({ graphql: 'disconnected' });
-    
+
     // Handle specific network errors
     if ('statusCode' in networkError) {
       const statusCode = (networkError as any).statusCode;
@@ -190,18 +200,72 @@ const cache = new InMemoryCache({
     },
     Query: {
       fields: {
+        // OPTIMIZATION: Improved requests list handling
         requests: {
-          merge(existing = [], incoming) {
-            // For traffic updates, prepend new items
-            return [...incoming, ...existing];
+          // CRITICAL: Prevent duplicates during pagination and subscriptions
+          merge(existing = [], incoming, { readField }) {
+            // Create a Map for deduplication
+            const merged = new Map();
+
+            // Add existing items
+            existing.forEach((item: any) => {
+              const id = readField('requestId', item);
+              if (id) merged.set(id, item);
+            });
+
+            // Add/update with incoming items (newer data wins)
+            incoming.forEach((item: any) => {
+              const id = readField('requestId', item);
+              if (id) merged.set(id, item);
+            });
+
+            // Convert back to array, newest first
+            return Array.from(merged.values());
           },
         },
+
+        // Single request detail (no merge needed, always replace)
+        request: {
+          read(existing, { args, toReference }) {
+            // Try to read from cache first
+            if (args?.id) {
+              return toReference({
+                __typename: 'TrafficEventGql',
+                requestId: args.id,
+              });
+            }
+            return existing;
+          },
+        },
+
         systemMetrics: {
           keyArgs: ['agentId'],
-          merge(existing = [], incoming) {
-            // Keep only the latest metrics, limit to prevent memory issues
-            const combined = [...existing, ...incoming];
-            return combined.slice(-100); // Keep last 100 entries
+          merge(existing = [], incoming, { readField }) {
+            // OPTIMIZATION: Deduplicate by agentId + timestamp
+            const merged = new Map();
+
+            existing.forEach((item: any) => {
+              const agentId = readField('agentId', item);
+              const timestamp = readField('timestamp', item);
+              const key = `${agentId}-${timestamp}`;
+              merged.set(key, item);
+            });
+
+            incoming.forEach((item: any) => {
+              const agentId = readField('agentId', item);
+              const timestamp = readField('timestamp', item);
+              const key = `${agentId}-${timestamp}`;
+              merged.set(key, item);
+            });
+
+            // Keep last 100 entries, sorted by timestamp
+            const sorted = Array.from(merged.values()).sort((a: any, b: any) => {
+              const tsA = readField('timestamp', a) as number;
+              const tsB = readField('timestamp', b) as number;
+              return tsB - tsA; // Newest first
+            });
+
+            return sorted.slice(0, 100);
           },
         },
       },
@@ -231,17 +295,17 @@ export const apolloClient = new ApolloClient({
 export const testGraphQLConnection = async (): Promise<boolean> => {
   try {
     notifyConnectionStatus({ graphql: 'reconnecting' });
-    
+
     const { TEST_CONNECTION } = await import('./operations');
     const result = await apolloClient.query({
       query: TEST_CONNECTION,
       fetchPolicy: 'network-only',
       errorPolicy: 'none', // Throw errors for connection testing
     });
-    
+
     const isConnected = !!(result.data && (result.data as any).hello);
     notifyConnectionStatus({ graphql: isConnected ? 'connected' : 'disconnected' });
-    
+
     return isConnected;
   } catch (error) {
     console.error('GraphQL connection test failed:', error);

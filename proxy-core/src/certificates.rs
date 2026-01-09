@@ -15,9 +15,10 @@ impl CertificateManager {
     pub fn new() -> Result<Self> {
         let mut params = CertificateParams::new(vec!["localhost".to_string()]);
         params.distinguished_name = DistinguishedName::new();
-        
-        let root_cert = Certificate::from_params(params)
-            .map_err(|e| ProxyError::Certificate(format!("Failed to create root certificate: {}", e)))?;
+
+        let root_cert = Certificate::from_params(params).map_err(|e| {
+            ProxyError::Certificate(format!("Failed to create root certificate: {}", e))
+        })?;
 
         Ok(Self {
             root_cert,
@@ -30,10 +31,14 @@ impl CertificateManager {
         if !self.generated_certs.contains_key(domain) {
             let mut params = CertificateParams::new(vec![domain.to_string()]);
             params.distinguished_name = DistinguishedName::new();
-            
-            let cert = Certificate::from_params(params)
-                .map_err(|e| ProxyError::Certificate(format!("Failed to create certificate for {}: {}", domain, e)))?;
-            
+
+            let cert = Certificate::from_params(params).map_err(|e| {
+                ProxyError::Certificate(format!(
+                    "Failed to create certificate for {}: {}",
+                    domain, e
+                ))
+            })?;
+
             self.generated_certs.insert(domain.to_string(), cert);
         }
 
