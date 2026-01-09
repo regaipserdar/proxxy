@@ -1,5 +1,5 @@
-use sqlx::{sqlite::SqlitePoolOptions, Pool, Sqlite, Row};
-use crate::pb::{TrafficEvent, traffic_event, SystemMetricsEvent};
+use crate::pb::{traffic_event, SystemMetricsEvent, TrafficEvent};
+use sqlx::{sqlite::SqlitePoolOptions, Pool, Row, Sqlite};
 use tracing::info;
 
 #[derive(Debug, Clone)]
@@ -11,20 +11,23 @@ impl Database {
     pub async fn new(database_url: &str) -> Result<Self, sqlx::Error> {
         use sqlx::sqlite::SqliteConnectOptions;
         use std::str::FromStr;
-        
+
         // Parse the database URL and ensure create_if_missing is set
-        let options = SqliteConnectOptions::from_str(database_url)?
-            .create_if_missing(true);
-        
+        let options = SqliteConnectOptions::from_str(database_url)?.create_if_missing(true);
+
         let pool = SqlitePoolOptions::new()
             .max_connections(5)
             .connect_with(options)
             .await?;
 
-        // Run migrations (path is relative to orchestrator crate root)
-        sqlx::migrate!("./migrations")
-            .run(&pool)
+        sqlx::query("PRAGMA journal_mode=WAL")
+            .execute(&pool)
             .await?;
+        sqlx::query("PRAGMA synchronous=NORMAL")
+            .execute(&pool)
+            .await?;
+
+        sqlx::migrate!("./migrations").run(&pool).await?;
 
         info!("✓ Database initialized and migrated at {}", database_url);
         Ok(Self { pool })
@@ -34,7 +37,13 @@ impl Database {
         &self.pool
     }
 
-    pub async fn upsert_agent(&self, id: &str, name: &str, hostname: &str, version: &str) -> Result<(), sqlx::Error> {
+    pub async fn upsert_agent(
+        &self,
+        id: &str,
+        name: &str,
+        hostname: &str,
+        version: &str,
+    ) -> Result<(), sqlx::Error> {
         let timestamp = chrono::Utc::now().timestamp();
         sqlx::query(
             r#"
@@ -46,7 +55,7 @@ impl Database {
                 version = excluded.version,
                 status = 'Online',
                 last_heartbeat = excluded.last_heartbeat
-            "#
+            "#,
         )
         .bind(id)
         .bind(name)
@@ -63,7 +72,7 @@ impl Database {
             .bind(agent_id)
             .fetch_optional(&self.pool)
             .await?;
-        
+
         Ok(row.map(|r| r.get("name")))
     }
 
@@ -74,7 +83,7 @@ impl Database {
             UPDATE agents 
             SET status = 'Offline', last_heartbeat = ?
             WHERE id = ?
-            "#
+            "#,
         )
         .bind(timestamp)
         .bind(agent_id)
@@ -83,7 +92,11 @@ impl Database {
         Ok(())
     }
 
-    pub async fn save_request(&self, event: &TrafficEvent, agent_id: &str) -> Result<(), sqlx::Error> {
+    pub async fn save_request(
+        &self,
+        event: &TrafficEvent,
+        agent_id: &str,
+    ) -> Result<(), sqlx::Error> {
         match &event.event {
             Some(traffic_event::Event::Request(req)) => {
                 let headers_json = serde_json::to_string(&req.headers).unwrap_or_default();
@@ -108,7 +121,7 @@ impl Database {
                 .bind(tls_json)
                 .execute(&self.pool)
                 .await?;
-            },
+            }
             Some(traffic_event::Event::Response(res)) => {
                 let headers_json = serde_json::to_string(&res.headers).unwrap_or_default();
                 let timestamp = chrono::Utc::now().timestamp();
@@ -121,7 +134,7 @@ impl Database {
                         res_body = ?,
                         res_timestamp = ?
                     WHERE request_id = ?
-                    "#
+                    "#,
                 )
                 .bind(res.status_code)
                 .bind(headers_json)
@@ -130,7 +143,7 @@ impl Database {
                 .bind(&event.request_id)
                 .execute(&self.pool)
                 .await?;
-            },
+            }
             _ => {
                 // Ignore other events for DB (WebSocket, etc. for now)
             }
@@ -145,9 +158,9 @@ impl Database {
         // Or we just return the Request part for list view?
         // For simplicity, let's return TrafficEvents as Requests, and maybe we need a separate query/struct for full method.
         // But the current UI expects TrafficEvent.
-        
+
         // Let's modify the query to return Request events.
-        
+
         let rows = sqlx::query(
             "SELECT request_id, req_method, req_url, req_headers, req_body, tls_info FROM http_transactions ORDER BY req_timestamp DESC LIMIT ?"
         )
@@ -181,7 +194,10 @@ impl Database {
         Ok(events)
     }
 
-    pub async fn get_request_by_id(&self, request_id: &str) -> Result<Option<crate::pb::HttpRequestData>, sqlx::Error> {
+    pub async fn get_request_by_id(
+        &self,
+        request_id: &str,
+    ) -> Result<Option<crate::pb::HttpRequestData>, sqlx::Error> {
         let row = sqlx::query(
             "SELECT req_method, req_url, req_headers, req_body, tls_info, agent_id FROM http_transactions WHERE request_id = ?"
         )
@@ -211,34 +227,100 @@ impl Database {
         }
     }
 
-    pub async fn get_agent_id_for_request(&self, request_id: &str) -> Result<Option<String>, sqlx::Error> {
+    pub async fn get_agent_id_for_request(
+        &self,
+        request_id: &str,
+    ) -> Result<Option<String>, sqlx::Error> {
         let row = sqlx::query("SELECT agent_id FROM http_transactions WHERE request_id = ?")
             .bind(request_id)
             .fetch_optional(&self.pool)
             .await?;
-        
+
         Ok(row.map(|r| r.get("agent_id")))
     }
 
-    pub async fn save_system_metrics(&self, metrics_event: &SystemMetricsEvent) -> Result<(), sqlx::Error> {
+    pub async fn save_system_metrics(
+        &self,
+        metrics_event: &SystemMetricsEvent,
+    ) -> Result<(), sqlx::Error> {
         if let Some(metrics) = &metrics_event.metrics {
-            let network_rx = metrics.network.as_ref().map(|n| n.rx_bytes_total as i64).unwrap_or(0);
-            let network_tx = metrics.network.as_ref().map(|n| n.tx_bytes_total as i64).unwrap_or(0);
-            let network_rx_rate = metrics.network.as_ref().map(|n| n.rx_bytes_per_sec as i64).unwrap_or(0);
-            let network_tx_rate = metrics.network.as_ref().map(|n| n.tx_bytes_per_sec as i64).unwrap_or(0);
-            
-            let disk_read = metrics.disk.as_ref().map(|d| d.read_bytes_total as i64).unwrap_or(0);
-            let disk_write = metrics.disk.as_ref().map(|d| d.write_bytes_total as i64).unwrap_or(0);
-            let disk_read_rate = metrics.disk.as_ref().map(|d| d.read_bytes_per_sec as i64).unwrap_or(0);
-            let disk_write_rate = metrics.disk.as_ref().map(|d| d.write_bytes_per_sec as i64).unwrap_or(0);
-            let disk_available = metrics.disk.as_ref().map(|d| d.available_bytes as i64).unwrap_or(0);
-            let disk_total = metrics.disk.as_ref().map(|d| d.total_bytes as i64).unwrap_or(0);
-            
-            let process_cpu = metrics.process.as_ref().map(|p| p.cpu_usage_percent).unwrap_or(0.0);
-            let process_memory = metrics.process.as_ref().map(|p| p.memory_bytes as i64).unwrap_or(0);
-            let process_uptime = metrics.process.as_ref().map(|p| p.uptime_seconds as i64).unwrap_or(0);
-            let process_threads = metrics.process.as_ref().map(|p| p.thread_count as i64).unwrap_or(0);
-            let process_fds = metrics.process.as_ref().map(|p| p.file_descriptor_count as i64).unwrap_or(0);
+            let network_rx = metrics
+                .network
+                .as_ref()
+                .map(|n| n.rx_bytes_total as i64)
+                .unwrap_or(0);
+            let network_tx = metrics
+                .network
+                .as_ref()
+                .map(|n| n.tx_bytes_total as i64)
+                .unwrap_or(0);
+            let network_rx_rate = metrics
+                .network
+                .as_ref()
+                .map(|n| n.rx_bytes_per_sec as i64)
+                .unwrap_or(0);
+            let network_tx_rate = metrics
+                .network
+                .as_ref()
+                .map(|n| n.tx_bytes_per_sec as i64)
+                .unwrap_or(0);
+
+            let disk_read = metrics
+                .disk
+                .as_ref()
+                .map(|d| d.read_bytes_total as i64)
+                .unwrap_or(0);
+            let disk_write = metrics
+                .disk
+                .as_ref()
+                .map(|d| d.write_bytes_total as i64)
+                .unwrap_or(0);
+            let disk_read_rate = metrics
+                .disk
+                .as_ref()
+                .map(|d| d.read_bytes_per_sec as i64)
+                .unwrap_or(0);
+            let disk_write_rate = metrics
+                .disk
+                .as_ref()
+                .map(|d| d.write_bytes_per_sec as i64)
+                .unwrap_or(0);
+            let disk_available = metrics
+                .disk
+                .as_ref()
+                .map(|d| d.available_bytes as i64)
+                .unwrap_or(0);
+            let disk_total = metrics
+                .disk
+                .as_ref()
+                .map(|d| d.total_bytes as i64)
+                .unwrap_or(0);
+
+            let process_cpu = metrics
+                .process
+                .as_ref()
+                .map(|p| p.cpu_usage_percent)
+                .unwrap_or(0.0);
+            let process_memory = metrics
+                .process
+                .as_ref()
+                .map(|p| p.memory_bytes as i64)
+                .unwrap_or(0);
+            let process_uptime = metrics
+                .process
+                .as_ref()
+                .map(|p| p.uptime_seconds as i64)
+                .unwrap_or(0);
+            let process_threads = metrics
+                .process
+                .as_ref()
+                .map(|p| p.thread_count as i64)
+                .unwrap_or(0);
+            let process_fds = metrics
+                .process
+                .as_ref()
+                .map(|p| p.file_descriptor_count as i64)
+                .unwrap_or(0);
 
             sqlx::query(
                 r#"
@@ -279,7 +361,11 @@ impl Database {
         Ok(())
     }
 
-    pub async fn get_recent_system_metrics(&self, agent_id: Option<&str>, limit: i64) -> Result<Vec<SystemMetricsEvent>, sqlx::Error> {
+    pub async fn get_recent_system_metrics(
+        &self,
+        agent_id: Option<&str>,
+        limit: i64,
+    ) -> Result<Vec<SystemMetricsEvent>, sqlx::Error> {
         let query = if let Some(agent_id) = agent_id {
             sqlx::query(
                 r#"
@@ -323,19 +409,19 @@ impl Database {
             let cpu_usage_percent: f32 = row.get("cpu_usage_percent");
             let memory_used_bytes: i64 = row.get("memory_used_bytes");
             let memory_total_bytes: i64 = row.get("memory_total_bytes");
-            
+
             let network_rx_bytes: i64 = row.get("network_rx_bytes");
             let network_tx_bytes: i64 = row.get("network_tx_bytes");
             let network_rx_bytes_per_sec: i64 = row.get("network_rx_bytes_per_sec");
             let network_tx_bytes_per_sec: i64 = row.get("network_tx_bytes_per_sec");
-            
+
             let disk_read_bytes: i64 = row.get("disk_read_bytes");
             let disk_write_bytes: i64 = row.get("disk_write_bytes");
             let disk_read_bytes_per_sec: i64 = row.get("disk_read_bytes_per_sec");
             let disk_write_bytes_per_sec: i64 = row.get("disk_write_bytes_per_sec");
             let disk_available_bytes: i64 = row.get("disk_available_bytes");
             let disk_total_bytes: i64 = row.get("disk_total_bytes");
-            
+
             let process_cpu_percent: f32 = row.get("process_cpu_percent");
             let process_memory_bytes: i64 = row.get("process_memory_bytes");
             let process_uptime_seconds: i64 = row.get("process_uptime_seconds");

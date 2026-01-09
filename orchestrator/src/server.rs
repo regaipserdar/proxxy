@@ -1,11 +1,14 @@
 use crate::pb::proxy_service_server::ProxyService;
-use crate::pb::{RegisterAgentRequest, RegisterAgentResponse, TrafficEvent, InterceptCommand, SystemMetricsEvent, MetricsCommand};
+use crate::pb::{
+    InterceptCommand, MetricsCommand, RegisterAgentRequest, RegisterAgentResponse,
+    SystemMetricsEvent, TrafficEvent,
+};
 use crate::AgentRegistry;
-use tokio::sync::{mpsc, broadcast};
+use std::sync::Arc;
+use tokio::sync::{broadcast, mpsc};
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status, Streaming};
-use tracing::{info, warn, error, debug};
-use std::sync::Arc;
+use tracing::{debug, error, info, warn};
 
 use crate::Database;
 
@@ -27,7 +30,13 @@ impl ProxyServiceImpl {
         db: Arc<Database>,
         ca: Arc<CertificateAuthority>,
     ) -> Self {
-        Self { agent_registry, broadcast_tx, metrics_broadcast_tx, db, ca }
+        Self {
+            agent_registry,
+            broadcast_tx,
+            metrics_broadcast_tx,
+            db,
+            ca,
+        }
     }
 }
 
@@ -39,28 +48,35 @@ impl ProxyService for ProxyServiceImpl {
     ) -> Result<Response<RegisterAgentResponse>, Status> {
         let req = request.into_inner();
         let agent_id = req.agent_id.clone();
-        
+
         info!("🔌 Agent registration request:");
         info!("   • ID: {}", agent_id);
         info!("   • Name: {}", req.name);
         info!("   • Hostname: {}", req.hostname);
         info!("   • Version: {}", req.version);
-        
+
         // In the future, we might validation auth tokens here.
-        
+
         // Upsert agent to database
-        if let Err(e) = self.db.upsert_agent(&agent_id, &req.name, &req.hostname, &req.version).await {
+        if let Err(e) = self
+            .db
+            .upsert_agent(&agent_id, &req.name, &req.hostname, &req.version)
+            .await
+        {
             error!("   ✗ Failed to upsert agent to DB: {}", e);
         } else {
             info!("   ✓ Agent saved to database");
         }
-        
+
         // Read CA cert/key to send back to agent
         let ca_cert_pem = self.ca.get_ca_cert_pem().unwrap_or_default();
         let ca_key_pem = self.ca.get_ca_key_pem().unwrap_or_default();
 
-        info!("   ✓ Sending CA credentials (cert: {} bytes, key: {} bytes)", 
-            ca_cert_pem.len(), ca_key_pem.len());
+        info!(
+            "   ✓ Sending CA credentials (cert: {} bytes, key: {} bytes)",
+            ca_cert_pem.len(),
+            ca_key_pem.len()
+        );
 
         Ok(Response::new(RegisterAgentResponse {
             success: true,
@@ -88,26 +104,27 @@ impl ProxyService for ProxyServiceImpl {
 
         let mut inbound = request.into_inner();
         let (tx, rx) = mpsc::channel(100);
-        
+
         // Register the command channel
         let agent_name = match self.db.get_agent_name(&agent_id).await {
             Ok(Some(n)) => {
                 info!("   ✓ Found agent name in DB: {}", n);
                 n
-            },
+            }
             Ok(None) => {
                 warn!("   ⚠️  Agent {} not found in DB, using 'Unknown'", agent_id);
                 "Unknown".to_string()
-            },
+            }
             Err(e) => {
                 warn!("   ✗ Failed to fetch agent name: {}", e);
                 "Unknown".to_string()
             }
         };
-        
-        self.agent_registry.register_agent(agent_id.clone(), agent_name, "unknown".to_string(), tx);
+
+        self.agent_registry
+            .register_agent(agent_id.clone(), agent_name, "unknown".to_string(), tx);
         info!("   ✓ Agent registered in session manager");
-        
+
         let broadcast = self.broadcast_tx.clone();
         let db = self.db.clone();
         let agent_id_cl = agent_id.clone();
@@ -118,29 +135,41 @@ impl ProxyService for ProxyServiceImpl {
             let mut event_count = 0;
             while let Ok(Some(event)) = inbound.message().await {
                 event_count += 1;
-                info!("📦 Traffic event #{} from {}: {:?}", event_count, agent_id_cl, event.request_id);
-                
-                // 1. Save to DB
-                if let Err(e) = db.save_request(&event, &agent_id_cl).await {
-                    error!("   ✗ Failed to save to DB: {}", e);
-                } else {
-                    info!("   ✓ Saved to database");
-                }
+                info!(
+                    "📦 Traffic event #{} from {}: {:?}",
+                    event_count, agent_id_cl, event.request_id
+                );
 
-                // 2. Broadcast event to UI/Subscribers
-                if let Err(e) = broadcast.send(event) {
+                // 1. Broadcast event to UI/Subscribers (fast path)
+                if let Err(e) = broadcast.send(event.clone()) {
                     warn!("   ⚠️  Failed to broadcast event: {}", e);
                 }
+
+                // 2. Save to DB asynchronously (background task)
+                let db_bg = db.clone();
+                let event_bg = event.clone();
+                let agent_id_bg = agent_id_cl.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = db_bg.save_request(&event_bg, &agent_id_bg).await {
+                        error!("   ✗ Failed to save to DB: {}", e);
+                    }
+                });
             }
-            info!("🔌 Agent {} stream ended (processed {} events)", agent_id_cl, event_count);
-            
+            info!(
+                "🔌 Agent {} stream ended (processed {} events)",
+                agent_id_cl, event_count
+            );
+
             // Mark agent as offline in database
             if let Err(e) = db.mark_agent_offline(&agent_id_cl).await {
-                error!("   ✗ Failed to mark agent {} as offline: {}", agent_id_cl, e);
+                error!(
+                    "   ✗ Failed to mark agent {} as offline: {}",
+                    agent_id_cl, e
+                );
             } else {
                 info!("   ✓ Agent {} marked as offline in database", agent_id_cl);
             }
-            
+
             // Remove agent from registry
             registry.remove_agent(&agent_id_cl);
             info!("   ✓ Agent {} removed from session registry", agent_id_cl);
@@ -167,7 +196,7 @@ impl ProxyService for ProxyServiceImpl {
 
         let mut inbound = request.into_inner();
         let (_tx, rx) = mpsc::channel(10);
-        
+
         let metrics_broadcast = self.metrics_broadcast_tx.clone();
         let db = self.db.clone();
         let agent_id_cl = agent_id.clone();
@@ -178,12 +207,22 @@ impl ProxyService for ProxyServiceImpl {
             let mut metrics_count = 0;
             while let Ok(Some(metrics_event)) = inbound.message().await {
                 metrics_count += 1;
-                debug!("📊 Metrics event #{} from {}: CPU: {:.2}%, Memory: {} MB", 
-                       metrics_count, 
-                       agent_id_cl,
-                       metrics_event.metrics.as_ref().map(|m| m.cpu_usage_percent).unwrap_or(0.0),
-                       metrics_event.metrics.as_ref().map(|m| m.memory_used_bytes / 1024 / 1024).unwrap_or(0));
-                
+                debug!(
+                    "📊 Metrics event #{} from {}: CPU: {:.2}%, Memory: {} MB",
+                    metrics_count,
+                    agent_id_cl,
+                    metrics_event
+                        .metrics
+                        .as_ref()
+                        .map(|m| m.cpu_usage_percent)
+                        .unwrap_or(0.0),
+                    metrics_event
+                        .metrics
+                        .as_ref()
+                        .map(|m| m.memory_used_bytes / 1024 / 1024)
+                        .unwrap_or(0)
+                );
+
                 // 1. Save to DB
                 if let Err(e) = db.save_system_metrics(&metrics_event).await {
                     error!("   ✗ Failed to save metrics to DB: {}", e);
@@ -196,16 +235,25 @@ impl ProxyService for ProxyServiceImpl {
                     warn!("   ⚠️  Failed to broadcast metrics: {}", e);
                 }
             }
-            info!("📊 Agent {} metrics stream ended (processed {} metrics)", agent_id_cl, metrics_count);
-            
+            info!(
+                "📊 Agent {} metrics stream ended (processed {} metrics)",
+                agent_id_cl, metrics_count
+            );
+
             // Mark agent as offline in database (if not already marked by traffic stream)
             if let Err(e) = db.mark_agent_offline(&agent_id_cl).await {
                 // This might fail if already marked offline by traffic stream, which is fine
-                debug!("   ℹ️  Could not mark agent {} as offline: {}", agent_id_cl, e);
+                debug!(
+                    "   ℹ️  Could not mark agent {} as offline: {}",
+                    agent_id_cl, e
+                );
             } else {
-                info!("   ✓ Agent {} marked as offline (metrics stream ended)", agent_id_cl);
+                info!(
+                    "   ✓ Agent {} marked as offline (metrics stream ended)",
+                    agent_id_cl
+                );
             }
-            
+
             // Remove agent from registry (if not already removed)
             registry.remove_agent(&agent_id_cl);
         });
