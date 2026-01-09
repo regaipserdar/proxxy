@@ -5,7 +5,8 @@ members = [
     "proxy-agent", 
     "orchestrator",
     "proxxy-gui/src-tauri",
-    "workspace-tests"
+    "workspace-tests",
+    "test-server"
 ]
 
 [workspace.package]

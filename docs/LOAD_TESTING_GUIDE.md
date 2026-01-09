@@ -56,7 +56,18 @@ curl http://127.0.0.1:8000/test
 # Static file (if needed)
 curl http://127.0.0.1:8000/test.json
 ```
+```bash
+rooter@rooterbyte ~/Documents/proxxy (gui-development*) $ sudo lsof -i :8000
+Password:
+COMMAND   PID   USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+Python  55954 rooter    4u  IPv6 0xbd5d901a5682dff5      0t0  TCP *:irdmi (LISTEN)
+rooter@rooterbyte ~/Documents/proxxy (gui-development*) $ kill -9 55954
+rooter@rooterbyte ~/Documents/proxxy (gui-development*) $ sudo lsof -i :8000
 
+pkill orchestrator
+pkill proxy-agent
+pkill test-server
+```
 ## Basic Load Tests
 
 ### Test 1: Direct Server (Baseline)
