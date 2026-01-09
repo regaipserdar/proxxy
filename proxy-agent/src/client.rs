@@ -351,7 +351,7 @@ mod tests {
 
         // 3. Start Agent
         let (_log_tx, log_rx) = mpsc::channel(1); // Fake log channel input
-        let client = OrchestratorClient::new("http://[::1]:50099".to_string(), "test-agent".to_string());
+        let client = OrchestratorClient::new("http://[::1]:50099".to_string(), "test-agent".to_string(), "test-name".to_string());
         
         tokio::spawn(async move {
             client.run(log_rx).await;
@@ -393,7 +393,12 @@ mod tests {
     #[tonic::async_trait]
     impl ProxyService for TestProxy {
         async fn register_agent(&self, _req: Request<RegisterAgentRequest>) -> Result<Response<RegisterAgentResponse>, Status> {
-             Ok(Response::new(RegisterAgentResponse { success: true, message: "".into() }))
+             Ok(Response::new(RegisterAgentResponse { 
+                 success: true, 
+                 message: "".into(),
+                 ca_cert_pem: "cert".into(),
+                 ca_key_pem: "key".into()
+             }))
         }
         
         type StreamTrafficStream = ReceiverStream<Result<InterceptCommand, Status>>;
@@ -415,6 +420,13 @@ mod tests {
             } else {
                 Err(Status::aborted("Only one test connection allowed"))
             }
+        }
+
+        type StreamMetricsStream = ReceiverStream<Result<MetricsCommand, Status>>;
+
+        async fn stream_metrics(&self, _req: Request<Streaming<SystemMetricsEvent>>) -> Result<Response<Self::StreamMetricsStream>, Status> {
+            let (_, rx) = mpsc::channel(1);
+            Ok(Response::new(ReceiverStream::new(rx)))
         }
     }
 }

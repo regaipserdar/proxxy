@@ -32,9 +32,10 @@ async fn test_orchestrator_grpc_flow() {
     // 3. Register Agent
     let req = tonic::Request::new(RegisterAgentRequest {
         agent_id: "test-agent-1".to_string(),
-        hostname: "test-host".to_string(),
-        version: "0.1.0".to_string(),
-    });
+            hostname: "localhost".to_string(),
+            version: "0.1.0".to_string(),
+            name: "test-agent".to_string(),
+        });
     
     let resp = client.register_agent(req).await.expect("Registration failed");
     assert!(resp.into_inner().success, "Registration should return success");

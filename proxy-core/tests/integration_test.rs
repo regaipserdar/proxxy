@@ -14,6 +14,7 @@ async fn test_proxy_server_startup() {
     let config = ProxyConfig {
         listen_address: "127.0.0.1".to_string(),
         listen_port: port,
+        admin_port: 19091,
         ..Default::default()
     };
     
