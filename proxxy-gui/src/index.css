@@ -1,8 +1,63 @@
 @import "tailwindcss";
+@import "reactflow/dist/style.css";
+
+@theme {
+    --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --color-bg-main: #17181C;
+    --color-accent-blue: #9DCDE8;
+}
 
 body {
-    background-color: #0A0E14;
-    color: white;
+    background-color: var(--color-bg-main);
+    color: #fafafa;
     margin: 0;
-    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family: var(--font-sans);
+    overflow: hidden;
+}
+
+#root {
+    height: 100vh;
+    width: 100vw;
+}
+
+.dotted-bg {
+    background-color: var(--color-bg-main) !important;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+    background-size: 20px 20px;
+}
+
+/* ReactFlow Overrides */
+.react-flow__pane {
+    background-color: var(--color-bg-main) !important;
+}
+
+.react-flow__handle {
+    width: 8px !important;
+    height: 8px !important;
+    background: var(--color-accent-blue) !important;
+    border: 2px solid var(--color-bg-main) !important;
+    border-radius: 50% !important;
+}
+
+.react-flow__edge-path {
+    stroke-width: 2.5;
+    stroke-opacity: 0.6;
+}
+
+.react-flow__attribution {
+    display: none !important;
+}
+
+::-webkit-scrollbar {
+    width: 4px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
 }

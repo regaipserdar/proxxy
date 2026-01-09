@@ -72,7 +72,7 @@ export function TrafficTable() {
                             </td>
                         </tr>
                     ) : (
-                        traffic.transactions.map((tx) => {
+                        traffic.transactions.map((tx: any) => {
                             const { host, path } = parseUrl(tx.url);
                             return (
                                 <tr key={tx.request_id} className="border-b border-white/5 hover:bg-white/5 cursor-pointer">

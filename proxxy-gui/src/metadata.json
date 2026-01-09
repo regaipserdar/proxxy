@@ -1,0 +1,8 @@
+{
+  "name": "Proxxy - AI Workflow Designer",
+  "description": "A high-fidelity AI workflow design tool featuring interactive node-based logic, real-time code generation, and debug monitoring.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
