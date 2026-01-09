@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useQuery } from '@apollo/client';
 import { Search, Server } from 'lucide-react';
-import { GET_AGENTS } from '../graphql/operations';
-import { Agent } from '../types/graphql';
-import { AgentCard } from './AgentCard';
+import { GET_AGENTS } from '@/graphql/operations';
+import { Agent } from '@/types/graphql';
+import { AgentCard } from '@/components/AgentCard';
 
 export const AgentsView = () => {
     const [searchTerm, setSearchTerm] = useState('');

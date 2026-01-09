@@ -5,7 +5,7 @@ import {
   Settings,
   FolderOpen, Zap
 } from 'lucide-react';
-import { ScopeRule, Project } from '../types';
+import { ScopeRule, Project } from '@/types';
 
 export const ScopeManager = () => {
   const [projects] = useState<Project[]>([
@@ -43,8 +43,8 @@ export const ScopeManager = () => {
               key={project.id}
               onClick={() => setActiveProjectId(project.id)}
               className={`w-full group px-4 py-3 rounded-xl flex items-center gap-4 transition-all border ${activeProjectId === project.id
-                  ? 'bg-[#9DCDE8]/10 border-[#9DCDE8]/20 text-[#9DCDE8] shadow-[0_0_20px_rgba(157,205,232,0.1)]'
-                  : 'border-transparent text-white/30 hover:bg-white/5 hover:text-white/60'
+                ? 'bg-[#9DCDE8]/10 border-[#9DCDE8]/20 text-[#9DCDE8] shadow-[0_0_20px_rgba(157,205,232,0.1)]'
+                : 'border-transparent text-white/30 hover:bg-white/5 hover:text-white/60'
                 }`}
             >
               <div className={`w-2 h-2 rounded-full ${project.status === 'active' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-white/10'

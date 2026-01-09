@@ -156,11 +156,65 @@ export const GET_AGENT_DETAILS = gql`
       lastHeartbeat
     }
     currentSystemMetrics(agentId: $agentId) {
+      agentId      # ✅ Required for Apollo Cache keyFields
+      timestamp    # ✅ Required for Apollo Cache keyFields
       cpuUsagePercent
       memoryUsedBytes
       memoryTotalBytes
       processCpuPercent
       processMemoryBytes
+    }
+  }
+`;
+
+// ============================================================================
+// QUERIES - PROJECT MANAGEMENT
+// ============================================================================
+
+export const GET_PROJECTS = gql`
+  query GetProjects {
+    projects {
+      name
+      path
+      sizeBytes
+      lastModified
+      isActive
+    }
+  }
+`;
+
+export const CREATE_PROJECT = gql`
+  mutation CreateProject($name: String!) {
+    createProject(name: $name) {
+      success
+      message
+    }
+  }
+`;
+
+export const LOAD_PROJECT = gql`
+  mutation LoadProject($name: String!) {
+    loadProject(name: $name) {
+      success
+      message
+    }
+  }
+`;
+
+export const DELETE_PROJECT = gql`
+  mutation DeleteProject($name: String!) {
+    deleteProject(name: $name) {
+      success
+      message
+    }
+  }
+`;
+
+export const UNLOAD_PROJECT = gql`
+  mutation UnloadProject {
+    unloadProject {
+      success
+      message
     }
   }
 `;

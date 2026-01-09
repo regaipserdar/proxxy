@@ -7,12 +7,12 @@ import ReactFlow, {
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Info, Copy, Trash2, Plus } from 'lucide-react';
 
-import { ProxxyNode, NodeType } from '../types';
-import { TriggerNode, MatcherNode, ModifierNode, RepeaterNode, SinkNode } from './Nodes';
-import { RightSidebar } from './Sidebars';
-import { BottomPanel } from './Panels';
-import { PropertySidebar } from './PropertySidebar';
-import { generateWorkflowCode } from '../services/geminiService';
+import { ProxxyNode, NodeType } from '@/types';
+import { TriggerNode, MatcherNode, ModifierNode, RepeaterNode, SinkNode } from '@/components/Nodes';
+import { RightSidebar } from '@/components/Sidebars';
+import { BottomPanel } from '@/components/Panels';
+import { PropertySidebar } from '@/components/PropertySidebar';
+import { generateWorkflowCode } from '@/services/geminiService';
 
 const nodeTypes = {
     trigger: TriggerNode,

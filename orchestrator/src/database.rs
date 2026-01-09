@@ -1,40 +1,173 @@
 use crate::pb::{traffic_event, SystemMetricsEvent, TrafficEvent};
 use sqlx::{sqlite::SqlitePoolOptions, Pool, Row, Sqlite};
+use std::path::{PathBuf};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use tracing::info;
+use std::fs;
+
+#[derive(Debug, Clone)]
+pub struct Project {
+    pub name: String,
+    pub path: String,
+    pub size_bytes: i64,
+    pub last_modified: String,
+    pub is_active: bool,
+}
 
 #[derive(Debug, Clone)]
 pub struct Database {
-    pool: Pool<Sqlite>,
+    pool: Arc<RwLock<Option<Pool<Sqlite>>>>,
+    projects_dir: PathBuf,
+    active_project: Arc<RwLock<Option<String>>>,
 }
 
 impl Database {
-    pub async fn new(database_url: &str) -> Result<Self, sqlx::Error> {
-        use sqlx::sqlite::SqliteConnectOptions;
-        use std::str::FromStr;
+    pub async fn new(projects_dir: &str) -> Result<Self, std::io::Error> {
+        let path = PathBuf::from(projects_dir);
+        if !path.exists() {
+            fs::create_dir_all(&path)?;
+        }
 
-        // Parse the database URL and ensure create_if_missing is set
-        let options = SqliteConnectOptions::from_str(database_url)?.create_if_missing(true);
-
-        let pool = SqlitePoolOptions::new()
-            .max_connections(5)
-            .connect_with(options)
-            .await?;
-
-        sqlx::query("PRAGMA journal_mode=WAL")
-            .execute(&pool)
-            .await?;
-        sqlx::query("PRAGMA synchronous=NORMAL")
-            .execute(&pool)
-            .await?;
-
-        sqlx::migrate!("./migrations").run(&pool).await?;
-
-        info!("✓ Database initialized and migrated at {}", database_url);
-        Ok(Self { pool })
+        Ok(Self {
+            pool: Arc::new(RwLock::new(None)),
+            projects_dir: path,
+            active_project: Arc::new(RwLock::new(None)),
+        })
     }
 
-    pub fn pool(&self) -> &Pool<Sqlite> {
-        &self.pool
+    pub async fn list_projects(&self) -> Result<Vec<Project>, std::io::Error> {
+        let mut projects = Vec::new();
+        let active = self.active_project.read().await.clone();
+        
+        // Read directory entries
+        let mut entries = fs::read_dir(&self.projects_dir)?;
+        
+        while let Some(entry) = entries.next() {
+            let entry = entry?;
+            let path = entry.path();
+            
+            // Look for directories that look like projects (contain proxxy.db or represent a project folder)
+            // Strategy: Each folder in 'projects_dir' is a project.
+            if path.is_dir() {
+                let name = path.file_name().unwrap().to_string_lossy().to_string();
+                let db_path = path.join("proxxy.db");
+                
+                let metadata = fs::metadata(&path)?;
+                let last_modified: chrono::DateTime<chrono::Utc> = metadata.modified()?.into();
+                
+                // Calculate size (simplified: size of db file if exists)
+                let size_bytes = if db_path.exists() {
+                     fs::metadata(&db_path)?.len() as i64
+                } else {
+                    0
+                };
+
+                projects.push(Project {
+                    name: name.clone(),
+                    path: path.to_string_lossy().to_string(),
+                    size_bytes,
+                    last_modified: last_modified.to_rfc3339(),
+                    is_active: active.as_ref() == Some(&name),
+                });
+            }
+        }
+        
+        // Sort by last modified DESC
+        projects.sort_by(|a, b| b.last_modified.cmp(&a.last_modified));
+        
+        Ok(projects)
+    }
+
+    pub async fn create_project(&self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
+        // Validate name (alphanumeric, -, _)
+        if !name.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+            return Err("Invalid project name. Use only alphanumeric, -, and _".into());
+        }
+
+        let project_path = self.projects_dir.join(name);
+        if !project_path.exists() {
+            fs::create_dir_all(&project_path)?;
+        }
+        
+        // Initialize DB immediately? Or wait for load?
+        // Let's just create the folder. Load will handle DB init.
+        
+        Ok(())
+    }
+
+    pub async fn load_project(&self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
+         let project_path = self.projects_dir.join(name);
+         if !project_path.exists() {
+             return Err("Project does not exist".into());
+         }
+
+         let db_path = project_path.join("proxxy.db");
+         let db_url = format!("sqlite:{}", db_path.to_string_lossy());
+
+         use sqlx::sqlite::SqliteConnectOptions;
+         use std::str::FromStr;
+
+         // Initialize connection
+         let options = SqliteConnectOptions::from_str(&db_url)?.create_if_missing(true);
+         let pool = SqlitePoolOptions::new()
+             .max_connections(5)
+             .connect_with(options)
+             .await?;
+         
+         // Run migrations
+         sqlx::query("PRAGMA journal_mode=WAL").execute(&pool).await?;
+         sqlx::query("PRAGMA synchronous=NORMAL").execute(&pool).await?;
+         sqlx::migrate!("./migrations").run(&pool).await?;
+
+         // Update state
+         let mut pool_guard = self.pool.write().await;
+         *pool_guard = Some(pool);
+         
+         let mut active_guard = self.active_project.write().await;
+         *active_guard = Some(name.to_string());
+
+         info!("✓ Loaded project '{}' from {}", name, db_path.display());
+         Ok(())
+    }
+
+    pub async fn unload_project(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let mut pool_guard = self.pool.write().await;
+        *pool_guard = None;
+        
+        let mut active_guard = self.active_project.write().await;
+        *active_guard = None;
+        
+        info!("✓ Project unloaded");
+        Ok(())
+    }
+
+    pub async fn delete_project(&self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let active = self.active_project.read().await.clone();
+        if active.as_deref() == Some(name) {
+            self.unload_project().await?;
+        }
+
+        let project_path = self.projects_dir.join(name);
+        if project_path.exists() {
+            fs::remove_dir_all(&project_path)?;
+            info!("✓ Deleted project '{}' and its directory", name);
+        }
+
+        Ok(())
+    }
+
+    pub async fn get_pool(&self) -> Result<Pool<Sqlite>, Box<dyn std::error::Error>> {
+        let guard = self.pool.read().await;
+        if let Some(pool) = guard.as_ref() {
+            Ok(pool.clone())
+        } else {
+            Err("No active project loaded".into())
+        }
+    }
+
+    pub async fn pool(&self) -> Option<Pool<Sqlite>> {
+        self.pool.read().await.clone()
     }
 
     pub async fn upsert_agent(
@@ -44,6 +177,11 @@ impl Database {
         hostname: &str,
         version: &str,
     ) -> Result<(), sqlx::Error> {
+        let pool = match self.get_pool().await {
+            Ok(p) => p,
+            Err(_) => return Ok(()), // Ignore if no DB (or return Error?)
+        };
+
         let timestamp = chrono::Utc::now().timestamp();
         sqlx::query(
             r#"
@@ -62,21 +200,29 @@ impl Database {
         .bind(hostname)
         .bind(version)
         .bind(timestamp)
-        .execute(&self.pool)
+        .execute(&pool)
         .await?;
         Ok(())
     }
 
     pub async fn get_agent_name(&self, agent_id: &str) -> Result<Option<String>, sqlx::Error> {
+        let pool = match self.get_pool().await {
+             Ok(p) => p,
+             Err(_) => return Ok(None),
+        };
         let row = sqlx::query("SELECT name FROM agents WHERE id = ?")
             .bind(agent_id)
-            .fetch_optional(&self.pool)
+            .fetch_optional(&pool)
             .await?;
 
         Ok(row.map(|r| r.get("name")))
     }
 
     pub async fn mark_agent_offline(&self, agent_id: &str) -> Result<(), sqlx::Error> {
+        let pool = match self.get_pool().await {
+             Ok(p) => p,
+             Err(_) => return Ok(()),
+        };
         let timestamp = chrono::Utc::now().timestamp();
         sqlx::query(
             r#"
@@ -87,7 +233,7 @@ impl Database {
         )
         .bind(timestamp)
         .bind(agent_id)
-        .execute(&self.pool)
+        .execute(&pool)
         .await?;
         Ok(())
     }
@@ -97,6 +243,11 @@ impl Database {
         event: &TrafficEvent,
         agent_id: &str,
     ) -> Result<(), sqlx::Error> {
+        let pool = match self.get_pool().await {
+             Ok(p) => p,
+             Err(_) => return Ok(()),
+        };
+
         match &event.event {
             Some(traffic_event::Event::Request(req)) => {
                 let headers_json = serde_json::to_string(&req.headers).unwrap_or_default();
@@ -119,7 +270,7 @@ impl Database {
                 .bind(&req.body)
                 .bind(timestamp)
                 .bind(tls_json)
-                .execute(&self.pool)
+                .execute(&pool)
                 .await?;
             }
             Some(traffic_event::Event::Response(res)) => {
@@ -141,7 +292,7 @@ impl Database {
                 .bind(&res.body)
                 .bind(timestamp)
                 .bind(&event.request_id)
-                .execute(&self.pool)
+                .execute(&pool)
                 .await?;
             }
             _ => {
@@ -152,6 +303,11 @@ impl Database {
     }
 
     pub async fn get_recent_requests(&self, limit: i64) -> Result<Vec<TrafficEvent>, sqlx::Error> {
+        let pool = match self.get_pool().await {
+             Ok(p) => p,
+             Err(_) => return Ok(Vec::new()),
+        };
+
         // This query needs to adapt to http_transactions.
         // It's tricky because we merged req/res into one row.
         // We'll reconstruct TrafficEvents. This might return incomplete events if response is missing?
@@ -165,7 +321,7 @@ impl Database {
             "SELECT request_id, req_method, req_url, req_headers, req_body, tls_info FROM http_transactions ORDER BY req_timestamp DESC LIMIT ?"
         )
         .bind(limit)
-        .fetch_all(&self.pool)
+        .fetch_all(&pool)
         .await?;
 
         let mut events = Vec::new();
@@ -198,11 +354,15 @@ impl Database {
         &self,
         request_id: &str,
     ) -> Result<Option<crate::pb::HttpRequestData>, sqlx::Error> {
+        let pool = match self.get_pool().await {
+             Ok(p) => p,
+             Err(_) => return Ok(None),
+        };
         let row = sqlx::query(
             "SELECT req_method, req_url, req_headers, req_body, tls_info, agent_id FROM http_transactions WHERE request_id = ?"
         )
         .bind(request_id)
-        .fetch_optional(&self.pool)
+        .fetch_optional(&pool)
         .await?;
 
         if let Some(row) = row {
@@ -231,9 +391,13 @@ impl Database {
         &self,
         request_id: &str,
     ) -> Result<Option<String>, sqlx::Error> {
+        let pool = match self.get_pool().await {
+             Ok(p) => p,
+             Err(_) => return Ok(None),
+        };
         let row = sqlx::query("SELECT agent_id FROM http_transactions WHERE request_id = ?")
             .bind(request_id)
-            .fetch_optional(&self.pool)
+            .fetch_optional(&pool)
             .await?;
 
         Ok(row.map(|r| r.get("agent_id")))
@@ -243,6 +407,11 @@ impl Database {
         &self,
         metrics_event: &SystemMetricsEvent,
     ) -> Result<(), sqlx::Error> {
+        let pool = match self.get_pool().await {
+             Ok(p) => p,
+             Err(_) => return Ok(()),
+        };
+
         if let Some(metrics) = &metrics_event.metrics {
             let network_rx = metrics
                 .network
@@ -355,7 +524,7 @@ impl Database {
             .bind(process_uptime)
             .bind(process_threads)
             .bind(process_fds)
-            .execute(&self.pool)
+            .execute(&pool)
             .await?;
         }
         Ok(())
@@ -400,7 +569,12 @@ impl Database {
             .bind(limit)
         };
 
-        let rows = query.fetch_all(&self.pool).await?;
+        let pool = match self.get_pool().await {
+             Ok(p) => p,
+             Err(_) => return Ok(Vec::new()),
+        };
+
+        let rows = query.fetch_all(&pool).await?;
 
         let mut events = Vec::new();
         for row in rows {

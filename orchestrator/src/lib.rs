@@ -1,4 +1,4 @@
-use axum::{extract::State, routing::get, Json, Router};
+use axum::{extract::State, routing::get, Extension, Json, Router};
 use serde::Serialize;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -6,6 +6,8 @@ use tokio::net::TcpListener;
 use tracing::info;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
+use async_graphql_axum::{GraphQLProtocol, GraphQLWebSocket};
+use axum::extract::ws::WebSocketUpgrade;
 
 pub mod pb {
     tonic::include_proto!("proxy");
@@ -123,17 +125,21 @@ impl Orchestrator {
     }
 
     pub async fn start(&self) -> Result<(), Box<dyn std::error::Error>> {
-        // Initialize Database
-        let db = std::sync::Arc::new(crate::Database::new(&self.config.database_url).await?);
+        // Initialize Database with workspace directory
+        let projects_dir = if self.config.database_url.starts_with("sqlite:") {
+            "workspace"
+        } else {
+            &self.config.database_url
+        };
+        
+        let db = std::sync::Arc::new(crate::Database::new(projects_dir).await?);
 
         // Initialize CA (load from ./certs or generate)
         let ca_path = std::path::Path::new("certs");
         let ca = std::sync::Arc::new(proxy_core::CertificateAuthority::new(ca_path)?);
 
         let agent_registry = std::sync::Arc::new(AgentRegistry::new());
-        // Create broadcast channel for traffic events (capacity 100)
         let (broadcast_tx, _broadcast_rx) = tokio::sync::broadcast::channel(100);
-        // Create broadcast channel for system metrics events (capacity 100)
         let (metrics_broadcast_tx, _metrics_broadcast_rx) = tokio::sync::broadcast::channel(100);
 
         let proxy_service = crate::server::ProxyServiceImpl::new(
@@ -179,6 +185,7 @@ impl Orchestrator {
             // Top-level routes
             .route("/metrics", get(metrics_handler))
             .route("/graphql", get(graphiql).post(graphql_handler))
+            .route("/graphql/ws", get(graphql_ws_handler))
             // Nested API routes
             .nest("/api", api_routes)
             // Swagger / Docs
@@ -187,6 +194,7 @@ impl Orchestrator {
                 "/",
                 get(|| async { axum::response::Redirect::permanent("/swagger-ui") }),
             )
+            .layer(Extension(state.schema.clone()))
             .layer(tower_http::cors::CorsLayer::permissive())
             .with_state(state);
 
@@ -235,6 +243,18 @@ async fn graphql_handler(
     axum::Json(state.schema.execute(req).await)
 }
 
+async fn graphql_ws_handler(
+    Extension(schema): Extension<ProxySchema>,
+    protocol: GraphQLProtocol,
+    upgrade: WebSocketUpgrade,
+) -> impl axum::response::IntoResponse {
+    upgrade
+        .protocols(async_graphql::http::ALL_WEBSOCKET_PROTOCOLS)
+        .on_upgrade(move |stream| {
+            GraphQLWebSocket::new(stream, schema, protocol).serve()
+        })
+}
+
 #[derive(Serialize, utoipa::ToSchema)]
 struct TrafficResponse {
     transactions: Vec<HttpTransaction>,
@@ -262,10 +282,11 @@ struct HttpTransaction {
 )]
 async fn health_detailed_handler(State(state): State<AppState>) -> Json<HealthStatus> {
     info!("📊 Health check requested");
+    let db_connected = state.db.get_pool().await.is_ok();
     Json(HealthStatus {
         status: "Healthy".to_string(),
         uptime_seconds: state.start_time.elapsed().as_secs(),
-        database_connected: true, // Simplified check
+        database_connected: db_connected,
     })
 }
 
@@ -289,7 +310,6 @@ async fn agents_handler(State(state): State<AppState>) -> Json<AgentsResponse> {
         total_count, online_count, offline_count
     );
 
-    // Convert to AgentInfo
     let agents = agents_data
         .into_iter()
         .map(|a| AgentInfo {
@@ -323,7 +343,16 @@ async fn agents_handler(State(state): State<AppState>) -> Json<AgentsResponse> {
 async fn traffic_handler(State(state): State<AppState>) -> Json<TrafficResponse> {
     info!("🚦 Traffic data requested");
 
-    // Fetch recent transactions from database
+    let pool = match state.db.pool().await {
+        Some(p) => p,
+        None => {
+            return Json(TrafficResponse {
+                transactions: Vec::new(),
+                total_count: 0,
+            });
+        }
+    };
+
     let transactions =
         match sqlx::query_as::<_, (String, String, String, String, Option<i32>, i64)>(
             "SELECT request_id, agent_id, req_method, req_url, res_status, req_timestamp 
@@ -331,7 +360,7 @@ async fn traffic_handler(State(state): State<AppState>) -> Json<TrafficResponse>
          ORDER BY req_timestamp DESC 
          LIMIT 50",
         )
-        .fetch_all(state.db.pool())
+        .fetch_all(&pool)
         .await
         {
             Ok(rows) => {
@@ -375,26 +404,34 @@ async fn traffic_handler(State(state): State<AppState>) -> Json<TrafficResponse>
 async fn metrics_handler(State(state): State<AppState>) -> Json<MetricsResponse> {
     info!("📈 Metrics requested - querying database...");
 
-    // Fetch real metrics from database
+    let pool = match state.db.pool().await {
+        Some(p) => p,
+        None => {
+             return Json(MetricsResponse {
+                total_requests: 0,
+                average_response_time_ms: 0.0,
+                error_rate: 0.0,
+            });
+        }
+    };
+
     let total_requests = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM http_transactions")
-        .fetch_one(state.db.pool())
+        .fetch_one(&pool)
         .await
         .unwrap_or(0) as usize;
 
-    // Calculate average response time (duration_ms)
     let avg_response_time = sqlx::query_scalar::<_, Option<f64>>(
         "SELECT AVG(duration_ms) FROM http_transactions WHERE duration_ms IS NOT NULL",
     )
-    .fetch_one(state.db.pool())
+    .fetch_one(&pool)
     .await
     .unwrap_or(None)
     .unwrap_or(0.0);
 
-    // Calculate error rate (4xx and 5xx status codes)
     let error_count = sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*) FROM http_transactions WHERE res_status >= 400",
     )
-    .fetch_one(state.db.pool())
+    .fetch_one(&pool)
     .await
     .unwrap_or(0);
 
@@ -455,8 +492,6 @@ async fn system_health_handler(State(state): State<AppState>) -> Json<serde_json
 )]
 async fn system_start_handler() -> Json<serde_json::Value> {
     info!("🚀 System start requested");
-    // In a real implementation, this would start the proxy system
-    // For now, return success as the system is already running
     Json(serde_json::json!({
         "status": "success",
         "message": "System is already running"
@@ -474,7 +509,6 @@ async fn system_start_handler() -> Json<serde_json::Value> {
 )]
 async fn system_stop_handler() -> Json<serde_json::Value> {
     info!("🛑 System stop requested");
-    // In a real implementation, this would stop the proxy system
     Json(serde_json::json!({
         "status": "success",
         "message": "System stop initiated"
@@ -492,7 +526,6 @@ async fn system_stop_handler() -> Json<serde_json::Value> {
 )]
 async fn system_restart_handler() -> Json<serde_json::Value> {
     info!("🔄 System restart requested");
-    // In a real implementation, this would restart the proxy system
     Json(serde_json::json!({
         "status": "success",
         "message": "System restart initiated"

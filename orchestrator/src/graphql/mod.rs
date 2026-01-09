@@ -20,7 +20,16 @@ impl QueryRoot {
         "Hello from Proxxy!"
     }
 
-    /// Get list of requests (LIGHTWEIGHT - no body/headers in list view)
+    /// List available projects
+    async fn projects(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<ProjectGql>> {
+        let db = ctx.data::<Arc<Database>>()?;
+        let projects = db.list_projects().await.map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        
+        Ok(projects.into_iter().map(ProjectGql::from).collect())
+    }
+
+    /// Get list of Requests (LIGHTWEIGHT)
+
     /// Use this for table/list views
     async fn requests(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<TrafficEventGql>> {
         let db = ctx.data::<Arc<Database>>()?;
@@ -132,6 +141,30 @@ impl MutationRoot {
     async fn intercept(&self, _id: String, _action: String) -> bool {
         // TODO: Implement interception logic
         true
+    }
+
+    async fn create_project(&self, ctx: &Context<'_>, name: String) -> async_graphql::Result<ProjectOperationResult> {
+        let db = ctx.data::<Arc<Database>>()?;
+        db.create_project(&name).await.map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        Ok(ProjectOperationResult { success: true, message: format!("Project '{}' created", name) })
+    }
+
+    async fn load_project(&self, ctx: &Context<'_>, name: String) -> async_graphql::Result<ProjectOperationResult> {
+        let db = ctx.data::<Arc<Database>>()?;
+        db.load_project(&name).await.map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        Ok(ProjectOperationResult { success: true, message: format!("Project '{}' loaded", name) })
+    }
+
+    async fn delete_project(&self, ctx: &Context<'_>, name: String) -> async_graphql::Result<ProjectOperationResult> {
+        let db = ctx.data::<Arc<Database>>()?;
+        db.delete_project(&name).await.map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        Ok(ProjectOperationResult { success: true, message: format!("Project '{}' deleted", name) })
+    }
+
+    async fn unload_project(&self, ctx: &Context<'_>) -> async_graphql::Result<ProjectOperationResult> {
+        let db = ctx.data::<Arc<Database>>()?;
+        db.unload_project().await.map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        Ok(ProjectOperationResult { success: true, message: "Project unloaded".to_string() })
     }
 
     /// Replay a captured HTTP request
@@ -346,6 +379,33 @@ impl From<TrafficEvent> for TrafficEventGql {
 // ============================================================================
 // AGENT GQL
 // ============================================================================
+
+#[derive(SimpleObject)]
+pub struct ProjectGql {
+    pub name: String,
+    pub path: String,
+    pub size_bytes: i64,
+    pub last_modified: String,
+    pub is_active: bool,
+}
+
+impl From<crate::database::Project> for ProjectGql {
+    fn from(p: crate::database::Project) -> Self {
+        Self {
+            name: p.name,
+            path: p.path,
+            size_bytes: p.size_bytes,
+            last_modified: p.last_modified,
+            is_active: p.is_active,
+        }
+    }
+}
+
+#[derive(SimpleObject)]
+pub struct ProjectOperationResult {
+    pub success: bool,
+    pub message: String,
+}
 
 #[derive(SimpleObject)]
 pub struct AgentGql {

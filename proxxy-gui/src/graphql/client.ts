@@ -13,7 +13,7 @@ import { RetryLink } from '@apollo/client/link/retry';
 
 // GraphQL endpoint configuration
 const GRAPHQL_HTTP_ENDPOINT = 'http://localhost:9090/graphql';
-const GRAPHQL_WS_ENDPOINT = 'ws://localhost:9090/graphql';
+const GRAPHQL_WS_ENDPOINT = 'ws://localhost:9090/graphql/ws';
 
 // Connection status management
 export interface ConnectionStatus {
@@ -44,12 +44,12 @@ const httpLink = createHttpLink({
 // Retry link for failed requests
 const retryLink = new RetryLink({
   delay: {
-    initial: 1000,
-    max: 5000,
+    initial: 100, // Very fast first retry
+    max: 2000,
     jitter: true,
   },
   attempts: {
-    max: Infinity, // Retry forever
+    max: 0, // No automatic retries, rely on manual retry button
     retryIf: (error, _operation) => {
       // Retry on network errors and 5xx server errors
       const isNetworkError = !!error && (

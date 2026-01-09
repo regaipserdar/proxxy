@@ -8,7 +8,8 @@ import {
 import { NodeType } from '../types';
 
 export const LeftSidebar = () => (
-  <aside className="w-[72px] h-full glass-panel border-r border-white/10 flex flex-col items-center py-8 gap-6 z-50">
+  <aside data-tauri-drag-region className="w-[72px] h-full glass-panel border-r border-white/10 flex flex-col items-center py-8 gap-6 z-50">
+
     <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 mb-4 shadow-2xl">
       <span className="text-xl font-bold italic text-[#9DCDE8]">P</span>
     </div>

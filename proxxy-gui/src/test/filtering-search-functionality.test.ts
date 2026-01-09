@@ -26,7 +26,8 @@ describe('Filtering and Search Functionality Property Tests', () => {
                 (agents, filterStatus) => {
                     // Simulate the filtering logic used in AgentsView
                     const filtered = agents.filter(agent => {
-                        const matchesStatus = filterStatus === 'All' || (agent.status as any) === filterStatus;
+                        const statusStr = filterStatus as string;
+                        const matchesStatus = statusStr === 'All' || (agent.status as string) === statusStr;
                         return matchesStatus;
                     });
 
@@ -39,7 +40,8 @@ describe('Filtering and Search Functionality Property Tests', () => {
 
                         const rejected = agents.filter(agent => {
                             // Logic mirrored for rejection
-                            const matchesStatus = filterStatus === 'All' || (agent.status as any) === filterStatus;
+                            const statusStr = filterStatus as string;
+                            const matchesStatus = statusStr === 'All' || (agent.status as string) === statusStr;
                             return !matchesStatus;
                         });
 

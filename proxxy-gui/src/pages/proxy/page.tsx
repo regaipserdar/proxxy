@@ -3,7 +3,7 @@ import {
   Search, Trash2, Download,
   Copy, Database, Code, X
 } from 'lucide-react';
-import { useRequests } from '../hooks/useRequests';
+import { useRequests } from '@/hooks/useRequests';
 
 export const ProxyView = () => {
   const { requests, clearRequests } = useRequests();

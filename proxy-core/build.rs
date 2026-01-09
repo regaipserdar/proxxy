@@ -17,6 +17,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build_client(true)
         .build_server(true)
         .type_attribute(".", "#[derive(serde::Serialize, serde::Deserialize)]")
-        .compile(&["../proto/proxy.proto"], &["../proto"])?;
+        .compile_protos(&["../proto/proxy.proto"], &["../proto"])?;
     Ok(())
 }

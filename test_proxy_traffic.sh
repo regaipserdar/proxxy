@@ -3,7 +3,7 @@
 # Configuration
 PROXY_HOST="127.0.0.1"
 PROXY_PORT="9095"
-TARGET_URL="http://example.com"
+TARGET_URL="http://testphp.vulnweb.com/AJAX/index.php"
 DB_PATH="./proxxy.db"
 
 echo "🚀 Testing Proxy Traffic via $PROXY_HOST:$PROXY_PORT"

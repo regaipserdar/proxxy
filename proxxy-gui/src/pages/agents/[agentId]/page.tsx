@@ -1,8 +1,8 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useSubscription } from '@apollo/client';
-import { GET_AGENT_DETAILS, SYSTEM_METRICS_UPDATES } from '../graphql/operations';
-import { Agent, SystemMetrics } from '../types/graphql';
+import { GET_AGENT_DETAILS, SYSTEM_METRICS_UPDATES } from '@/graphql/operations';
+import { Agent, SystemMetrics } from '@/types/graphql';
 import { ArrowLeft, Server, Activity, HardDrive, Cpu, Wifi } from 'lucide-react';
 
 export const AgentDetailView = () => {
