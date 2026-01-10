@@ -36,10 +36,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-5a954cec.js";
+            window.path_to_searchindex_js = "searchindex-31b09624.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-11e4d50a.js"></script>
+        <script src="toc-7df8d176.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -1188,10 +1188,19 @@ cargo run -p orchestrator -- --agent-timeout 600
 <h2 id="-ek-kaynaklar"><a class="header" href="#-ek-kaynaklar">📚 Ek Kaynaklar</a></h2>
 <h3 id="dokümantasyonlar"><a class="header" href="#dokümantasyonlar">Dokümantasyonlar</a></h3>
 <ul>
-<li><strong>Traffic Policy Sistemi</strong>: <a href="docs/TRAFFIC_POLICY.html">docs/TRAFFIC_POLICY.md</a></li>
-<li><strong>gRPC Protokolü</strong>: <a href="proto/proxy.proto">proto/proxy.proto</a></li>
-<li><strong>GraphQL Schema</strong>: <code>http://127.0.0.1:9090/graphql</code> (GraphiQL Playground)</li>
-<li><strong>REST API Dokümantasyonu</strong>: <code>http://127.0.0.1:9090/swagger-ui</code></li>
+<li><strong>📖 API Reference (Detaylı)</strong>: <a href="#proxxy-orchestrator---api-reference">docs/src/api-reference.md</a> - Tüm REST ve GraphQL endpoint’leri</li>
+<li><strong>💡 API Kullanım Örnekleri</strong>: <a href="#api-kullanım-örnekleri">docs/src/api-examples.md</a> - Bash, JavaScript, Python, React örnekleri</li>
+<li><strong>🎯 Backend API Specification</strong>: <a href="#proxxy-v11---backend-api-specification-for-ui">docs/src/backend-api.md</a> - UI geliştirme için backend özellikleri</li>
+<li><strong>🚦 Traffic Policy Sistemi</strong>: <a href="#traffic-policy-system">docs/src/traffic-policy.md</a> - Dinamik trafik kuralları</li>
+<li><strong>🔄 Flow Engine</strong>: <a href="#flow-engine--login-sequence-recorder">docs/src/flow-engine.md</a> - Automation ve replay sistemi</li>
+<li><strong>🏗️ Architecture</strong>: <a href="#architecture-1">docs/src/architecture.md</a> - Sistem mimarisi</li>
+<li><strong>🔌 gRPC Protokolü</strong>: <a href="../../proto/proxy.proto">proto/proxy.proto</a> - Protocol Buffers tanımları</li>
+</ul>
+<h3 id="canlı-api-dokümantasyonu"><a class="header" href="#canlı-api-dokümantasyonu">Canlı API Dokümantasyonu</a></h3>
+<ul>
+<li><strong>GraphQL Playground</strong>: <code>http://127.0.0.1:9090/graphql</code> - İnteraktif GraphQL sorguları</li>
+<li><strong>Swagger UI</strong>: <code>http://127.0.0.1:9090/swagger-ui</code> - REST API dokümantasyonu</li>
+<li><strong>OpenAPI Spec</strong>: <code>http://127.0.0.1:9090/api-docs/openapi.json</code> - OpenAPI 3.0 specification</li>
 </ul>
 <h3 id="api-örnekleri"><a class="header" href="#api-örnekleri">API Örnekleri</a></h3>
 <p><strong>REST API Kullanımı:</strong></p>
@@ -1967,6 +1976,2038 @@ cargo run -p proxy-agent -- --name "Dev-Agent"
 <hr>
 <p><strong>Version:</strong> 1.1.0<br><strong>Last Updated:</strong> 2026-01-08<br><strong>Status:</strong> ✅ Ready for UI Development</p>
 <div style="break-before: page; page-break-before: always;"></div>
+<h1 id="proxxy-orchestrator---api-reference"><a class="header" href="#proxxy-orchestrator---api-reference">Proxxy Orchestrator - API Reference</a></h1>
+<h2 id="-genel-bakış"><a class="header" href="#-genel-bakış">📖 Genel Bakış</a></h2>
+<p>Proxxy Orchestrator, dağıtık MITM proxy sisteminin merkezi yönetim sunucusudur. Bu dokümantasyon, tüm API endpoint’lerini, istek/yanıt formatlarını ve kullanım örneklerini detaylı olarak açıklar.</p>
+<h3 id="api-tipleri"><a class="header" href="#api-tipleri">API Tipleri</a></h3>
+<p>Orchestrator üç farklı API türü sunar:</p>
+<ol>
+<li><strong>REST API</strong> - HTTP tabanlı RESTful endpoint’ler</li>
+<li><strong>GraphQL API</strong> - Esnek sorgulama ve gerçek zamanlı güncellemeler</li>
+<li><strong>gRPC API</strong> - Agent’lar için yüksek performanslı iletişim (dahili)</li>
+</ol>
+<hr>
+<h2 id="-temel-urller"><a class="header" href="#-temel-urller">🌐 Temel URL’ler</a></h2>
+<pre><code>REST API:      http://localhost:9090/api/*
+GraphQL:       http://localhost:9090/graphql
+GraphiQL:      http://localhost:9090/graphql (Tarayıcıda)
+Swagger UI:    http://localhost:9090/swagger-ui
+OpenAPI Spec:  http://localhost:9090/api-docs/openapi.json
+gRPC:          http://localhost:50051 (Dahili)
+</code></pre>
+<h3 id="varsayılan-portlar"><a class="header" href="#varsayılan-portlar">Varsayılan Portlar</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Servis</th><th>Port</th><th>Açıklama</th></tr>
+</thead>
+<tbody>
+<tr><td>HTTP/REST</td><td>9090</td><td>REST API ve GraphQL endpoint’leri</td></tr>
+<tr><td>gRPC</td><td>50051</td><td>Agent iletişimi için dahili gRPC sunucusu</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="-kimlik-doğrulama"><a class="header" href="#-kimlik-doğrulama">🔐 Kimlik Doğrulama</a></h2>
+<p><strong>Mevcut Durum:</strong> API şu anda kimlik doğrulama gerektirmemektedir.</p>
+<p><strong>Gelecek Planlama:</strong></p>
+<ul>
+<li>JWT token tabanlı kimlik doğrulama</li>
+<li>API key desteği</li>
+<li>Role-based access control (RBAC)</li>
+</ul>
+<hr>
+<h1 id="-rest-api-endpointleri"><a class="header" href="#-rest-api-endpointleri">📡 REST API Endpoint’leri</a></h1>
+<h2 id="1-health--system-endpoints"><a class="header" href="#1-health--system-endpoints">1. Health &amp; System Endpoints</a></h2>
+<h3 id="11-basic-health-check"><a class="header" href="#11-basic-health-check">1.1 Basic Health Check</a></h3>
+<p><strong>Endpoint:</strong> <code>GET /health</code></p>
+<p><strong>Açıklama:</strong> Temel sistem sağlık kontrolü</p>
+<p><strong>Yanıt:</strong></p>
+<pre><code class="language-json">{
+  "status": "healthy",
+  "timestamp": "2026-01-09T14:49:45Z",
+  "service": "orchestrator"
+}
+</code></pre>
+<p><strong>Kullanım Örneği:</strong></p>
+<pre><code class="language-bash">curl http://localhost:9090/health
+</code></pre>
+<hr>
+<h3 id="12-detailed-health-status"><a class="header" href="#12-detailed-health-status">1.2 Detailed Health Status</a></h3>
+<p><strong>Endpoint:</strong> <code>GET /api/health/detailed</code></p>
+<p><strong>Açıklama:</strong> Detaylı sistem sağlık durumu ve çalışma süresi</p>
+<p><strong>Yanıt:</strong></p>
+<pre><code class="language-json">{
+  "status": "Healthy",
+  "uptime_seconds": 3600,
+  "database_connected": true
+}
+</code></pre>
+<p><strong>Kullanım Örneği:</strong></p>
+<pre><code class="language-bash">curl http://localhost:9090/api/health/detailed
+</code></pre>
+<hr>
+<h3 id="13-system-health"><a class="header" href="#13-system-health">1.3 System Health</a></h3>
+<p><strong>Endpoint:</strong> <code>GET /api/system/health</code></p>
+<p><strong>Açıklama:</strong> Sistem geneli sağlık durumu ve agent istatistikleri</p>
+<p><strong>Yanıt:</strong></p>
+<pre><code class="language-json">{
+  "status": "healthy",
+  "uptime_seconds": 3600,
+  "database_connected": true,
+  "agents_online": 3,
+  "agents_total": 5
+}
+</code></pre>
+<p><strong>Kullanım Örneği:</strong></p>
+<pre><code class="language-bash">curl http://localhost:9090/api/system/health
+</code></pre>
+<hr>
+<h3 id="14-start-system"><a class="header" href="#14-start-system">1.4 Start System</a></h3>
+<p><strong>Endpoint:</strong> <code>POST /api/system/start</code></p>
+<p><strong>Açıklama:</strong> Proxy sistemini başlatır</p>
+<p><strong>Yanıt:</strong></p>
+<pre><code class="language-json">{
+  "status": "success",
+  "message": "System is already running"
+}
+</code></pre>
+<p><strong>Kullanım Örneği:</strong></p>
+<pre><code class="language-bash">curl -X POST http://localhost:9090/api/system/start
+</code></pre>
+<hr>
+<h3 id="15-stop-system"><a class="header" href="#15-stop-system">1.5 Stop System</a></h3>
+<p><strong>Endpoint:</strong> <code>POST /api/system/stop</code></p>
+<p><strong>Açıklama:</strong> Proxy sistemini durdurur</p>
+<p><strong>Yanıt:</strong></p>
+<pre><code class="language-json">{
+  "status": "success",
+  "message": "System stop initiated"
+}
+</code></pre>
+<p><strong>Kullanım Örneği:</strong></p>
+<pre><code class="language-bash">curl -X POST http://localhost:9090/api/system/stop
+</code></pre>
+<hr>
+<h3 id="16-restart-system"><a class="header" href="#16-restart-system">1.6 Restart System</a></h3>
+<p><strong>Endpoint:</strong> <code>POST /api/system/restart</code></p>
+<p><strong>Açıklama:</strong> Proxy sistemini yeniden başlatır</p>
+<p><strong>Yanıt:</strong></p>
+<pre><code class="language-json">{
+  "status": "success",
+  "message": "System restart initiated"
+}
+</code></pre>
+<p><strong>Kullanım Örneği:</strong></p>
+<pre><code class="language-bash">curl -X POST http://localhost:9090/api/system/restart
+</code></pre>
+<hr>
+<h2 id="2-agent-management-endpoints"><a class="header" href="#2-agent-management-endpoints">2. Agent Management Endpoints</a></h2>
+<h3 id="21-list-all-agents"><a class="header" href="#21-list-all-agents">2.1 List All Agents</a></h3>
+<p><strong>Endpoint:</strong> <code>GET /api/agents</code></p>
+<p><strong>Açıklama:</strong> Tüm kayıtlı proxy agent’larını listeler</p>
+<p><strong>Yanıt:</strong></p>
+<pre><code class="language-json">{
+  "agents": [
+    {
+      "id": "agent-001",
+      "address": "192.168.1.100",
+      "port": 8080,
+      "status": "Online",
+      "last_heartbeat": "2026-01-09T14:49:45Z",
+      "version": "0.1.1",
+      "capabilities": ["http", "https", "websocket"]
+    },
+    {
+      "id": "agent-002",
+      "address": "192.168.1.101",
+      "port": 8080,
+      "status": "Offline",
+      "last_heartbeat": "2026-01-09T14:30:00Z",
+      "version": "0.1.0",
+      "capabilities": ["http", "https"]
+    }
+  ],
+  "total_count": 2,
+  "online_count": 1,
+  "offline_count": 1
+}
+</code></pre>
+<p><strong>Kullanım Örneği:</strong></p>
+<pre><code class="language-bash">curl http://localhost:9090/api/agents
+</code></pre>
+<hr>
+<h3 id="22-get-specific-agent"><a class="header" href="#22-get-specific-agent">2.2 Get Specific Agent</a></h3>
+<p><strong>Endpoint:</strong> <code>GET /agents/{agent_id}</code></p>
+<p><strong>Açıklama:</strong> Belirli bir agent’ın detaylı bilgilerini getirir</p>
+<p><strong>Path Parameters:</strong></p>
+<ul>
+<li><code>agent_id</code> (string, required): Agent’ın benzersiz kimliği</li>
+</ul>
+<p><strong>Yanıt:</strong></p>
+<pre><code class="language-json">{
+  "id": "agent-001",
+  "address": "192.168.1.100",
+  "port": 8080,
+  "status": "Online",
+  "last_heartbeat": "2026-01-09T14:49:45Z",
+  "version": "0.1.1",
+  "capabilities": ["http", "https", "websocket"]
+}
+</code></pre>
+<p><strong>Hata Yanıtları:</strong></p>
+<ul>
+<li><code>404 Not Found</code>: Agent bulunamadı</li>
+</ul>
+<p><strong>Kullanım Örneği:</strong></p>
+<pre><code class="language-bash">curl http://localhost:9090/agents/agent-001
+</code></pre>
+<hr>
+<h3 id="23-register-new-agent"><a class="header" href="#23-register-new-agent">2.3 Register New Agent</a></h3>
+<p><strong>Endpoint:</strong> <code>POST /agents</code></p>
+<p><strong>Açıklama:</strong> Yeni bir proxy agent’ı sisteme kaydeder</p>
+<p><strong>Request Body:</strong></p>
+<pre><code class="language-json">{
+  "agent_id": "agent-003",
+  "address": "192.168.1.102",
+  "port": 8080,
+  "version": "0.1.1",
+  "capabilities": ["http", "https", "websocket"]
+}
+</code></pre>
+<p><strong>Yanıt:</strong></p>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "Agent registered successfully",
+  "agent_id": "agent-003"
+}
+</code></pre>
+<p><strong>Hata Yanıtları:</strong></p>
+<ul>
+<li><code>500 Internal Server Error</code>: Veritabanı hatası</li>
+</ul>
+<p><strong>Kullanım Örneği:</strong></p>
+<pre><code class="language-bash">curl -X POST http://localhost:9090/agents \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_id": "agent-003",
+    "address": "192.168.1.102",
+    "port": 8080,
+    "version": "0.1.1",
+    "capabilities": ["http", "https", "websocket"]
+  }'
+</code></pre>
+<hr>
+<h2 id="3-traffic-data-endpoints"><a class="header" href="#3-traffic-data-endpoints">3. Traffic Data Endpoints</a></h2>
+<h3 id="31-get-recent-traffic"><a class="header" href="#31-get-recent-traffic">3.1 Get Recent Traffic</a></h3>
+<p><strong>Endpoint:</strong> <code>GET /api/traffic/recent</code></p>
+<p><strong>Açıklama:</strong> Son HTTP trafiğini getirir (maksimum 50 kayıt)</p>
+<p><strong>Yanıt:</strong></p>
+<pre><code class="language-json">{
+  "transactions": [
+    {
+      "request_id": "req-12345",
+      "agent_id": "agent-001",
+      "method": "GET",
+      "url": "https://api.example.com/users",
+      "status": 200,
+      "timestamp": 1704815385
+    },
+    {
+      "request_id": "req-12346",
+      "agent_id": "agent-001",
+      "method": "POST",
+      "url": "https://api.example.com/login",
+      "status": 401,
+      "timestamp": 1704815390
+    }
+  ],
+  "total_count": 2
+}
+</code></pre>
+<p><strong>Kullanım Örneği:</strong></p>
+<pre><code class="language-bash">curl http://localhost:9090/api/traffic/recent
+</code></pre>
+<hr>
+<h3 id="32-list-traffic-with-filters"><a class="header" href="#32-list-traffic-with-filters">3.2 List Traffic with Filters</a></h3>
+<p><strong>Endpoint:</strong> <code>GET /traffic</code></p>
+<p><strong>Açıklama:</strong> Trafik verilerini filtrelerle listeler</p>
+<p><strong>Query Parameters:</strong></p>
+<ul>
+<li><code>agent_id</code> (string, optional): Belirli bir agent’ın trafiği</li>
+<li><code>limit</code> (integer, optional): Maksimum kayıt sayısı (varsayılan: 100)</li>
+</ul>
+<p><strong>Yanıt:</strong></p>
+<pre><code class="language-json">{
+  "traffic_data": [],
+  "total_count": 0
+}
+</code></pre>
+<p><strong>Not:</strong> Bu endpoint şu anda boş veri döndürür, veritabanı entegrasyonu devam ediyor.</p>
+<p><strong>Kullanım Örneği:</strong></p>
+<pre><code class="language-bash"># Tüm trafik
+curl http://localhost:9090/traffic?limit=50
+
+# Belirli agent'ın trafiği
+curl http://localhost:9090/traffic?agent_id=agent-001&amp;limit=100
+</code></pre>
+<hr>
+<h3 id="33-get-agent-specific-traffic"><a class="header" href="#33-get-agent-specific-traffic">3.3 Get Agent-Specific Traffic</a></h3>
+<p><strong>Endpoint:</strong> <code>GET /traffic/{agent_id}</code></p>
+<p><strong>Açıklama:</strong> Belirli bir agent’ın trafik verilerini getirir</p>
+<p><strong>Path Parameters:</strong></p>
+<ul>
+<li><code>agent_id</code> (string, required): Agent’ın benzersiz kimliği</li>
+</ul>
+<p><strong>Yanıt:</strong></p>
+<pre><code class="language-json">{
+  "traffic_data": [],
+  "total_count": 0
+}
+</code></pre>
+<p><strong>Hata Yanıtları:</strong></p>
+<ul>
+<li><code>404 Not Found</code>: Agent bulunamadı</li>
+</ul>
+<p><strong>Kullanım Örneği:</strong></p>
+<pre><code class="language-bash">curl http://localhost:9090/traffic/agent-001
+</code></pre>
+<hr>
+<h2 id="4-metrics-endpoints"><a class="header" href="#4-metrics-endpoints">4. Metrics Endpoints</a></h2>
+<h3 id="41-system-wide-metrics"><a class="header" href="#41-system-wide-metrics">4.1 System-Wide Metrics</a></h3>
+<p><strong>Endpoint:</strong> <code>GET /metrics</code></p>
+<p><strong>Açıklama:</strong> Sistem geneli metrikler ve istatistikler</p>
+<p><strong>Yanıt:</strong></p>
+<pre><code class="language-json">{
+  "total_requests": 15234,
+  "average_response_time_ms": 245.7,
+  "error_rate": 0.023
+}
+</code></pre>
+<p><strong>Metrik Açıklamaları:</strong></p>
+<ul>
+<li><code>total_requests</code>: Toplam işlenen HTTP isteği sayısı</li>
+<li><code>average_response_time_ms</code>: Ortalama yanıt süresi (milisaniye)</li>
+<li><code>error_rate</code>: Hata oranı (4xx ve 5xx yanıtlar / toplam istekler)</li>
+</ul>
+<p><strong>Kullanım Örneği:</strong></p>
+<pre><code class="language-bash">curl http://localhost:9090/metrics
+</code></pre>
+<hr>
+<h3 id="42-agent-specific-metrics"><a class="header" href="#42-agent-specific-metrics">4.2 Agent-Specific Metrics</a></h3>
+<p><strong>Endpoint:</strong> <code>GET /metrics/{agent_id}</code></p>
+<p><strong>Açıklama:</strong> Belirli bir agent’ın metriklerini getirir</p>
+<p><strong>Path Parameters:</strong></p>
+<ul>
+<li><code>agent_id</code> (string, required): Agent’ın benzersiz kimliği</li>
+</ul>
+<p><strong>Yanıt:</strong></p>
+<pre><code class="language-json">{
+  "agent_id": "agent-001",
+  "timestamp": "2026-01-09T14:49:45Z",
+  "requests_handled": 5432,
+  "average_response_time_ms": 198.5,
+  "error_rate": 0.015,
+  "memory_usage_mb": 256,
+  "cpu_usage_percent": 12.5
+}
+</code></pre>
+<p><strong>Hata Yanıtları:</strong></p>
+<ul>
+<li><code>404 Not Found</code>: Agent bulunamadı</li>
+</ul>
+<p><strong>Kullanım Örneği:</strong></p>
+<pre><code class="language-bash">curl http://localhost:9090/metrics/agent-001
+</code></pre>
+<hr>
+<h2 id="5-root-endpoint"><a class="header" href="#5-root-endpoint">5. Root Endpoint</a></h2>
+<h3 id="51-api-documentation"><a class="header" href="#51-api-documentation">5.1 API Documentation</a></h3>
+<p><strong>Endpoint:</strong> <code>GET /</code></p>
+<p><strong>Açıklama:</strong> API dokümantasyonu ve mevcut endpoint’lerin listesi</p>
+<p><strong>Yanıt:</strong></p>
+<pre><code class="language-json">{
+  "service": "Distributed MITM Proxxy Orchestrator",
+  "version": "0.1.1",
+  "status": "running",
+  "endpoints": [
+    {
+      "path": "/",
+      "method": "GET",
+      "description": "This welcome page with API documentation"
+    },
+    {
+      "path": "/health",
+      "method": "GET",
+      "description": "Basic health check"
+    },
+    {
+      "path": "/health/detailed",
+      "method": "GET",
+      "description": "Detailed system health status"
+    },
+    {
+      "path": "/agents",
+      "method": "GET",
+      "description": "List all registered proxy agents"
+    },
+    {
+      "path": "/agents",
+      "method": "POST",
+      "description": "Register a new proxy agent"
+    },
+    {
+      "path": "/agents/{agent_id}",
+      "method": "GET",
+      "description": "Get information about a specific agent"
+    },
+    {
+      "path": "/traffic",
+      "method": "GET",
+      "description": "Get recent traffic data (query params: agent_id, limit)"
+    },
+    {
+      "path": "/traffic/{agent_id}",
+      "method": "GET",
+      "description": "Get traffic data for a specific agent"
+    },
+    {
+      "path": "/metrics",
+      "method": "GET",
+      "description": "Get system-wide metrics"
+    },
+    {
+      "path": "/metrics/{agent_id}",
+      "method": "GET",
+      "description": "Get metrics for a specific agent"
+    }
+  ]
+}
+</code></pre>
+<p><strong>Kullanım Örneği:</strong></p>
+<pre><code class="language-bash">curl http://localhost:9090/
+</code></pre>
+<hr>
+<h1 id="-graphql-api-1"><a class="header" href="#-graphql-api-1">🎨 GraphQL API</a></h1>
+<h2 id="graphql-playground"><a class="header" href="#graphql-playground">GraphQL Playground</a></h2>
+<p>GraphQL Playground’a tarayıcınızdan erişebilirsiniz:</p>
+<pre><code>http://localhost:9090/graphql
+</code></pre>
+<p>Bu interaktif arayüz, sorguları test etmenizi, şemayı keşfetmenizi ve dokümantasyonu görüntülemenizi sağlar.</p>
+<hr>
+<h2 id="queries-1"><a class="header" href="#queries-1">Queries</a></h2>
+<h3 id="1-list-agents-1"><a class="header" href="#1-list-agents-1">1. List Agents</a></h3>
+<p><strong>Açıklama:</strong> Tüm kayıtlı agent’ları listeler</p>
+<p><strong>Query:</strong></p>
+<pre><code class="language-graphql">query {
+  agents {
+    id
+    name
+    hostname
+    status
+    version
+    lastHeartbeat
+  }
+}
+</code></pre>
+<p><strong>Yanıt:</strong></p>
+<pre><code class="language-json">{
+  "data": {
+    "agents": [
+      {
+        "id": "agent-001",
+        "name": "Dev-Agent-1",
+        "hostname": "laptop.local",
+        "status": "Online",
+        "version": "0.1.1",
+        "lastHeartbeat": "2026-01-09T14:49:45Z"
+      }
+    ]
+  }
+}
+</code></pre>
+<hr>
+<h3 id="2-get-http-transactions-1"><a class="header" href="#2-get-http-transactions-1">2. Get HTTP Transactions</a></h3>
+<p><strong>Açıklama:</strong> HTTP işlemlerini getirir</p>
+<p><strong>Query:</strong></p>
+<pre><code class="language-graphql">query {
+  httpTransactions(limit: 100) {
+    requestId
+    method
+    url
+    statusCode
+    timestamp
+    agentId
+  }
+}
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>limit</code> (Int, optional): Maksimum kayıt sayısı</li>
+</ul>
+<p><strong>Yanıt:</strong></p>
+<pre><code class="language-json">{
+  "data": {
+    "httpTransactions": [
+      {
+        "requestId": "req-12345",
+        "method": "GET",
+        "url": "https://api.example.com/users",
+        "statusCode": 200,
+        "timestamp": "2026-01-09T14:49:45Z",
+        "agentId": "agent-001"
+      }
+    ]
+  }
+}
+</code></pre>
+<hr>
+<h3 id="3-get-system-metrics-1"><a class="header" href="#3-get-system-metrics-1">3. Get System Metrics</a></h3>
+<p><strong>Açıklama:</strong> Sistem metriklerini getirir</p>
+<p><strong>Query:</strong></p>
+<pre><code class="language-graphql">query {
+  systemMetrics(agentId: "agent-001", limit: 60) {
+    agentId
+    timestamp
+    cpuUsagePercent
+    memoryUsedBytes
+    memoryTotalBytes
+    networkRxBytes
+    networkTxBytes
+    diskReadBytes
+    diskWriteBytes
+    processCpuPercent
+    processMemoryBytes
+  }
+}
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>agentId</code> (String, required): Agent kimliği</li>
+<li><code>limit</code> (Int, optional): Maksimum kayıt sayısı</li>
+</ul>
+<p><strong>Yanıt:</strong></p>
+<pre><code class="language-json">{
+  "data": {
+    "systemMetrics": [
+      {
+        "agentId": "agent-001",
+        "timestamp": "2026-01-09T14:49:45Z",
+        "cpuUsagePercent": 12.5,
+        "memoryUsedBytes": 268435456,
+        "memoryTotalBytes": 8589934592,
+        "networkRxBytes": 1024000,
+        "networkTxBytes": 512000,
+        "diskReadBytes": 2048000,
+        "diskWriteBytes": 1024000,
+        "processCpuPercent": 8.2,
+        "processMemoryBytes": 134217728
+      }
+    ]
+  }
+}
+</code></pre>
+<hr>
+<h3 id="4-get-current-system-metrics-1"><a class="header" href="#4-get-current-system-metrics-1">4. Get Current System Metrics</a></h3>
+<p><strong>Açıklama:</strong> Anlık sistem metriklerini getirir</p>
+<p><strong>Query:</strong></p>
+<pre><code class="language-graphql">query {
+  currentSystemMetrics(agentId: "agent-001") {
+    cpuUsagePercent
+    memoryUsedBytes
+    memoryTotalBytes
+    networkRxBytes
+    networkTxBytes
+  }
+}
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>agentId</code> (String, required): Agent kimliği</li>
+</ul>
+<hr>
+<h2 id="mutations-1"><a class="header" href="#mutations-1">Mutations</a></h2>
+<h3 id="1-replay-http-request-1"><a class="header" href="#1-replay-http-request-1">1. Replay HTTP Request</a></h3>
+<p><strong>Açıklama:</strong> Yakalanmış bir HTTP isteğini tekrar gönderir</p>
+<p><strong>Mutation:</strong></p>
+<pre><code class="language-graphql">mutation {
+  replayRequest(requestId: "req-12345") {
+    success
+    message
+    replayRequestId
+    originalUrl
+    originalMethod
+  }
+}
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>requestId</code> (String, required): Tekrar gönderilecek isteğin kimliği</li>
+</ul>
+<p><strong>Yanıt:</strong></p>
+<pre><code class="language-json">{
+  "data": {
+    "replayRequest": {
+      "success": true,
+      "message": "Request replayed successfully",
+      "replayRequestId": "req-12346",
+      "originalUrl": "https://api.example.com/users",
+      "originalMethod": "GET"
+    }
+  }
+}
+</code></pre>
+<hr>
+<h3 id="2-intercept-request"><a class="header" href="#2-intercept-request">2. Intercept Request</a></h3>
+<p><strong>Açıklama:</strong> İsteği gerçek zamanlı olarak müdahale eder (gelecek özellik)</p>
+<p><strong>Mutation:</strong></p>
+<pre><code class="language-graphql">mutation {
+  intercept(id: "req-12345", action: "drop") {
+    success
+  }
+}
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>id</code> (String, required): İstek kimliği</li>
+<li><code>action</code> (String, required): Eylem (“drop”, “modify”, “forward”)</li>
+</ul>
+<hr>
+<h2 id="subscriptions-1"><a class="header" href="#subscriptions-1">Subscriptions</a></h2>
+<h3 id="1-real-time-traffic-updates-1"><a class="header" href="#1-real-time-traffic-updates-1">1. Real-time Traffic Updates</a></h3>
+<p><strong>Açıklama:</strong> Gerçek zamanlı trafik güncellemeleri</p>
+<p><strong>Subscription:</strong></p>
+<pre><code class="language-graphql">subscription {
+  trafficUpdates {
+    requestId
+    method
+    url
+    statusCode
+    timestamp
+  }
+}
+</code></pre>
+<p><strong>WebSocket Yanıtı:</strong></p>
+<pre><code class="language-json">{
+  "data": {
+    "trafficUpdates": {
+      "requestId": "req-12347",
+      "method": "POST",
+      "url": "https://api.example.com/login",
+      "statusCode": 200,
+      "timestamp": "2026-01-09T14:50:00Z"
+    }
+  }
+}
+</code></pre>
+<hr>
+<h3 id="2-real-time-system-metrics-1"><a class="header" href="#2-real-time-system-metrics-1">2. Real-time System Metrics</a></h3>
+<p><strong>Açıklama:</strong> Gerçek zamanlı sistem metrikleri</p>
+<p><strong>Subscription:</strong></p>
+<pre><code class="language-graphql">subscription {
+  systemMetricsUpdates(agentId: "agent-001") {
+    agentId
+    timestamp
+    cpuUsagePercent
+    memoryUsedBytes
+    networkRxBytes
+    networkTxBytes
+  }
+}
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>agentId</code> (String, required): Agent kimliği</li>
+</ul>
+<p><strong>WebSocket Yanıtı:</strong></p>
+<pre><code class="language-json">{
+  "data": {
+    "systemMetricsUpdates": {
+      "agentId": "agent-001",
+      "timestamp": "2026-01-09T14:50:00Z",
+      "cpuUsagePercent": 13.2,
+      "memoryUsedBytes": 270532608,
+      "networkRxBytes": 1025024,
+      "networkTxBytes": 513024
+    }
+  }
+}
+</code></pre>
+<hr>
+<h1 id="-grpc-api-dahili"><a class="header" href="#-grpc-api-dahili">🔧 gRPC API (Dahili)</a></h1>
+<p>gRPC API, agent’lar ile orchestrator arasındaki dahili iletişim için kullanılır. UI geliştirmesi için genellikle gerekli değildir.</p>
+<h2 id="proto-tanımları"><a class="header" href="#proto-tanımları">Proto Tanımları</a></h2>
+<p>Proto dosyası: <code>proto/proxy.proto</code></p>
+<h3 id="servisler"><a class="header" href="#servisler">Servisler</a></h3>
+<ol>
+<li><strong>RegisterAgent</strong> - Agent kaydı</li>
+<li><strong>Heartbeat</strong> - Agent sağlık kontrolü</li>
+<li><strong>SubmitTrafficData</strong> - Trafik verisi gönderimi</li>
+<li><strong>SubmitMetrics</strong> - Metrik gönderimi</li>
+<li><strong>GetConfiguration</strong> - Yapılandırma alma</li>
+</ol>
+<hr>
+<h1 id="-veri-modelleri"><a class="header" href="#-veri-modelleri">📊 Veri Modelleri</a></h1>
+<h2 id="agentinfo"><a class="header" href="#agentinfo">AgentInfo</a></h2>
+<pre><code class="language-typescript">interface AgentInfo {
+  id: string;              // Benzersiz agent kimliği
+  address: string;         // IP adresi
+  port: number;            // Port numarası
+  status: string;          // "Online" | "Offline"
+  last_heartbeat: string;  // ISO 8601 timestamp
+  version: string;         // Agent versiyonu
+  capabilities: string[];  // Yetenekler ["http", "https", "websocket"]
+}
+</code></pre>
+<h2 id="httptransaction"><a class="header" href="#httptransaction">HttpTransaction</a></h2>
+<pre><code class="language-typescript">interface HttpTransaction {
+  request_id: string;      // Benzersiz istek kimliği
+  agent_id: string;        // Agent kimliği
+  method: string;          // HTTP metodu (GET, POST, vb.)
+  url: string;             // Tam URL
+  status: number | null;   // HTTP durum kodu
+  timestamp: number;       // Unix timestamp
+}
+</code></pre>
+<h2 id="systemmetrics"><a class="header" href="#systemmetrics">SystemMetrics</a></h2>
+<pre><code class="language-typescript">interface SystemMetrics {
+  agent_id: string;
+  timestamp: string;
+  cpu_usage_percent: number;
+  memory_used_bytes: number;
+  memory_total_bytes: number;
+  network_rx_bytes: number;
+  network_tx_bytes: number;
+  disk_read_bytes: number;
+  disk_write_bytes: number;
+  process_cpu_percent: number;
+  process_memory_bytes: number;
+}
+</code></pre>
+<hr>
+<h1 id="-hızlı-başlangıç-2"><a class="header" href="#-hızlı-başlangıç-2">🚀 Hızlı Başlangıç</a></h1>
+<h2 id="1-orchestratorı-başlatma-1"><a class="header" href="#1-orchestratorı-başlatma-1">1. Orchestrator’ı Başlatma</a></h2>
+<pre><code class="language-bash"># Varsayılan ayarlarla
+cargo run -p orchestrator
+
+# Özel portlarla
+cargo run -p orchestrator -- --grpc-port 50051 --http-port 9090
+
+# Özel veritabanı ile
+cargo run -p orchestrator -- --database-url sqlite:./my-proxy.db
+</code></pre>
+<h2 id="2-apiyi-test-etme"><a class="header" href="#2-apiyi-test-etme">2. API’yi Test Etme</a></h2>
+<h3 id="rest-api"><a class="header" href="#rest-api">REST API</a></h3>
+<pre><code class="language-bash"># Health check
+curl http://localhost:9090/health
+
+# Agent listesi
+curl http://localhost:9090/api/agents
+
+# Metrikler
+curl http://localhost:9090/metrics
+</code></pre>
+<h3 id="graphql"><a class="header" href="#graphql">GraphQL</a></h3>
+<p>Tarayıcıda açın: <code>http://localhost:9090/graphql</code></p>
+<p>Test sorgusu:</p>
+<pre><code class="language-graphql">query {
+  agents {
+    id
+    name
+    status
+  }
+}
+</code></pre>
+<hr>
+<h1 id="-kullanım-senaryoları-1"><a class="header" href="#-kullanım-senaryoları-1">🎯 Kullanım Senaryoları</a></h1>
+<h2 id="senaryo-1-canlı-trafik-izleme"><a class="header" href="#senaryo-1-canlı-trafik-izleme">Senaryo 1: Canlı Trafik İzleme</a></h2>
+<ol>
+<li>GraphQL Playground’u açın</li>
+<li>Subscription başlatın:</li>
+</ol>
+<pre><code class="language-graphql">subscription {
+  trafficUpdates {
+    requestId
+    method
+    url
+    statusCode
+  }
+}
+</code></pre>
+<ol start="3">
+<li>Yeni istekler gerçek zamanlı olarak görünecektir</li>
+</ol>
+<h2 id="senaryo-2-agent-sağlığını-izleme"><a class="header" href="#senaryo-2-agent-sağlığını-izleme">Senaryo 2: Agent Sağlığını İzleme</a></h2>
+<ol>
+<li>Agent listesini alın:</li>
+</ol>
+<pre><code class="language-bash">curl http://localhost:9090/api/agents
+</code></pre>
+<ol start="2">
+<li>Belirli bir agent’ın metriklerini izleyin:</li>
+</ol>
+<pre><code class="language-bash">curl http://localhost:9090/metrics/agent-001
+</code></pre>
+<ol start="3">
+<li>Gerçek zamanlı metrikler için GraphQL subscription kullanın:</li>
+</ol>
+<pre><code class="language-graphql">subscription {
+  systemMetricsUpdates(agentId: "agent-001") {
+    cpuUsagePercent
+    memoryUsedBytes
+  }
+}
+</code></pre>
+<h2 id="senaryo-3-istek-tekrarlama"><a class="header" href="#senaryo-3-istek-tekrarlama">Senaryo 3: İstek Tekrarlama</a></h2>
+<ol>
+<li>Trafik geçmişini görüntüleyin:</li>
+</ol>
+<pre><code class="language-bash">curl http://localhost:9090/api/traffic/recent
+</code></pre>
+<ol start="2">
+<li>Bir isteği tekrarlayın:</li>
+</ol>
+<pre><code class="language-graphql">mutation {
+  replayRequest(requestId: "req-12345") {
+    success
+    message
+    replayRequestId
+  }
+}
+</code></pre>
+<hr>
+<h1 id="-hata-kodları"><a class="header" href="#-hata-kodları">🔍 Hata Kodları</a></h1>
+<h2 id="http-durum-kodları"><a class="header" href="#http-durum-kodları">HTTP Durum Kodları</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Kod</th><th>Açıklama</th><th>Örnek Durum</th></tr>
+</thead>
+<tbody>
+<tr><td>200</td><td>OK</td><td>İstek başarılı</td></tr>
+<tr><td>404</td><td>Not Found</td><td>Agent veya kaynak bulunamadı</td></tr>
+<tr><td>500</td><td>Internal Server Error</td><td>Veritabanı hatası, sunucu hatası</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="graphql-hataları"><a class="header" href="#graphql-hataları">GraphQL Hataları</a></h2>
+<p>GraphQL hataları <code>errors</code> dizisinde döner:</p>
+<pre><code class="language-json">{
+  "errors": [
+    {
+      "message": "Agent not found",
+      "locations": [{"line": 2, "column": 3}],
+      "path": ["agent"]
+    }
+  ],
+  "data": null
+}
+</code></pre>
+<hr>
+<h1 id="-ileri-seviye-konular"><a class="header" href="#-ileri-seviye-konular">📚 İleri Seviye Konular</a></h1>
+<h2 id="cors-yapılandırması"><a class="header" href="#cors-yapılandırması">CORS Yapılandırması</a></h2>
+<p>API, tüm origin’lerden gelen isteklere izin verir (permissive CORS). Üretim ortamında bunu kısıtlamanız önerilir.</p>
+<h2 id="rate-limiting"><a class="header" href="#rate-limiting">Rate Limiting</a></h2>
+<p>Şu anda rate limiting yoktur. Üretim ortamında eklenmesi önerilir.</p>
+<h2 id="websocket-bağlantıları"><a class="header" href="#websocket-bağlantıları">WebSocket Bağlantıları</a></h2>
+<p>GraphQL subscriptions WebSocket protokolü kullanır:</p>
+<ul>
+<li><strong>Endpoint:</strong> <code>ws://localhost:9090/graphql</code></li>
+<li><strong>Protocol:</strong> graphql-ws</li>
+</ul>
+<h3 id="javascript-örneği"><a class="header" href="#javascript-örneği">JavaScript Örneği</a></h3>
+<pre><code class="language-javascript">import { createClient } from 'graphql-ws';
+
+const client = createClient({
+  url: 'ws://localhost:9090/graphql',
+});
+
+const unsubscribe = client.subscribe(
+  {
+    query: `
+      subscription {
+        trafficUpdates {
+          requestId
+          method
+          url
+        }
+      }
+    `,
+  },
+  {
+    next: (data) =&gt; console.log('New traffic:', data),
+    error: (error) =&gt; console.error('Error:', error),
+    complete: () =&gt; console.log('Done'),
+  }
+);
+</code></pre>
+<hr>
+<h1 id="-geliştirme-araçları"><a class="header" href="#-geliştirme-araçları">🛠️ Geliştirme Araçları</a></h1>
+<h2 id="swagger-ui"><a class="header" href="#swagger-ui">Swagger UI</a></h2>
+<p>OpenAPI dokümantasyonunu görüntülemek için:</p>
+<pre><code>http://localhost:9090/swagger-ui
+</code></pre>
+<h2 id="graphiql-playground"><a class="header" href="#graphiql-playground">GraphiQL Playground</a></h2>
+<p>GraphQL sorgularını test etmek için:</p>
+<pre><code>http://localhost:9090/graphql
+</code></pre>
+<h2 id="curl-örnekleri"><a class="header" href="#curl-örnekleri">cURL Örnekleri</a></h2>
+<h3 id="post-isteği"><a class="header" href="#post-isteği">POST İsteği</a></h3>
+<pre><code class="language-bash">curl -X POST http://localhost:9090/agents \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_id": "test-agent",
+    "address": "127.0.0.1",
+    "port": 8080,
+    "version": "0.1.1",
+    "capabilities": ["http", "https"]
+  }'
+</code></pre>
+<h3 id="graphql-sorgusu"><a class="header" href="#graphql-sorgusu">GraphQL Sorgusu</a></h3>
+<pre><code class="language-bash">curl -X POST http://localhost:9090/graphql \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "{ agents { id name status } }"
+  }'
+</code></pre>
+<hr>
+<h1 id="-ilgili-dokümantasyon"><a class="header" href="#-ilgili-dokümantasyon">📖 İlgili Dokümantasyon</a></h1>
+<ul>
+<li><a href="#proxxy-v11---backend-api-specification-for-ui">Backend API Specification</a> - UI için backend özellikleri</li>
+<li><a href="#architecture-1">Architecture</a> - Sistem mimarisi</li>
+<li><a href="#traffic-policy-system">Traffic Policy</a> - Trafik politikaları</li>
+<li><a href="#flow-engine--login-sequence-recorder">Flow Engine</a> - Flow engine dokümantasyonu</li>
+</ul>
+<hr>
+<h1 id="-sürüm-geçmişi"><a class="header" href="#-sürüm-geçmişi">📝 Sürüm Geçmişi</a></h1>
+<h2 id="v011-mevcut"><a class="header" href="#v011-mevcut">v0.1.1 (Mevcut)</a></h2>
+<ul>
+<li>✅ REST API endpoint’leri</li>
+<li>✅ GraphQL API (queries, mutations, subscriptions)</li>
+<li>✅ Agent yönetimi</li>
+<li>✅ Trafik yakalama</li>
+<li>✅ Sistem metrikleri</li>
+<li>✅ OpenAPI/Swagger dokümantasyonu</li>
+<li>✅ CORS desteği</li>
+</ul>
+<h2 id="gelecek-sürümler"><a class="header" href="#gelecek-sürümler">Gelecek Sürümler</a></h2>
+<ul>
+<li>🔜 Kimlik doğrulama (JWT)</li>
+<li>🔜 Rate limiting</li>
+<li>🔜 Gelişmiş filtreleme</li>
+<li>🔜 HAR export</li>
+<li>🔜 WebSocket intercept</li>
+</ul>
+<hr>
+<p><strong>Son Güncelleme:</strong> 2026-01-09<br><strong>Versiyon:</strong> 0.1.1<br><strong>Durum:</strong> ✅ Aktif Geliştirme</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="api-kullanım-örnekleri"><a class="header" href="#api-kullanım-örnekleri">API Kullanım Örnekleri</a></h1>
+<p>Bu dokümantasyon, Proxxy Orchestrator API’sini kullanarak yaygın görevlerin nasıl gerçekleştirileceğini gösteren pratik örnekler içerir.</p>
+<hr>
+<h2 id="-içindekiler"><a class="header" href="#-içindekiler">📋 İçindekiler</a></h2>
+<ol>
+<li><a href="#rest-api-örnekleri">REST API Örnekleri</a></li>
+<li><a href="#graphql-örnekleri">GraphQL Örnekleri</a></li>
+<li><a href="#javascripttypescript-örnekleri">JavaScript/TypeScript Örnekleri</a></li>
+<li><a href="#python-örnekleri">Python Örnekleri</a></li>
+<li><a href="#react-hooks-örnekleri">React Hooks Örnekleri</a></li>
+</ol>
+<hr>
+<h1 id="rest-api-örnekleri"><a class="header" href="#rest-api-örnekleri">REST API Örnekleri</a></h1>
+<h2 id="1-sistem-durumunu-kontrol-etme"><a class="header" href="#1-sistem-durumunu-kontrol-etme">1. Sistem Durumunu Kontrol Etme</a></h2>
+<h3 id="bashcurl"><a class="header" href="#bashcurl">Bash/cURL</a></h3>
+<pre><code class="language-bash">#!/bin/bash
+
+# Basit health check
+curl http://localhost:9090/health
+
+# Detaylı health check
+curl http://localhost:9090/api/health/detailed
+
+# Sistem sağlığı ve agent istatistikleri
+curl http://localhost:9090/api/system/health | jq '.'
+</code></pre>
+<h3 id="javascript-fetch-api"><a class="header" href="#javascript-fetch-api">JavaScript (Fetch API)</a></h3>
+<pre><code class="language-javascript">async function checkHealth() {
+  try {
+    const response = await fetch('http://localhost:9090/api/system/health');
+    const data = await response.json();
+    
+    console.log('System Status:', data.status);
+    console.log('Uptime:', data.uptime_seconds, 'seconds');
+    console.log('Agents Online:', data.agents_online, '/', data.agents_total);
+    
+    return data;
+  } catch (error) {
+    console.error('Health check failed:', error);
+  }
+}
+
+checkHealth();
+</code></pre>
+<h3 id="python"><a class="header" href="#python">Python</a></h3>
+<pre><code class="language-python">import requests
+import json
+
+def check_health():
+    try:
+        response = requests.get('http://localhost:9090/api/system/health')
+        data = response.json()
+        
+        print(f"System Status: {data['status']}")
+        print(f"Uptime: {data['uptime_seconds']} seconds")
+        print(f"Agents Online: {data['agents_online']}/{data['agents_total']}")
+        
+        return data
+    except Exception as e:
+        print(f"Health check failed: {e}")
+
+check_health()
+</code></pre>
+<hr>
+<h2 id="2-agent-listesini-alma"><a class="header" href="#2-agent-listesini-alma">2. Agent Listesini Alma</a></h2>
+<h3 id="bashcurl-1"><a class="header" href="#bashcurl-1">Bash/cURL</a></h3>
+<pre><code class="language-bash">#!/bin/bash
+
+# Tüm agent'ları listele
+curl http://localhost:9090/api/agents | jq '.'
+
+# Sadece online agent'ları göster
+curl http://localhost:9090/api/agents | jq '.agents[] | select(.status == "Online")'
+
+# Agent sayılarını göster
+curl http://localhost:9090/api/agents | jq '{total: .total_count, online: .online_count, offline: .offline_count}'
+</code></pre>
+<h3 id="javascript"><a class="header" href="#javascript">JavaScript</a></h3>
+<pre><code class="language-javascript">async function listAgents() {
+  const response = await fetch('http://localhost:9090/api/agents');
+  const data = await response.json();
+  
+  console.log(`Total Agents: ${data.total_count}`);
+  console.log(`Online: ${data.online_count}, Offline: ${data.offline_count}`);
+  
+  data.agents.forEach(agent =&gt; {
+    console.log(`\n${agent.id}:`);
+    console.log(`  Status: ${agent.status}`);
+    console.log(`  Address: ${agent.address}:${agent.port}`);
+    console.log(`  Version: ${agent.version}`);
+    console.log(`  Last Heartbeat: ${agent.last_heartbeat}`);
+  });
+  
+  return data;
+}
+
+listAgents();
+</code></pre>
+<h3 id="python-1"><a class="header" href="#python-1">Python</a></h3>
+<pre><code class="language-python">import requests
+from datetime import datetime
+
+def list_agents():
+    response = requests.get('http://localhost:9090/api/agents')
+    data = response.json()
+    
+    print(f"Total Agents: {data['total_count']}")
+    print(f"Online: {data['online_count']}, Offline: {data['offline_count']}\n")
+    
+    for agent in data['agents']:
+        print(f"{agent['id']}:")
+        print(f"  Status: {agent['status']}")
+        print(f"  Address: {agent['address']}:{agent['port']}")
+        print(f"  Version: {agent['version']}")
+        print(f"  Last Heartbeat: {agent['last_heartbeat']}\n")
+    
+    return data
+
+list_agents()
+</code></pre>
+<hr>
+<h2 id="3-yeni-agent-kaydetme"><a class="header" href="#3-yeni-agent-kaydetme">3. Yeni Agent Kaydetme</a></h2>
+<h3 id="bashcurl-2"><a class="header" href="#bashcurl-2">Bash/cURL</a></h3>
+<pre><code class="language-bash">#!/bin/bash
+
+curl -X POST http://localhost:9090/agents \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_id": "agent-prod-01",
+    "address": "192.168.1.100",
+    "port": 8080,
+    "version": "0.1.1",
+    "capabilities": ["http", "https", "websocket"]
+  }' | jq '.'
+</code></pre>
+<h3 id="javascript-1"><a class="header" href="#javascript-1">JavaScript</a></h3>
+<pre><code class="language-javascript">async function registerAgent(agentConfig) {
+  const response = await fetch('http://localhost:9090/agents', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(agentConfig),
+  });
+  
+  const data = await response.json();
+  
+  if (data.success) {
+    console.log('✅ Agent registered successfully:', data.agent_id);
+  } else {
+    console.error('❌ Registration failed:', data.message);
+  }
+  
+  return data;
+}
+
+// Kullanım
+registerAgent({
+  agent_id: 'agent-prod-01',
+  address: '192.168.1.100',
+  port: 8080,
+  version: '0.1.1',
+  capabilities: ['http', 'https', 'websocket']
+});
+</code></pre>
+<h3 id="python-2"><a class="header" href="#python-2">Python</a></h3>
+<pre><code class="language-python">import requests
+
+def register_agent(agent_config):
+    response = requests.post(
+        'http://localhost:9090/agents',
+        json=agent_config
+    )
+    data = response.json()
+    
+    if data['success']:
+        print(f"✅ Agent registered successfully: {data['agent_id']}")
+    else:
+        print(f"❌ Registration failed: {data['message']}")
+    
+    return data
+
+# Kullanım
+register_agent({
+    'agent_id': 'agent-prod-01',
+    'address': '192.168.1.100',
+    'port': 8080,
+    'version': '0.1.1',
+    'capabilities': ['http', 'https', 'websocket']
+})
+</code></pre>
+<hr>
+<h2 id="4-trafik-verilerini-alma"><a class="header" href="#4-trafik-verilerini-alma">4. Trafik Verilerini Alma</a></h2>
+<h3 id="bashcurl-3"><a class="header" href="#bashcurl-3">Bash/cURL</a></h3>
+<pre><code class="language-bash">#!/bin/bash
+
+# Son 50 HTTP işlemini getir
+curl http://localhost:9090/api/traffic/recent | jq '.transactions[] | {method, url, status}'
+
+# Belirli bir metodu filtrele
+curl http://localhost:9090/api/traffic/recent | jq '.transactions[] | select(.method == "POST")'
+
+# Hata olan istekleri göster (4xx, 5xx)
+curl http://localhost:9090/api/traffic/recent | jq '.transactions[] | select(.status &gt;= 400)'
+</code></pre>
+<h3 id="javascript-2"><a class="header" href="#javascript-2">JavaScript</a></h3>
+<pre><code class="language-javascript">async function getRecentTraffic() {
+  const response = await fetch('http://localhost:9090/api/traffic/recent');
+  const data = await response.json();
+  
+  console.log(`Total Transactions: ${data.total_count}\n`);
+  
+  data.transactions.forEach(tx =&gt; {
+    const statusEmoji = tx.status &gt;= 400 ? '❌' : '✅';
+    console.log(`${statusEmoji} ${tx.method} ${tx.url}`);
+    console.log(`   Status: ${tx.status}, Agent: ${tx.agent_id}`);
+    console.log(`   Time: ${new Date(tx.timestamp * 1000).toISOString()}\n`);
+  });
+  
+  return data;
+}
+
+getRecentTraffic();
+</code></pre>
+<h3 id="python-3"><a class="header" href="#python-3">Python</a></h3>
+<pre><code class="language-python">import requests
+from datetime import datetime
+
+def get_recent_traffic():
+    response = requests.get('http://localhost:9090/api/traffic/recent')
+    data = response.json()
+    
+    print(f"Total Transactions: {data['total_count']}\n")
+    
+    for tx in data['transactions']:
+        status_emoji = '❌' if tx['status'] &gt;= 400 else '✅'
+        print(f"{status_emoji} {tx['method']} {tx['url']}")
+        print(f"   Status: {tx['status']}, Agent: {tx['agent_id']}")
+        
+        timestamp = datetime.fromtimestamp(tx['timestamp'])
+        print(f"   Time: {timestamp.isoformat()}\n")
+    
+    return data
+
+get_recent_traffic()
+</code></pre>
+<hr>
+<h2 id="5-metrikleri-alma"><a class="header" href="#5-metrikleri-alma">5. Metrikleri Alma</a></h2>
+<h3 id="bashcurl-4"><a class="header" href="#bashcurl-4">Bash/cURL</a></h3>
+<pre><code class="language-bash">#!/bin/bash
+
+# Sistem geneli metrikler
+curl http://localhost:9090/metrics | jq '.'
+
+# Belirli bir agent'ın metrikleri
+AGENT_ID="agent-001"
+curl http://localhost:9090/metrics/$AGENT_ID | jq '.'
+
+# Hata oranını hesapla
+curl http://localhost:9090/metrics | jq '.error_rate * 100 | "\(.)%"'
+</code></pre>
+<h3 id="javascript-3"><a class="header" href="#javascript-3">JavaScript</a></h3>
+<pre><code class="language-javascript">async function getMetrics(agentId = null) {
+  const url = agentId 
+    ? `http://localhost:9090/metrics/${agentId}`
+    : 'http://localhost:9090/metrics';
+    
+  const response = await fetch(url);
+  const data = await response.json();
+  
+  if (agentId) {
+    console.log(`Metrics for Agent: ${data.agent_id}`);
+    console.log(`Requests Handled: ${data.requests_handled}`);
+    console.log(`Avg Response Time: ${data.average_response_time_ms.toFixed(2)}ms`);
+    console.log(`Error Rate: ${(data.error_rate * 100).toFixed(2)}%`);
+    console.log(`Memory Usage: ${(data.memory_usage_mb).toFixed(2)}MB`);
+    console.log(`CPU Usage: ${data.cpu_usage_percent.toFixed(2)}%`);
+  } else {
+    console.log('System-Wide Metrics:');
+    console.log(`Total Requests: ${data.total_requests}`);
+    console.log(`Avg Response Time: ${data.average_response_time_ms.toFixed(2)}ms`);
+    console.log(`Error Rate: ${(data.error_rate * 100).toFixed(2)}%`);
+  }
+  
+  return data;
+}
+
+// Sistem metrikleri
+getMetrics();
+
+// Agent metrikleri
+getMetrics('agent-001');
+</code></pre>
+<hr>
+<h1 id="graphql-örnekleri"><a class="header" href="#graphql-örnekleri">GraphQL Örnekleri</a></h1>
+<h2 id="1-agent-listesini-sorgulama"><a class="header" href="#1-agent-listesini-sorgulama">1. Agent Listesini Sorgulama</a></h2>
+<h3 id="graphql-query"><a class="header" href="#graphql-query">GraphQL Query</a></h3>
+<pre><code class="language-graphql">query GetAgents {
+  agents {
+    id
+    name
+    hostname
+    status
+    version
+    lastHeartbeat
+  }
+}
+</code></pre>
+<h3 id="javascript-fetch"><a class="header" href="#javascript-fetch">JavaScript (Fetch)</a></h3>
+<pre><code class="language-javascript">async function queryAgents() {
+  const query = `
+    query {
+      agents {
+        id
+        name
+        hostname
+        status
+        version
+        lastHeartbeat
+      }
+    }
+  `;
+  
+  const response = await fetch('http://localhost:9090/graphql', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ query }),
+  });
+  
+  const { data } = await response.json();
+  return data.agents;
+}
+
+queryAgents().then(agents =&gt; {
+  console.log('Agents:', agents);
+});
+</code></pre>
+<h3 id="python-requests"><a class="header" href="#python-requests">Python (requests)</a></h3>
+<pre><code class="language-python">import requests
+
+def query_agents():
+    query = """
+    query {
+      agents {
+        id
+        name
+        hostname
+        status
+        version
+        lastHeartbeat
+      }
+    }
+    """
+    
+    response = requests.post(
+        'http://localhost:9090/graphql',
+        json={'query': query}
+    )
+    
+    data = response.json()
+    return data['data']['agents']
+
+agents = query_agents()
+print('Agents:', agents)
+</code></pre>
+<hr>
+<h2 id="2-http-işlemlerini-sorgulama"><a class="header" href="#2-http-işlemlerini-sorgulama">2. HTTP İşlemlerini Sorgulama</a></h2>
+<h3 id="graphql-query-1"><a class="header" href="#graphql-query-1">GraphQL Query</a></h3>
+<pre><code class="language-graphql">query GetTransactions($limit: Int!) {
+  httpTransactions(limit: $limit) {
+    requestId
+    method
+    url
+    statusCode
+    timestamp
+    agentId
+  }
+}
+</code></pre>
+<h3 id="javascript-4"><a class="header" href="#javascript-4">JavaScript</a></h3>
+<pre><code class="language-javascript">async function queryTransactions(limit = 50) {
+  const query = `
+    query GetTransactions($limit: Int!) {
+      httpTransactions(limit: $limit) {
+        requestId
+        method
+        url
+        statusCode
+        timestamp
+        agentId
+      }
+    }
+  `;
+  
+  const response = await fetch('http://localhost:9090/graphql', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query,
+      variables: { limit },
+    }),
+  });
+  
+  const { data } = await response.json();
+  return data.httpTransactions;
+}
+
+queryTransactions(100).then(transactions =&gt; {
+  console.log(`Found ${transactions.length} transactions`);
+  transactions.forEach(tx =&gt; {
+    console.log(`${tx.method} ${tx.url} - ${tx.statusCode}`);
+  });
+});
+</code></pre>
+<hr>
+<h2 id="3-istek-tekrarlama-mutation"><a class="header" href="#3-istek-tekrarlama-mutation">3. İstek Tekrarlama (Mutation)</a></h2>
+<h3 id="graphql-mutation"><a class="header" href="#graphql-mutation">GraphQL Mutation</a></h3>
+<pre><code class="language-graphql">mutation ReplayRequest($requestId: String!) {
+  replayRequest(requestId: $requestId) {
+    success
+    message
+    replayRequestId
+    originalUrl
+    originalMethod
+  }
+}
+</code></pre>
+<h3 id="javascript-5"><a class="header" href="#javascript-5">JavaScript</a></h3>
+<pre><code class="language-javascript">async function replayRequest(requestId) {
+  const mutation = `
+    mutation ReplayRequest($requestId: String!) {
+      replayRequest(requestId: $requestId) {
+        success
+        message
+        replayRequestId
+        originalUrl
+        originalMethod
+      }
+    }
+  `;
+  
+  const response = await fetch('http://localhost:9090/graphql', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query: mutation,
+      variables: { requestId },
+    }),
+  });
+  
+  const { data } = await response.json();
+  
+  if (data.replayRequest.success) {
+    console.log('✅ Request replayed successfully');
+    console.log('Original:', data.replayRequest.originalMethod, data.replayRequest.originalUrl);
+    console.log('Replay ID:', data.replayRequest.replayRequestId);
+  } else {
+    console.error('❌ Replay failed:', data.replayRequest.message);
+  }
+  
+  return data.replayRequest;
+}
+
+replayRequest('req-12345');
+</code></pre>
+<hr>
+<h2 id="4-gerçek-zamanlı-trafik-izleme-subscription"><a class="header" href="#4-gerçek-zamanlı-trafik-izleme-subscription">4. Gerçek Zamanlı Trafik İzleme (Subscription)</a></h2>
+<h3 id="graphql-subscription"><a class="header" href="#graphql-subscription">GraphQL Subscription</a></h3>
+<pre><code class="language-graphql">subscription {
+  trafficUpdates {
+    requestId
+    method
+    url
+    statusCode
+    timestamp
+  }
+}
+</code></pre>
+<h3 id="javascript-graphql-ws"><a class="header" href="#javascript-graphql-ws">JavaScript (graphql-ws)</a></h3>
+<pre><code class="language-javascript">import { createClient } from 'graphql-ws';
+
+const client = createClient({
+  url: 'ws://localhost:9090/graphql',
+});
+
+const subscription = client.subscribe(
+  {
+    query: `
+      subscription {
+        trafficUpdates {
+          requestId
+          method
+          url
+          statusCode
+          timestamp
+        }
+      }
+    `,
+  },
+  {
+    next: (data) =&gt; {
+      const tx = data.data.trafficUpdates;
+      console.log(`🔔 New Request: ${tx.method} ${tx.url} - ${tx.statusCode}`);
+    },
+    error: (error) =&gt; {
+      console.error('❌ Subscription error:', error);
+    },
+    complete: () =&gt; {
+      console.log('✅ Subscription completed');
+    },
+  }
+);
+
+// Aboneliği iptal etmek için
+// subscription.unsubscribe();
+</code></pre>
+<hr>
+<h2 id="5-gerçek-zamanlı-metrik-izleme"><a class="header" href="#5-gerçek-zamanlı-metrik-izleme">5. Gerçek Zamanlı Metrik İzleme</a></h2>
+<h3 id="graphql-subscription-1"><a class="header" href="#graphql-subscription-1">GraphQL Subscription</a></h3>
+<pre><code class="language-graphql">subscription SystemMetrics($agentId: String!) {
+  systemMetricsUpdates(agentId: $agentId) {
+    agentId
+    timestamp
+    cpuUsagePercent
+    memoryUsedBytes
+    networkRxBytes
+    networkTxBytes
+  }
+}
+</code></pre>
+<h3 id="javascript-6"><a class="header" href="#javascript-6">JavaScript</a></h3>
+<pre><code class="language-javascript">import { createClient } from 'graphql-ws';
+
+function subscribeToMetrics(agentId) {
+  const client = createClient({
+    url: 'ws://localhost:9090/graphql',
+  });
+
+  return client.subscribe(
+    {
+      query: `
+        subscription SystemMetrics($agentId: String!) {
+          systemMetricsUpdates(agentId: $agentId) {
+            agentId
+            timestamp
+            cpuUsagePercent
+            memoryUsedBytes
+            networkRxBytes
+            networkTxBytes
+          }
+        }
+      `,
+      variables: { agentId },
+    },
+    {
+      next: (data) =&gt; {
+        const metrics = data.data.systemMetricsUpdates;
+        console.log(`📊 Metrics Update for ${metrics.agentId}:`);
+        console.log(`   CPU: ${metrics.cpuUsagePercent.toFixed(2)}%`);
+        console.log(`   Memory: ${(metrics.memoryUsedBytes / 1024 / 1024).toFixed(2)}MB`);
+        console.log(`   Network RX: ${(metrics.networkRxBytes / 1024).toFixed(2)}KB`);
+        console.log(`   Network TX: ${(metrics.networkTxBytes / 1024).toFixed(2)}KB`);
+      },
+      error: (error) =&gt; console.error('Error:', error),
+      complete: () =&gt; console.log('Subscription completed'),
+    }
+  );
+}
+
+const unsubscribe = subscribeToMetrics('agent-001');
+</code></pre>
+<hr>
+<h1 id="javascripttypescript-örnekleri"><a class="header" href="#javascripttypescript-örnekleri">JavaScript/TypeScript Örnekleri</a></h1>
+<h2 id="1-api-client-sınıfı"><a class="header" href="#1-api-client-sınıfı">1. API Client Sınıfı</a></h2>
+<pre><code class="language-typescript">class ProxxyClient {
+  private baseUrl: string;
+  
+  constructor(baseUrl: string = 'http://localhost:9090') {
+    this.baseUrl = baseUrl;
+  }
+  
+  // Health Check
+  async checkHealth(): Promise&lt;HealthStatus&gt; {
+    const response = await fetch(`${this.baseUrl}/api/system/health`);
+    return response.json();
+  }
+  
+  // List Agents
+  async listAgents(): Promise&lt;AgentsResponse&gt; {
+    const response = await fetch(`${this.baseUrl}/api/agents`);
+    return response.json();
+  }
+  
+  // Get Specific Agent
+  async getAgent(agentId: string): Promise&lt;AgentInfo&gt; {
+    const response = await fetch(`${this.baseUrl}/agents/${agentId}`);
+    if (!response.ok) {
+      throw new Error(`Agent not found: ${agentId}`);
+    }
+    return response.json();
+  }
+  
+  // Register Agent
+  async registerAgent(config: RegisterAgentRequest): Promise&lt;RegisterAgentResponse&gt; {
+    const response = await fetch(`${this.baseUrl}/agents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    return response.json();
+  }
+  
+  // Get Recent Traffic
+  async getRecentTraffic(): Promise&lt;TrafficResponse&gt; {
+    const response = await fetch(`${this.baseUrl}/api/traffic/recent`);
+    return response.json();
+  }
+  
+  // Get Metrics
+  async getMetrics(agentId?: string): Promise&lt;MetricsResponse&gt; {
+    const url = agentId 
+      ? `${this.baseUrl}/metrics/${agentId}`
+      : `${this.baseUrl}/metrics`;
+    const response = await fetch(url);
+    return response.json();
+  }
+  
+  // GraphQL Query
+  async graphql&lt;T&gt;(query: string, variables?: any): Promise&lt;T&gt; {
+    const response = await fetch(`${this.baseUrl}/graphql`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, variables }),
+    });
+    const { data, errors } = await response.json();
+    if (errors) {
+      throw new Error(errors[0].message);
+    }
+    return data;
+  }
+}
+
+// Kullanım
+const client = new ProxxyClient();
+
+// Health check
+const health = await client.checkHealth();
+console.log('System status:', health.status);
+
+// List agents
+const agents = await client.listAgents();
+console.log('Total agents:', agents.total_count);
+
+// GraphQL query
+const data = await client.graphql(`
+  query {
+    agents {
+      id
+      name
+      status
+    }
+  }
+`);
+</code></pre>
+<h2 id="2-typescript-tip-tanımları"><a class="header" href="#2-typescript-tip-tanımları">2. TypeScript Tip Tanımları</a></h2>
+<pre><code class="language-typescript">interface HealthStatus {
+  status: string;
+  uptime_seconds: number;
+  database_connected: boolean;
+  agents_online?: number;
+  agents_total?: number;
+}
+
+interface AgentInfo {
+  id: string;
+  address: string;
+  port: number;
+  status: 'Online' | 'Offline';
+  last_heartbeat: string;
+  version: string;
+  capabilities: string[];
+}
+
+interface AgentsResponse {
+  agents: AgentInfo[];
+  total_count: number;
+  online_count: number;
+  offline_count: number;
+}
+
+interface RegisterAgentRequest {
+  agent_id: string;
+  address: string;
+  port: number;
+  version: string;
+  capabilities: string[];
+}
+
+interface RegisterAgentResponse {
+  success: boolean;
+  message: string;
+  agent_id: string;
+}
+
+interface HttpTransaction {
+  request_id: string;
+  agent_id: string;
+  method: string;
+  url: string;
+  status: number | null;
+  timestamp: number;
+}
+
+interface TrafficResponse {
+  transactions: HttpTransaction[];
+  total_count: number;
+}
+
+interface MetricsResponse {
+  total_requests: number;
+  average_response_time_ms: number;
+  error_rate: number;
+}
+
+interface AgentMetrics extends MetricsResponse {
+  agent_id: string;
+  timestamp: string;
+  requests_handled: number;
+  memory_usage_mb: number;
+  cpu_usage_percent: number;
+}
+</code></pre>
+<hr>
+<h1 id="react-hooks-örnekleri"><a class="header" href="#react-hooks-örnekleri">React Hooks Örnekleri</a></h1>
+<h2 id="1-useagents-hook"><a class="header" href="#1-useagents-hook">1. useAgents Hook</a></h2>
+<pre><code class="language-typescript">import { useState, useEffect } from 'react';
+
+interface UseAgentsResult {
+  agents: AgentInfo[];
+  loading: boolean;
+  error: Error | null;
+  refresh: () =&gt; void;
+}
+
+function useAgents(): UseAgentsResult {
+  const [agents, setAgents] = useState&lt;AgentInfo[]&gt;([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState&lt;Error | null&gt;(null);
+  
+  const fetchAgents = async () =&gt; {
+    try {
+      setLoading(true);
+      const response = await fetch('http://localhost:9090/api/agents');
+      const data = await response.json();
+      setAgents(data.agents);
+      setError(null);
+    } catch (err) {
+      setError(err as Error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  useEffect(() =&gt; {
+    fetchAgents();
+    
+    // Poll every 5 seconds
+    const interval = setInterval(fetchAgents, 5000);
+    return () =&gt; clearInterval(interval);
+  }, []);
+  
+  return { agents, loading, error, refresh: fetchAgents };
+}
+
+// Kullanım
+function AgentsList() {
+  const { agents, loading, error, refresh } = useAgents();
+  
+  if (loading) return &lt;div&gt;Loading...&lt;/div&gt;;
+  if (error) return &lt;div&gt;Error: {error.message}&lt;/div&gt;;
+  
+  return (
+    &lt;div&gt;
+      &lt;button onClick={refresh}&gt;Refresh&lt;/button&gt;
+      &lt;ul&gt;
+        {agents.map(agent =&gt; (
+          &lt;li key={agent.id}&gt;
+            {agent.id} - {agent.status}
+          &lt;/li&gt;
+        ))}
+      &lt;/ul&gt;
+    &lt;/div&gt;
+  );
+}
+</code></pre>
+<h2 id="2-usetrafficstream-hook-websocket"><a class="header" href="#2-usetrafficstream-hook-websocket">2. useTrafficStream Hook (WebSocket)</a></h2>
+<pre><code class="language-typescript">import { useState, useEffect } from 'react';
+import { createClient } from 'graphql-ws';
+
+function useTrafficStream() {
+  const [traffic, setTraffic] = useState&lt;HttpTransaction[]&gt;([]);
+  const [connected, setConnected] = useState(false);
+  
+  useEffect(() =&gt; {
+    const client = createClient({
+      url: 'ws://localhost:9090/graphql',
+    });
+    
+    const subscription = client.subscribe(
+      {
+        query: `
+          subscription {
+            trafficUpdates {
+              requestId
+              method
+              url
+              statusCode
+              timestamp
+            }
+          }
+        `,
+      },
+      {
+        next: (data) =&gt; {
+          setConnected(true);
+          setTraffic(prev =&gt; [data.data.trafficUpdates, ...prev].slice(0, 100));
+        },
+        error: () =&gt; setConnected(false),
+        complete: () =&gt; setConnected(false),
+      }
+    );
+    
+    return () =&gt; subscription.unsubscribe();
+  }, []);
+  
+  return { traffic, connected };
+}
+
+// Kullanım
+function TrafficMonitor() {
+  const { traffic, connected } = useTrafficStream();
+  
+  return (
+    &lt;div&gt;
+      &lt;div&gt;Status: {connected ? '🟢 Connected' : '🔴 Disconnected'}&lt;/div&gt;
+      &lt;ul&gt;
+        {traffic.map(tx =&gt; (
+          &lt;li key={tx.requestId}&gt;
+            {tx.method} {tx.url} - {tx.statusCode}
+          &lt;/li&gt;
+        ))}
+      &lt;/ul&gt;
+    &lt;/div&gt;
+  );
+}
+</code></pre>
+<h2 id="3-usemetrics-hook"><a class="header" href="#3-usemetrics-hook">3. useMetrics Hook</a></h2>
+<pre><code class="language-typescript">function useMetrics(agentId?: string, refreshInterval = 5000) {
+  const [metrics, setMetrics] = useState&lt;MetricsResponse | null&gt;(null);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() =&gt; {
+    const fetchMetrics = async () =&gt; {
+      const url = agentId 
+        ? `http://localhost:9090/metrics/${agentId}`
+        : 'http://localhost:9090/metrics';
+        
+      const response = await fetch(url);
+      const data = await response.json();
+      setMetrics(data);
+      setLoading(false);
+    };
+    
+    fetchMetrics();
+    const interval = setInterval(fetchMetrics, refreshInterval);
+    
+    return () =&gt; clearInterval(interval);
+  }, [agentId, refreshInterval]);
+  
+  return { metrics, loading };
+}
+
+// Kullanım
+function MetricsDisplay({ agentId }: { agentId?: string }) {
+  const { metrics, loading } = useMetrics(agentId);
+  
+  if (loading) return &lt;div&gt;Loading...&lt;/div&gt;;
+  if (!metrics) return null;
+  
+  return (
+    &lt;div&gt;
+      &lt;h3&gt;Metrics&lt;/h3&gt;
+      &lt;p&gt;Total Requests: {metrics.total_requests}&lt;/p&gt;
+      &lt;p&gt;Avg Response Time: {metrics.average_response_time_ms.toFixed(2)}ms&lt;/p&gt;
+      &lt;p&gt;Error Rate: {(metrics.error_rate * 100).toFixed(2)}%&lt;/p&gt;
+    &lt;/div&gt;
+  );
+}
+</code></pre>
+<hr>
+<h1 id="python-örnekleri"><a class="header" href="#python-örnekleri">Python Örnekleri</a></h1>
+<h2 id="1-python-api-client"><a class="header" href="#1-python-api-client">1. Python API Client</a></h2>
+<pre><code class="language-python">import requests
+from typing import Optional, List, Dict, Any
+from dataclasses import dataclass
+
+@dataclass
+class AgentInfo:
+    id: str
+    address: str
+    port: int
+    status: str
+    last_heartbeat: str
+    version: str
+    capabilities: List[str]
+
+class ProxxyClient:
+    def __init__(self, base_url: str = "http://localhost:9090"):
+        self.base_url = base_url
+        self.session = requests.Session()
+    
+    def check_health(self) -&gt; Dict[str, Any]:
+        """Check system health"""
+        response = self.session.get(f"{self.base_url}/api/system/health")
+        response.raise_for_status()
+        return response.json()
+    
+    def list_agents(self) -&gt; List[AgentInfo]:
+        """List all agents"""
+        response = self.session.get(f"{self.base_url}/api/agents")
+        response.raise_for_status()
+        data = response.json()
+        
+        return [
+            AgentInfo(**agent)
+            for agent in data['agents']
+        ]
+    
+    def get_agent(self, agent_id: str) -&gt; AgentInfo:
+        """Get specific agent"""
+        response = self.session.get(f"{self.base_url}/agents/{agent_id}")
+        response.raise_for_status()
+        return AgentInfo(**response.json())
+    
+    def register_agent(self, agent_config: Dict[str, Any]) -&gt; Dict[str, Any]:
+        """Register new agent"""
+        response = self.session.post(
+            f"{self.base_url}/agents",
+            json=agent_config
+        )
+        response.raise_for_status()
+        return response.json()
+    
+    def get_recent_traffic(self) -&gt; List[Dict[str, Any]]:
+        """Get recent traffic"""
+        response = self.session.get(f"{self.base_url}/api/traffic/recent")
+        response.raise_for_status()
+        return response.json()['transactions']
+    
+    def get_metrics(self, agent_id: Optional[str] = None) -&gt; Dict[str, Any]:
+        """Get metrics"""
+        url = f"{self.base_url}/metrics"
+        if agent_id:
+            url += f"/{agent_id}"
+        
+        response = self.session.get(url)
+        response.raise_for_status()
+        return response.json()
+    
+    def graphql(self, query: str, variables: Optional[Dict] = None) -&gt; Dict[str, Any]:
+        """Execute GraphQL query"""
+        response = self.session.post(
+            f"{self.base_url}/graphql",
+            json={'query': query, 'variables': variables}
+        )
+        response.raise_for_status()
+        
+        data = response.json()
+        if 'errors' in data:
+            raise Exception(data['errors'][0]['message'])
+        
+        return data['data']
+
+# Kullanım
+client = ProxxyClient()
+
+# Health check
+health = client.check_health()
+print(f"System status: {health['status']}")
+
+# List agents
+agents = client.list_agents()
+for agent in agents:
+    print(f"{agent.id}: {agent.status}")
+
+# Get metrics
+metrics = client.get_metrics()
+print(f"Total requests: {metrics['total_requests']}")
+</code></pre>
+<h2 id="2-async-python-client"><a class="header" href="#2-async-python-client">2. Async Python Client</a></h2>
+<pre><code class="language-python">import aiohttp
+import asyncio
+from typing import Optional, List, Dict, Any
+
+class AsyncProxxyClient:
+    def __init__(self, base_url: str = "http://localhost:9090"):
+        self.base_url = base_url
+    
+    async def check_health(self) -&gt; Dict[str, Any]:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{self.base_url}/api/system/health") as response:
+                return await response.json()
+    
+    async def list_agents(self) -&gt; List[Dict[str, Any]]:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{self.base_url}/api/agents") as response:
+                data = await response.json()
+                return data['agents']
+    
+    async def get_metrics(self, agent_id: Optional[str] = None) -&gt; Dict[str, Any]:
+        url = f"{self.base_url}/metrics"
+        if agent_id:
+            url += f"/{agent_id}"
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                return await response.json()
+
+# Kullanım
+async def main():
+    client = AsyncProxxyClient()
+    
+    # Paralel istekler
+    health, agents, metrics = await asyncio.gather(
+        client.check_health(),
+        client.list_agents(),
+        client.get_metrics()
+    )
+    
+    print(f"Health: {health['status']}")
+    print(f"Agents: {len(agents)}")
+    print(f"Total Requests: {metrics['total_requests']}")
+
+asyncio.run(main())
+</code></pre>
+<hr>
+<h1 id="monitoring-script-örneği"><a class="header" href="#monitoring-script-örneği">Monitoring Script Örneği</a></h1>
+<h2 id="bash-monitoring-script"><a class="header" href="#bash-monitoring-script">Bash Monitoring Script</a></h2>
+<pre><code class="language-bash">#!/bin/bash
+
+# Proxxy Orchestrator Monitoring Script
+
+API_URL="http://localhost:9090"
+REFRESH_INTERVAL=5
+
+echo "🚀 Proxxy Orchestrator Monitor"
+echo "================================"
+echo ""
+
+while true; do
+    clear
+    echo "📊 System Status - $(date)"
+    echo "================================"
+    
+    # Health Check
+    HEALTH=$(curl -s "$API_URL/api/system/health")
+    STATUS=$(echo $HEALTH | jq -r '.status')
+    UPTIME=$(echo $HEALTH | jq -r '.uptime_seconds')
+    AGENTS_ONLINE=$(echo $HEALTH | jq -r '.agents_online')
+    AGENTS_TOTAL=$(echo $HEALTH | jq -r '.agents_total')
+    
+    echo "Status: $STATUS"
+    echo "Uptime: $UPTIME seconds"
+    echo "Agents: $AGENTS_ONLINE/$AGENTS_TOTAL online"
+    echo ""
+    
+    # Metrics
+    echo "📈 Metrics"
+    echo "================================"
+    METRICS=$(curl -s "$API_URL/metrics")
+    TOTAL_REQUESTS=$(echo $METRICS | jq -r '.total_requests')
+    AVG_RESPONSE=$(echo $METRICS | jq -r '.average_response_time_ms')
+    ERROR_RATE=$(echo $METRICS | jq -r '.error_rate * 100')
+    
+    echo "Total Requests: $TOTAL_REQUESTS"
+    echo "Avg Response Time: ${AVG_RESPONSE}ms"
+    echo "Error Rate: ${ERROR_RATE}%"
+    echo ""
+    
+    # Recent Traffic
+    echo "🚦 Recent Traffic (Last 5)"
+    echo "================================"
+    curl -s "$API_URL/api/traffic/recent" | jq -r '.transactions[:5][] | "\(.method) \(.url) - \(.status)"'
+    
+    echo ""
+    echo "Refreshing in $REFRESH_INTERVAL seconds... (Ctrl+C to exit)"
+    sleep $REFRESH_INTERVAL
+done
+</code></pre>
+<hr>
+<p><strong>Son Güncelleme:</strong> 2026-01-09<br><strong>Versiyon:</strong> 0.1.1</p>
+<div style="break-before: page; page-break-before: always;"></div>
 <h1 id="traffic-policy-system"><a class="header" href="#traffic-policy-system">Traffic Policy System</a></h1>
 <h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
 <p>The Proxxy traffic policy system separates <strong>static configuration</strong> (startup settings) from <strong>dynamic policy</strong> (runtime rules). This allows operators to modify traffic handling rules on-the-fly via the UI without restarting the proxy.</p>
@@ -2478,22 +4519,6 @@ async fn main() {
         <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
         <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
 
-        <!-- Livereload script (if served using the cli tool) -->
-        <script>
-            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
-            const socket = new WebSocket(wsAddress);
-            socket.onmessage = function (event) {
-                if (event.data === "reload") {
-                    socket.close();
-                    location.reload();
-                }
-            };
-
-            window.onbeforeunload = function() {
-                socket.close();
-            }
-        </script>
 
 
         <script>

@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-5a954cec.js";
+            window.path_to_searchindex_js = "searchindex-31b09624.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-11e4d50a.js"></script>
+        <script src="toc-7df8d176.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -1187,10 +1187,19 @@ cargo run -p orchestrator -- --agent-timeout 600
 <h2 id="-ek-kaynaklar"><a class="header" href="#-ek-kaynaklar">📚 Ek Kaynaklar</a></h2>
 <h3 id="dokümantasyonlar"><a class="header" href="#dokümantasyonlar">Dokümantasyonlar</a></h3>
 <ul>
-<li><strong>Traffic Policy Sistemi</strong>: <a href="docs/TRAFFIC_POLICY.html">docs/TRAFFIC_POLICY.md</a></li>
-<li><strong>gRPC Protokolü</strong>: <a href="proto/proxy.proto">proto/proxy.proto</a></li>
-<li><strong>GraphQL Schema</strong>: <code>http://127.0.0.1:9090/graphql</code> (GraphiQL Playground)</li>
-<li><strong>REST API Dokümantasyonu</strong>: <code>http://127.0.0.1:9090/swagger-ui</code></li>
+<li><strong>📖 API Reference (Detaylı)</strong>: <a href="./api-reference.html">docs/src/api-reference.md</a> - Tüm REST ve GraphQL endpoint’leri</li>
+<li><strong>💡 API Kullanım Örnekleri</strong>: <a href="./api-examples.html">docs/src/api-examples.md</a> - Bash, JavaScript, Python, React örnekleri</li>
+<li><strong>🎯 Backend API Specification</strong>: <a href="./backend-api.html">docs/src/backend-api.md</a> - UI geliştirme için backend özellikleri</li>
+<li><strong>🚦 Traffic Policy Sistemi</strong>: <a href="./traffic-policy.html">docs/src/traffic-policy.md</a> - Dinamik trafik kuralları</li>
+<li><strong>🔄 Flow Engine</strong>: <a href="./flow-engine.html">docs/src/flow-engine.md</a> - Automation ve replay sistemi</li>
+<li><strong>🏗️ Architecture</strong>: <a href="./architecture.html">docs/src/architecture.md</a> - Sistem mimarisi</li>
+<li><strong>🔌 gRPC Protokolü</strong>: <a href="../../proto/proxy.proto">proto/proxy.proto</a> - Protocol Buffers tanımları</li>
+</ul>
+<h3 id="canlı-api-dokümantasyonu"><a class="header" href="#canlı-api-dokümantasyonu">Canlı API Dokümantasyonu</a></h3>
+<ul>
+<li><strong>GraphQL Playground</strong>: <code>http://127.0.0.1:9090/graphql</code> - İnteraktif GraphQL sorguları</li>
+<li><strong>Swagger UI</strong>: <code>http://127.0.0.1:9090/swagger-ui</code> - REST API dokümantasyonu</li>
+<li><strong>OpenAPI Spec</strong>: <code>http://127.0.0.1:9090/api-docs/openapi.json</code> - OpenAPI 3.0 specification</li>
 </ul>
 <h3 id="api-örnekleri"><a class="header" href="#api-örnekleri">API Örnekleri</a></h3>
 <p><strong>REST API Kullanımı:</strong></p>
@@ -1579,22 +1588,6 @@ scrape_configs:
         <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
         <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
 
-        <!-- Livereload script (if served using the cli tool) -->
-        <script>
-            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
-            const socket = new WebSocket(wsAddress);
-            socket.onmessage = function (event) {
-                if (event.data === "reload") {
-                    socket.close();
-                    location.reload();
-                }
-            };
-
-            window.onbeforeunload = function() {
-                socket.close();
-            }
-        </script>
 
 
         <script>
