@@ -4,7 +4,7 @@
 PROXY_HOST="127.0.0.1"
 PROXY_PORT="9095"
 TARGET_URL="http://testphp.vulnweb.com/AJAX/index.php"
-DB_PATH="./proxxy.db"
+
 
 echo "🚀 Testing Proxy Traffic via $PROXY_HOST:$PROXY_PORT"
 
@@ -19,26 +19,4 @@ else
     exit 1
 fi
 
-# 2. Check Database
-echo "2️⃣  Checking Database ($DB_PATH)..."
 
-# Ensure sqlite3 is installed
-if ! command -v sqlite3 &> /dev/null; then
-    echo "⚠️  sqlite3 command not found. Cannot automatically check DB."
-    echo "   Please run: sqlite3 $DB_PATH 'SELECT count(*) FROM http_transactions;'"
-    exit 0
-fi
-
-# Query the latest transaction using LIKE to handle trailing slashes
-COUNT=$(sqlite3 $DB_PATH "SELECT count(*) FROM http_transactions WHERE req_url LIKE '$TARGET_URL%';")
-
-if [ "$COUNT" -gt 0 ]; then
-    echo "✅ Database Verification Successful!"
-    echo "   Found $COUNT transaction(s) match for $TARGET_URL"
-    
-    echo "   Latest Transaction Details:"
-    sqlite3 -header -column $DB_PATH "SELECT request_id, req_method, req_url, res_status, datetime(req_timestamp, 'unixepoch') as time FROM http_transactions WHERE req_url LIKE '$TARGET_URL%' ORDER BY req_timestamp DESC LIMIT 1;"
-else
-    echo "❌ NO Transaction found in Database!"
-    echo "   Please check if Orchestrator is running and Agent is connected."
-fi
