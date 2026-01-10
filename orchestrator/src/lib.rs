@@ -1,14 +1,16 @@
-use axum::{extract::State, routing::get, Extension, Json, Router};
+use axum::extract::{State, Request};
+use axum::routing::get;
+use axum::{Extension, Json, Router};
+use axum::middleware::{self, Next};
+use axum::response::Response;
 use serde::Serialize;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
-use tracing::info;
+use tracing::{info, warn};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
-// TODO: Re-enable after axum 0.8 upgrade
-// use async_graphql_axum::{GraphQLProtocol, GraphQLWebSocket};
-// use axum::extract::ws::WebSocketUpgrade;
+use axum::http::Method;
 
 pub mod pb {
     tonic::include_proto!("proxy");
@@ -200,12 +202,24 @@ impl Orchestrator {
                 axum::routing::post(system_restart_handler),
             );
 
+        // Configure absolute permissive CORS for development
+        use tower_http::cors::{CorsLayer, Any};
+        let cors = CorsLayer::new()
+            .allow_origin(Any)
+            .allow_methods([Method::GET, Method::POST, Method::OPTIONS]) // OPTIONS mutlaka olmalı
+            .allow_headers(Any)
+            .expose_headers(Any);
+
         let app = axum::Router::new()
             // Top-level routes
             .route("/metrics", get(metrics_handler))
-            .route("/graphql", get(graphiql).post(graphql_handler))
-            // TODO: Re-enable after axum 0.8 upgrade
-            // .route("/graphql/ws", get(graphql_ws_handler))
+            // 2. "/graphql" rotasına .options() ekleyin:
+            .route("/graphql", 
+                get(graphiql)
+                .post(graphql_handler)
+                // Bu satır, tarayıcının attığı Preflight isteğinin 404 almamasını sağlar:
+                .options(|| async { axum::http::StatusCode::NO_CONTENT })
+            )
             // Nested API routes
             .nest("/api", api_routes)
             // Swagger / Docs
@@ -214,8 +228,10 @@ impl Orchestrator {
                 "/",
                 get(|| async { axum::response::Redirect::permanent("/swagger-ui") }),
             )
+            // Layers - Order is critical: Outer layers are applied LAST
+            .layer(middleware::from_fn(connection_logging)) // Add logging middleware
             .layer(Extension(state.schema.clone()))
-            .layer(tower_http::cors::CorsLayer::permissive())
+            .layer(cors) // CORS katmanı en dışta olmalı (veya state'ten hemen önce)
             .with_state(state);
 
         info!("REST & GraphQL server listening on http://{}", metrics_addr);
@@ -567,4 +583,29 @@ pub async fn run_metrics_server(port: u16) -> Result<(), Box<dyn std::error::Err
     let listener = TcpListener::bind(addr).await?;
     axum::serve(listener, app).await?;
     Ok(())
+}
+
+async fn connection_logging(
+    req: Request,
+    next: Next,
+) -> Response {
+    let headers = req.headers();
+    let method = req.method().clone();
+    let uri = req.uri().clone();
+    
+    if let Some(client) = headers.get("X-Proxxy-Client") {
+        if let Ok(client_str) = client.to_str() {
+            if client_str == "GUI" {
+                info!("🖥️  GUI Connected: {} {}", method, uri);
+            }
+        }
+    } else if let Some(upgrade) = headers.get("upgrade") {
+         if let Ok(upgrade_str) = upgrade.to_str() {
+             if upgrade_str == "websocket" {
+                 info!("🔌 WebSocket Attempt: {} {}", method, uri);
+             }
+         }
+    }
+
+    next.run(req).await
 }

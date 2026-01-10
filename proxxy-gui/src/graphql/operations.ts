@@ -210,6 +210,24 @@ export const DELETE_PROJECT = gql`
   }
 `;
 
+export const EXPORT_PROJECT = gql`
+  mutation ExportProject($name: String!, $outputPath: String!) {
+    exportProject(name: $name, outputPath: $outputPath) {
+      success
+      message
+    }
+  }
+`;
+
+export const IMPORT_PROJECT = gql`
+  mutation ImportProject($proxxyPath: String!, $projectName: String) {
+    importProject(proxxyPath: $proxxyPath, projectName: $projectName) {
+      success
+      message
+    }
+  }
+`;
+
 export const UNLOAD_PROJECT = gql`
   mutation UnloadProject {
     unloadProject {

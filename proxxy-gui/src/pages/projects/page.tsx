@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { Folder, Plus, Database, HardDrive, Clock, ArrowRight, Loader2, Search, ShieldCheck, AlertCircle, Trash2 } from 'lucide-react';
-import { GET_PROJECTS, CREATE_PROJECT, LOAD_PROJECT, DELETE_PROJECT } from '@/graphql/operations';
+import { Folder, Plus, Database, HardDrive, Clock, ArrowRight, Loader2, Search, ShieldCheck, AlertCircle, Trash2, Download, Upload } from 'lucide-react';
+import { GET_PROJECTS, CREATE_PROJECT, LOAD_PROJECT, DELETE_PROJECT, EXPORT_PROJECT, IMPORT_PROJECT } from '@/graphql/operations';
 import { useNavigate } from 'react-router-dom';
 import { OrchestratorConnectionError } from '@/components/OrchestratorConnectionError';
+import { open, save } from '@tauri-apps/plugin-dialog';
 
 export function ProjectLauncher() {
     const navigate = useNavigate();
@@ -23,6 +24,8 @@ export function ProjectLauncher() {
     const [createProjectData, { loading: creating }] = useMutation(CREATE_PROJECT);
     const [loadProjectData, { loading: loadingProject }] = useMutation(LOAD_PROJECT);
     const [deleteProjectData] = useMutation(DELETE_PROJECT);
+    const [exportProjectData, { loading: exporting }] = useMutation(EXPORT_PROJECT);
+    const [importProjectData, { loading: importing }] = useMutation(IMPORT_PROJECT);
 
     // 3. Early Return: Connection Error
     if (connectionError) {
@@ -86,6 +89,52 @@ export function ProjectLauncher() {
         }
     };
 
+    const handleExport = async (e: React.MouseEvent, name: string) => {
+        e.stopPropagation();
+        try {
+            const outputPath = await save({
+                filters: [{ name: 'Proxxy Project', extensions: ['proxxy'] }],
+                defaultPath: `${name}.proxxy`
+            });
+
+            if (outputPath) {
+                const res = await exportProjectData({
+                    variables: { name, outputPath }
+                });
+                if (res.data?.exportProject?.success) {
+                    alert(`Project exported successfully to ${outputPath}`);
+                } else {
+                    setError(res.data?.exportProject?.message || "Export failed");
+                }
+            }
+        } catch (err: any) {
+            setError(err.message);
+        }
+    };
+
+    const handleImport = async () => {
+        try {
+            const selected = await open({
+                filters: [{ name: 'Proxxy Project', extensions: ['proxxy'] }],
+                multiple: false,
+            });
+
+            if (selected && typeof selected === 'string') {
+                const res = await importProjectData({
+                    variables: { proxxyPath: selected }
+                });
+                if (res.data?.importProject?.success) {
+                    await refetch();
+                    alert("Project imported successfully!");
+                } else {
+                    setError(res.data?.importProject?.message || "Import failed");
+                }
+            }
+        } catch (err: any) {
+            setError(err.message);
+        }
+    };
+
     // Data Processing & Filtering
     const allProjects = data?.projects || [];
     const filteredProjects = allProjects.filter((p: any) =>
@@ -139,11 +188,23 @@ export function ProjectLauncher() {
                         {/* Decorative Background Glow */}
                         <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none transition-opacity group-hover:opacity-100 opacity-50" />
 
-                        <div className="flex items-center space-x-3 mb-6 relative z-10">
-                            <div className="p-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
-                                <Plus className="w-5 h-5 text-emerald-400" />
+                        <div className="flex items-center justify-between mb-6 relative z-10">
+                            <div className="flex items-center space-x-3">
+                                <div className="p-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                                    <Plus className="w-5 h-5 text-emerald-400" />
+                                </div>
+                                <h2 className="text-lg font-semibold text-white">New Workspace</h2>
                             </div>
-                            <h2 className="text-lg font-semibold text-white">New Workspace</h2>
+
+                            <button
+                                onClick={handleImport}
+                                disabled={importing}
+                                className="p-2 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg border border-blue-500/20 text-blue-400 transition-colors flex items-center gap-2 text-xs font-bold"
+                                title="Import .proxxy file"
+                            >
+                                {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                                IMPORT
+                            </button>
                         </div>
 
                         <form onSubmit={handleCreate} className="flex-1 flex flex-col relative z-10">
@@ -281,6 +342,15 @@ export function ProjectLauncher() {
 
                                         {/* Action Buttons */}
                                         <div className="flex items-center gap-2 pr-2">
+                                            <button
+                                                onClick={(e) => handleExport(e, p.name)}
+                                                disabled={exporting}
+                                                className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                                                title="Export to .proxxy file"
+                                            >
+                                                {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                                            </button>
+
                                             <button
                                                 onClick={(e) => handleDelete(e, p.name)}
                                                 className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all opacity-0 group-hover:opacity-100"

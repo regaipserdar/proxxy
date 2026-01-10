@@ -39,6 +39,9 @@ const notifyConnectionStatus = (status: Partial<ConnectionStatus>) => {
 const httpLink = createHttpLink({
   uri: GRAPHQL_HTTP_ENDPOINT,
   credentials: 'same-origin',
+  headers: {
+    'X-Proxxy-Client': 'GUI',
+  },
 });
 
 // Retry link for failed requests
@@ -72,7 +75,7 @@ const retryLink = new RetryLink({
 const wsClient = createClient({
   url: GRAPHQL_WS_ENDPOINT,
   connectionParams: {
-    // Add authentication headers if needed in the future
+    'X-Proxxy-Client': 'GUI',
   },
   retryAttempts: Infinity, // Retry forever
   shouldRetry: (errOrCloseEvent) => {

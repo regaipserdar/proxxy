@@ -49,10 +49,14 @@ impl Database {
             let entry = entry?;
             let path = entry.path();
             
-            // Look for directories that look like projects (contain proxxy.db or represent a project folder)
-            // Strategy: Each folder in 'projects_dir' is a project.
+            // Strategy: Each folder in 'projects_dir' ending in '.proxxy' is a project.
             if path.is_dir() {
-                let name = path.file_name().unwrap().to_string_lossy().to_string();
+                let dir_name = path.file_name().unwrap().to_string_lossy().to_string();
+                if !dir_name.ends_with(".proxxy") {
+                    continue;
+                }
+
+                let name = dir_name.trim_end_matches(".proxxy").to_string();
                 let db_path = path.join("proxxy.db");
                 
                 let metadata = fs::metadata(&path)?;
@@ -66,11 +70,11 @@ impl Database {
                 };
 
                 projects.push(Project {
-                    name: name.clone(),
+                    name,
                     path: path.to_string_lossy().to_string(),
                     size_bytes,
                     last_modified: last_modified.to_rfc3339(),
-                    is_active: active.as_ref() == Some(&name),
+                    is_active: active.as_ref() == Some(&dir_name.trim_end_matches(".proxxy").to_string()),
                 });
             }
         }
@@ -87,7 +91,8 @@ impl Database {
             return Err("Invalid project name. Use only alphanumeric, -, and _".into());
         }
 
-        let project_path = self.projects_dir.join(name);
+        let folder_name = format!("{}.proxxy", name);
+        let project_path = self.projects_dir.join(folder_name);
         if !project_path.exists() {
             fs::create_dir_all(&project_path)?;
         }
@@ -99,7 +104,8 @@ impl Database {
     }
 
     pub async fn load_project(&self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
-         let project_path = self.projects_dir.join(name);
+         let folder_name = format!("{}.proxxy", name);
+         let project_path = self.projects_dir.join(folder_name);
          if !project_path.exists() {
              return Err("Project does not exist".into());
          }
@@ -150,7 +156,8 @@ impl Database {
             self.unload_project().await?;
         }
 
-        let project_path = self.projects_dir.join(name);
+        let folder_name = format!("{}.proxxy", name);
+        let project_path = self.projects_dir.join(folder_name);
         if project_path.exists() {
             fs::remove_dir_all(&project_path)?;
             info!("✓ Deleted project '{}' and its directory", name);
@@ -733,7 +740,8 @@ impl Database {
     pub async fn export_project(&self, name: &str, output_path: &str) -> Result<(), Box<dyn std::error::Error>> {
         use std::io::Write;
         
-        let project_path = self.projects_dir.join(name);
+        let folder_name = format!("{}.proxxy", name);
+        let project_path = self.projects_dir.join(folder_name);
         if !project_path.exists() {
             return Err("Project does not exist".into());
         }
@@ -787,8 +795,9 @@ impl Database {
         let original_name = metadata["name"].as_str().ok_or("Invalid metadata")?;
         let final_name = project_name.unwrap_or(original_name);
 
-        // Create project directory
-        let project_path = self.projects_dir.join(final_name);
+        // Create project directory with .proxxy extension
+        let folder_name = format!("{}.proxxy", final_name);
+        let project_path = self.projects_dir.join(folder_name);
         if project_path.exists() {
             return Err(format!("Project '{}' already exists", final_name).into());
         }
