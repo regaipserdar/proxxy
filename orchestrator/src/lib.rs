@@ -6,8 +6,9 @@ use tokio::net::TcpListener;
 use tracing::info;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
-use async_graphql_axum::{GraphQLProtocol, GraphQLWebSocket};
-use axum::extract::ws::WebSocketUpgrade;
+// TODO: Re-enable after axum 0.8 upgrade
+// use async_graphql_axum::{GraphQLProtocol, GraphQLWebSocket};
+// use axum::extract::ws::WebSocketUpgrade;
 
 pub mod pb {
     tonic::include_proto!("proxy");
@@ -18,6 +19,8 @@ pub type OrchestratorService = Orchestrator;
 
 pub mod database;
 pub mod graphql;
+pub mod models;
+pub mod scope;
 pub mod server;
 pub mod session_manager;
 pub use database::Database;
@@ -43,6 +46,8 @@ pub struct Orchestrator {
 }
 
 use crate::graphql::{MutationRoot, ProxySchema, QueryRoot, SubscriptionRoot};
+use crate::models::settings::{ScopeConfig, InterceptionConfig};
+use tokio::sync::RwLock;
 
 #[derive(Clone)]
 struct AppState {
@@ -50,6 +55,10 @@ struct AppState {
     agents: Arc<AgentRegistry>,
     db: Arc<Database>,
     start_time: std::time::Instant,
+    #[allow(dead_code)] // Used via GraphQL context
+    scope: Arc<RwLock<ScopeConfig>>,
+    #[allow(dead_code)] // Used via GraphQL context
+    interception: Arc<RwLock<InterceptionConfig>>,
 }
 
 /// OpenAPI documentation for Proxxy Orchestrator REST API
@@ -142,12 +151,18 @@ impl Orchestrator {
         let (broadcast_tx, _broadcast_rx) = tokio::sync::broadcast::channel(100);
         let (metrics_broadcast_tx, _metrics_broadcast_rx) = tokio::sync::broadcast::channel(100);
 
+        // Initialize scope and interception state
+        let scope = Arc::new(RwLock::new(ScopeConfig::default()));
+        let interception = Arc::new(RwLock::new(InterceptionConfig::default()));
+
         let proxy_service = crate::server::ProxyServiceImpl::new(
             agent_registry.clone(),
             broadcast_tx.clone(),
             metrics_broadcast_tx.clone(),
             db.clone(),
             ca.clone(),
+            scope.clone(),
+            interception.clone(),
         );
 
         // GraphQL Schema
@@ -156,6 +171,8 @@ impl Orchestrator {
             .data(agent_registry.clone())
             .data(broadcast_tx.clone())
             .data(metrics_broadcast_tx.clone())
+            .data(scope.clone())
+            .data(interception.clone())
             .finish();
 
         let state = AppState {
@@ -163,6 +180,8 @@ impl Orchestrator {
             agents: agent_registry.clone(),
             db: db.clone(),
             start_time: std::time::Instant::now(),
+            scope,
+            interception,
         };
 
         // 1. Metrics & GraphQL Server & REST API
@@ -185,7 +204,8 @@ impl Orchestrator {
             // Top-level routes
             .route("/metrics", get(metrics_handler))
             .route("/graphql", get(graphiql).post(graphql_handler))
-            .route("/graphql/ws", get(graphql_ws_handler))
+            // TODO: Re-enable after axum 0.8 upgrade
+            // .route("/graphql/ws", get(graphql_ws_handler))
             // Nested API routes
             .nest("/api", api_routes)
             // Swagger / Docs
@@ -243,6 +263,8 @@ async fn graphql_handler(
     axum::Json(state.schema.execute(req).await)
 }
 
+// TODO: Re-enable after axum 0.8 upgrade
+/*
 async fn graphql_ws_handler(
     Extension(schema): Extension<ProxySchema>,
     protocol: GraphQLProtocol,
@@ -254,6 +276,7 @@ async fn graphql_ws_handler(
             GraphQLWebSocket::new(stream, schema, protocol).serve()
         })
 }
+*/
 
 #[derive(Serialize, utoipa::ToSchema)]
 struct TrafficResponse {

@@ -1,5 +1,6 @@
 use crate::pb::{traffic_event, SystemMetricsEvent, TrafficEvent};
 use crate::Database;
+use crate::models::settings::{ScopeConfig, InterceptionConfig, InterceptionRule, RuleCondition, RuleAction};
 use async_graphql::{ComplexObject, Context, Object, Schema, SimpleObject, Subscription};
 use base64::Engine;
 use std::sync::Arc;
@@ -128,6 +129,22 @@ impl QueryRoot {
 
         Ok(events.into_iter().next().map(SystemMetricsGql::from))
     }
+
+    /// Get project settings (scope + interception)
+    async fn settings(&self, ctx: &Context<'_>) -> async_graphql::Result<ProjectSettingsGql> {
+        let db = ctx.data::<Arc<Database>>()?;
+        
+        let scope = db.get_scope_config().await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        
+        let interception = db.get_interception_config().await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        
+        Ok(ProjectSettingsGql {
+            scope: ScopeConfigGql::from(scope),
+            interception: InterceptionConfigGql::from(interception),
+        })
+    }
 }
 
 // ============================================================================
@@ -151,8 +168,26 @@ impl MutationRoot {
 
     async fn load_project(&self, ctx: &Context<'_>, name: String) -> async_graphql::Result<ProjectOperationResult> {
         let db = ctx.data::<Arc<Database>>()?;
+        let scope_state = ctx.data::<Arc<tokio::sync::RwLock<ScopeConfig>>>()?;
+        let interception_state = ctx.data::<Arc<tokio::sync::RwLock<InterceptionConfig>>>()?;
+        
+        // Load project (connects to DB)
         db.load_project(&name).await.map_err(|e| async_graphql::Error::new(e.to_string()))?;
-        Ok(ProjectOperationResult { success: true, message: format!("Project '{}' loaded", name) })
+        
+        // Load settings from DB and update in-memory state
+        let scope_config = db.get_scope_config().await
+            .map_err(|e| async_graphql::Error::new(format!("Failed to load scope config: {}", e)))?;
+        let interception_config = db.get_interception_config().await
+            .map_err(|e| async_graphql::Error::new(format!("Failed to load interception config: {}", e)))?;
+        
+        // Update in-memory state
+        *scope_state.write().await = scope_config;
+        *interception_state.write().await = interception_config;
+        
+        Ok(ProjectOperationResult { 
+            success: true, 
+            message: format!("Project '{}' loaded with settings", name) 
+        })
     }
 
     async fn delete_project(&self, ctx: &Context<'_>, name: String) -> async_graphql::Result<ProjectOperationResult> {
@@ -163,8 +198,20 @@ impl MutationRoot {
 
     async fn unload_project(&self, ctx: &Context<'_>) -> async_graphql::Result<ProjectOperationResult> {
         let db = ctx.data::<Arc<Database>>()?;
+        let scope_state = ctx.data::<Arc<tokio::sync::RwLock<ScopeConfig>>>()?;
+        let interception_state = ctx.data::<Arc<tokio::sync::RwLock<InterceptionConfig>>>()?;
+        
+        // Unload project (disconnects DB)
         db.unload_project().await.map_err(|e| async_graphql::Error::new(e.to_string()))?;
-        Ok(ProjectOperationResult { success: true, message: "Project unloaded".to_string() })
+        
+        // Reset settings to defaults
+        *scope_state.write().await = ScopeConfig::default();
+        *interception_state.write().await = InterceptionConfig::default();
+        
+        Ok(ProjectOperationResult { 
+            success: true, 
+            message: "Project unloaded and settings reset".to_string() 
+        })
     }
 
     /// Replay a captured HTTP request
@@ -218,6 +265,119 @@ impl MutationRoot {
             replay_request_id: Some(replay_request_id),
             original_url: request_data.url,
             original_method: request_data.method,
+        })
+    }
+
+    /// Update scope configuration
+    async fn update_scope(
+        &self,
+        ctx: &Context<'_>,
+        input: ScopeInputGql,
+    ) -> async_graphql::Result<ScopeConfigGql> {
+        let db = ctx.data::<Arc<Database>>()?;
+        
+        let config = input.to_scope_config();
+        db.save_scope_config(&config).await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        
+        Ok(ScopeConfigGql::from(config))
+    }
+
+    /// Toggle interception on/off
+    async fn toggle_interception(
+        &self,
+        ctx: &Context<'_>,
+        enabled: bool,
+    ) -> async_graphql::Result<InterceptionConfigGql> {
+        let db = ctx.data::<Arc<Database>>()?;
+        
+        let mut config = db.get_interception_config().await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        
+        config.enabled = enabled;
+        
+        db.save_interception_config(&config).await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        
+        Ok(InterceptionConfigGql::from(config))
+    }
+
+    /// Add interception rule
+    async fn add_interception_rule(
+        &self,
+        ctx: &Context<'_>,
+        rule: InterceptionRuleInputGql,
+    ) -> async_graphql::Result<InterceptionRuleGql> {
+        let db = ctx.data::<Arc<Database>>()?;
+        
+        let mut config = db.get_interception_config().await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        
+        let new_rule = rule.to_interception_rule();
+        config.rules.push(new_rule.clone());
+        
+        db.save_interception_config(&config).await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        
+        Ok(InterceptionRuleGql::from(new_rule))
+    }
+
+    /// Remove interception rule by ID
+    async fn remove_interception_rule(
+        &self,
+        ctx: &Context<'_>,
+        id: String,
+    ) -> async_graphql::Result<bool> {
+        let db = ctx.data::<Arc<Database>>()?;
+        
+        let mut config = db.get_interception_config().await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        
+        let before_len = config.rules.len();
+        config.rules.retain(|r| r.id != id);
+        let removed = config.rules.len() < before_len;
+        
+        if removed {
+            db.save_interception_config(&config).await
+                .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        }
+        
+        Ok(removed)
+    }
+
+    /// Export project to .proxxy file
+    async fn export_project(
+        &self,
+        ctx: &Context<'_>,
+        name: String,
+        output_path: String,
+    ) -> async_graphql::Result<ProjectOperationResult> {
+        let db = ctx.data::<Arc<Database>>()?;
+        
+        db.export_project(&name, &output_path).await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        
+        Ok(ProjectOperationResult {
+            success: true,
+            message: format!("Project '{}' exported to {}", name, output_path),
+        })
+    }
+
+    /// Import project from .proxxy file
+    async fn import_project(
+        &self,
+        ctx: &Context<'_>,
+        proxxy_path: String,
+        project_name: Option<String>,
+    ) -> async_graphql::Result<ProjectOperationResult> {
+        let db = ctx.data::<Arc<Database>>()?;
+        
+        let imported_name = db.import_project(&proxxy_path, project_name.as_deref()).await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        
+        Ok(ProjectOperationResult {
+            success: true,
+            message: format!("Project '{}' imported from {}", imported_name, proxxy_path),
         })
     }
 }
@@ -535,3 +695,137 @@ fn convert_body_to_string(body: &[u8]) -> String {
 //   }
 // }
 //
+
+// ============================================================================
+// SETTINGS GQL TYPES
+// ============================================================================
+
+#[derive(SimpleObject)]
+pub struct ProjectSettingsGql {
+    pub scope: ScopeConfigGql,
+    pub interception: InterceptionConfigGql,
+}
+
+#[derive(SimpleObject)]
+pub struct ScopeConfigGql {
+    pub enabled: bool,
+    pub include_patterns: Vec<String>,
+    pub exclude_patterns: Vec<String>,
+    pub use_regex: bool,
+}
+
+impl From<ScopeConfig> for ScopeConfigGql {
+    fn from(c: ScopeConfig) -> Self {
+        Self {
+            enabled: c.enabled,
+            include_patterns: c.include_patterns,
+            exclude_patterns: c.exclude_patterns,
+            use_regex: c.use_regex,
+        }
+    }
+}
+
+#[derive(async_graphql::InputObject)]
+pub struct ScopeInputGql {
+    pub enabled: bool,
+    pub include_patterns: Vec<String>,
+    pub exclude_patterns: Vec<String>,
+    pub use_regex: bool,
+}
+
+impl ScopeInputGql {
+    pub fn to_scope_config(self) -> ScopeConfig {
+        ScopeConfig {
+            enabled: self.enabled,
+            include_patterns: self.include_patterns,
+            exclude_patterns: self.exclude_patterns,
+            use_regex: self.use_regex,
+        }
+    }
+}
+
+#[derive(SimpleObject)]
+pub struct InterceptionConfigGql {
+    pub enabled: bool,
+    pub rules: Vec<InterceptionRuleGql>,
+}
+
+impl From<InterceptionConfig> for InterceptionConfigGql {
+    fn from(c: InterceptionConfig) -> Self {
+        Self {
+            enabled: c.enabled,
+            rules: c.rules.into_iter().map(InterceptionRuleGql::from).collect(),
+        }
+    }
+}
+
+#[derive(SimpleObject, Clone)]
+pub struct InterceptionRuleGql {
+    pub id: String,
+    pub enabled: bool,
+    pub name: String,
+    pub condition_type: String,
+    pub action_type: String,
+}
+
+impl From<InterceptionRule> for InterceptionRuleGql {
+    fn from(r: InterceptionRule) -> Self {
+        let condition_type = match r.condition {
+            RuleCondition::Method { .. } => "Method",
+            RuleCondition::UrlContains { .. } => "UrlContains",
+            RuleCondition::HeaderMatch { .. } => "HeaderMatch",
+            RuleCondition::All => "All",
+        }.to_string();
+
+        let action_type = match r.action {
+            RuleAction::Pause => "Pause",
+            RuleAction::Drop => "Drop",
+            RuleAction::Modify => "Modify",
+        }.to_string();
+
+        Self {
+            id: r.id,
+            enabled: r.enabled,
+            name: r.name,
+            condition_type,
+            action_type,
+        }
+    }
+}
+
+#[derive(async_graphql::InputObject)]
+pub struct InterceptionRuleInputGql {
+    pub name: String,
+    pub enabled: bool,
+    pub condition_type: String,
+    pub condition_value: String,
+    pub action_type: String,
+}
+
+impl InterceptionRuleInputGql {
+    pub fn to_interception_rule(self) -> InterceptionRule {
+        let condition = match self.condition_type.as_str() {
+            "Method" => RuleCondition::Method {
+                methods: self.condition_value.split(',').map(|s| s.trim().to_string()).collect(),
+            },
+            "UrlContains" => RuleCondition::UrlContains {
+                pattern: self.condition_value,
+            },
+            _ => RuleCondition::All,
+        };
+
+        let action = match self.action_type.as_str() {
+            "Drop" => RuleAction::Drop,
+            "Modify" => RuleAction::Modify,
+            _ => RuleAction::Pause,
+        };
+
+        InterceptionRule {
+            id: uuid::Uuid::new_v4().to_string(),
+            enabled: self.enabled,
+            name: self.name,
+            condition,
+            action,
+        }
+    }
+}

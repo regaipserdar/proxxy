@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-31b09624.js";
+            window.path_to_searchindex_js = "searchindex-855025fa.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-7df8d176.js"></script>
@@ -174,246 +174,178 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="flow-engine--login-sequence-recorder"><a class="header" href="#flow-engine--login-sequence-recorder">Flow Engine &amp; Login Sequence Recorder</a></h1>
-<h2 id="-vision"><a class="header" href="#-vision">🎯 Vision</a></h2>
-<p>Proxxy v1.1+ introduces <strong>Flow Engine</strong> and <strong>Login Sequence Recorder (LSR)</strong> - a revolutionary automation and replay system built on Rust’s <strong>Zero-Cost Abstractions</strong> and <strong>Memory Safety</strong> principles.</p>
-<h3 id="performance-goals"><a class="header" href="#performance-goals">Performance Goals</a></h3>
+                        <h1 id="login-sequence-recorder-lsr-implementation"><a class="header" href="#login-sequence-recorder-lsr-implementation">Login Sequence Recorder (LSR) Implementation</a></h1>
+<p><strong>Context:</strong> This document is the <em>Single Source of Truth</em> for the LSR module in the <code>Proxxy</code> project.
+<strong>Scope:</strong> Development of the <code>flow-engine</code> library, Workspace integration, and HAR support.</p>
+<h2 id="-1-infrastructure--workspace-integration"><a class="header" href="#-1-infrastructure--workspace-integration">🛠️ 1. Infrastructure &amp; Workspace Integration</a></h2>
+<p><em>Infrastructure setup and data structure compatibility with Orchestrator.</em></p>
 <ul>
-<li><strong>10x less RAM</strong> than Python/Node.js competitors (Puppeteer, Selenium)</li>
-<li><strong>Ultra-low latency</strong> through zero-copy parsing</li>
-<li><strong>Concurrent execution</strong> of thousands of flows</li>
-<li><strong>Self-healing selectors</strong> for resilient automation</li>
-</ul>
-<hr>
-<h2 id="-1-flow-engine-automation--replay-core"><a class="header" href="#-1-flow-engine-automation--replay-core">🧱 1. Flow Engine (Automation &amp; Replay Core)</a></h2>
-<p>The Flow Engine executes recorded scenarios in two modes:</p>
+<li><input disabled="" type="checkbox"> <strong>Workspace Setup</strong>
 <ul>
-<li><strong>Visual Mode</strong>: Browser-based execution (Chrome DevTools Protocol)</li>
-<li><strong>Protocol Mode</strong>: HTTP-only execution (no browser overhead)</li>
+<li><input disabled="" type="checkbox"> Create library via <code>cargo new --lib flow-engine</code>.</li>
+<li><input disabled="" type="checkbox"> Add <code>"flow-engine"</code> to <code>[workspace.members]</code> in root <code>Cargo.toml</code>.</li>
 </ul>
-<h3 id="technology-stack"><a class="header" href="#technology-stack">Technology Stack</a></h3>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Component</th><th>Crate</th><th>Why This Choice?</th></tr>
-</thead>
-<tbody>
-<tr><td><strong>Browser Control</strong></td><td><code>chromiumoxide</code></td><td>Rust equivalent of Puppeteer. Direct Chrome DevTools Protocol (CDP) communication via WebSocket. Much lighter than WebDriver, event-driven architecture.</td></tr>
-<tr><td><strong>Async Runtime</strong></td><td><code>tokio</code></td><td>Rust’s standardized async engine. Multi-thread work-stealing scheduler enables concurrent management of thousands of flows.</td></tr>
-<tr><td><strong>HTTP Client (Protocol Mode)</strong></td><td><code>hyper</code> + <code>tower</code></td><td>Raw packet-level replay capability. Unlike <code>reqwest</code> (opinionated with built-in cookie store), <code>hyper</code> gives us full control. <code>tower</code> provides retry and timeout middleware.</td></tr>
-<tr><td><strong>Data Extraction</strong></td><td><code>jsonpath-rust</code> + <code>scraper</code></td><td>JSONPath for API responses, <code>scraper</code> (CSS selector engine) for HTML parsing.</td></tr>
-<tr><td><strong>Template Engine</strong></td><td><code>tera</code></td><td>Runtime variable substitution (<code>{{username}}</code>, <code>{{csrf_token}}</code>). Jinja2-like, fast and secure.</td></tr>
-<tr><td><strong>Scripting (Optional)</strong></td><td><code>rhai</code></td><td>Embedded scripting for complex logic (e.g., “if captcha appears, wait”). Rust-integrated, safe scripting language.</td></tr>
-</tbody>
-</table>
-</div>
-<h3 id="-performance-architecture"><a class="header" href="#-performance-architecture">🚀 Performance Architecture</a></h3>
-<p><strong>Zero-Copy Parsing</strong>: Instead of converting HTTP response body to String (copying), we parse directly from <code>Bytes</code> (using <code>bytes</code> crate) by reference.</p>
-<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>use bytes::Bytes;
-
-// ❌ Bad: Copies data
-let body_string = String::from_utf8(response_body)?;
-let json: Value = serde_json::from_str(&amp;body_string)?;
-
-// ✅ Good: Zero-copy
-let body_bytes = Bytes::from(response_body);
-let json: Value = serde_json::from_slice(&amp;body_bytes)?;
-<span class="boring">}</span></code></pre>
-<hr>
-<h2 id="-2-login-sequence-recorder-lsr"><a class="header" href="#-2-login-sequence-recorder-lsr">🎥 2. Login Sequence Recorder (LSR)</a></h2>
-<p>LSR monitors user actions, analyzes them, and generates <strong>resilient selectors</strong> that survive DOM changes.</p>
-<h3 id="technology-stack-1"><a class="header" href="#technology-stack-1">Technology Stack</a></h3>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Component</th><th>Crate</th><th>Why This Choice?</th></tr>
-</thead>
-<tbody>
-<tr><td><strong>Event Stream</strong></td><td><code>tokio-stream</code></td><td>Process hundreds of events (mouse move, click, keypress) as an async stream.</td></tr>
-<tr><td><strong>Selector Generation</strong></td><td><code>scraper</code> + Custom Logic</td><td>Calculate shortest, unique CSS/XPath for clicked elements using HTML parsing engine.</td></tr>
-<tr><td><strong>Event Correlation</strong></td><td><code>uuid</code> + <code>std::time</code></td><td>Match DOM events with Network requests by timestamp.</td></tr>
-<tr><td><strong>Keylogging Prevention</strong></td><td><code>secrecy</code></td><td>Keep password field data encrypted in RAM, prevent accidental logging.</td></tr>
-<tr><td><strong>State Storage</strong></td><td><code>sled</code></td><td><strong>Critical</strong>: Lock-free, embedded key-value store. Much faster than SQLite for recording. Eliminates I/O bottleneck.</td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h2 id="-common-library-integration--data-structures"><a class="header" href="#-common-library-integration--data-structures">🧬 Common Library (Integration &amp; Data Structures)</a></h2>
-<h3 id="a-data-serialization"><a class="header" href="#a-data-serialization">A. Data Serialization</a></h3>
-<p><strong>Formats:</strong></p>
+</li>
+<li><input disabled="" type="checkbox"> <strong>Dependency Management (<code>flow-engine/Cargo.toml</code>)</strong>
 <ul>
-<li><strong>JSON</strong>: User-readable storage</li>
-<li><strong>Bincode</strong>: Internal Agent ↔ Orchestrator communication</li>
+<li><input disabled="" type="checkbox"> Add libraries (latest stable):
+<ul>
+<li><code>chromiumoxide</code> (Browser Automation)</li>
+<li><code>tokio</code> (Async Runtime)</li>
+<li><code>serde</code>, <code>serde_json</code> (Serialization)</li>
+<li><code>thiserror</code>, <code>anyhow</code> (Error Handling)</li>
+<li><code>secrecy</code> (Secure String)</li>
+<li><code>uuid</code> (ID Generation)</li>
+<li><code>url</code> (Parsing)</li>
+<li><code>base64</code> (Encoding)</li>
+<li><code>har</code> (or equivalent HAR parsing crate)</li>
 </ul>
-<p><strong>Crates:</strong> <code>serde</code>, <code>serde_json</code>, <code>bincode</code></p>
-<p><strong>Why:</strong> <code>serde</code> is Rust’s standard. <code>bincode</code> is much faster and smaller than JSON, ideal for binary communication.</p>
-<h3 id="b-smart-selector-algorithm"><a class="header" href="#b-smart-selector-algorithm">B. Smart Selector Algorithm</a></h3>
-<p>LSR’s core innovation: <strong>Self-Healing Selectors</strong></p>
-<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>pub struct ElementSelector {
-    pub css_id: Option&lt;String&gt;,           // #submit
-    pub css_class: Option&lt;String&gt;,        // .btn.btn-primary
-    pub xpath: String,                    // //div[@id='app']/button[1]
-    pub text_content: Option&lt;String&gt;,     // "Giriş Yap"
-    pub attributes: HashMap&lt;String, String&gt;, // name="submit", data-testid="login-button"
-}
-<span class="boring">}</span></code></pre>
-<p><strong>Self-Healing Logic:</strong></p>
+</li>
+<li><input disabled="" type="checkbox"> <strong>Internal Dependencies:</strong>
+<ul>
+<li>Path reference to <code>orchestrator</code> (if sharing structs).</li>
+<li>Path reference to <code>proxy-core</code> (or a common crate).</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="-2-data-models--har-support-srclsrmodelrs"><a class="header" href="#-2-data-models--har-support-srclsrmodelrs">🧬 2. Data Models &amp; HAR Support (<code>src/lsr/model.rs</code>)</a></h2>
+<p><em>Data models and HAR file conversions.</em></p>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Struct: <code>LoginProfile</code></strong>
+<ul>
+<li>Fields: <code>id</code>, <code>name</code>, <code>start_url</code>, <code>steps</code>, <code>meta</code>.</li>
+<li>Must be JSON serializable via <code>serde</code>.</li>
+</ul>
+</li>
+<li><input disabled="" type="checkbox"> <strong>Enum: <code>LoginStep</code></strong>
+<ul>
+<li>Variants: <code>Navigate</code>, <code>Click</code> (SmartSelector), <code>Type</code> (Secret), <code>Wait</code>, <code>CheckSession</code>.</li>
+</ul>
+</li>
+<li><input disabled="" type="checkbox"> <strong>HAR Integration (<code>src/lsr/har.rs</code>)</strong>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Import:</strong> Write <code>from_har(path: &amp;str) -&gt; LoginProfile</code> to convert standard <code>.har</code> files.
+<ul>
+<li><em>Logic:</em> Analyze POST requests for form data (-&gt; <code>Type</code>), URL transitions (-&gt; <code>Navigate</code>).</li>
+</ul>
+</li>
+<li><input disabled="" type="checkbox"> <strong>Export:</strong> Export <code>LoginProfile</code> as a simulated <code>.har</code> file for debugging.</li>
+</ul>
+</li>
+</ul>
+<h2 id="-3-recorder-engine-implementation"><a class="header" href="#-3-recorder-engine-implementation">🎥 3. Recorder Engine Implementation</a></h2>
+<p><em>Browser management and CDP event listeners.</em></p>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Module: <code>src/lsr/browser.rs</code></strong>
+<ul>
+<li><input disabled="" type="checkbox"> Write <code>launch_browser(proxy_addr: Option&lt;&amp;str&gt;)</code>.</li>
+<li><input disabled="" type="checkbox"> Use <code>chromiumoxide</code> with arguments compatible with Workspace Proxy config (<code>--proxy-server</code>).</li>
+<li><input disabled="" type="checkbox"> Ignore SSL errors (<code>--ignore-certificate-errors</code>).</li>
+</ul>
+</li>
+<li><input disabled="" type="checkbox"> <strong>Module: <code>src/lsr/recorder.rs</code></strong>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Event Listeners:</strong> Listen to DOM and Network events via CDP.</li>
+<li><input disabled="" type="checkbox"> <strong>JS Injection:</strong> Inject JS to capture Click and Keyboard events.</li>
+<li><input disabled="" type="checkbox"> <strong>Orchestrator Sync:</strong> Notify Orchestrator of “RecordingActive” status (via gRPC/Channel).</li>
+</ul>
+</li>
+</ul>
+<h2 id="-4-smart-selector--analysis-srclsranalyzerrs"><a class="header" href="#-4-smart-selector--analysis-srclsranalyzerrs">🧠 4. Smart Selector &amp; Analysis (<code>src/lsr/analyzer.rs</code>)</a></h2>
+<p><em>Generating Resilient (Robust) Selectors.</em></p>
+<p><strong>Constraint:</strong> Do not use a single “magic” library. Build a custom algorithm using <code>chromiumoxide</code> Node data. DO NOT use external HTML parsers for selector generation logic to ensure performance and consistency with the live page.</p>
+<ul>
+<li>
+<p><input disabled="" type="checkbox"> <strong>Struct: <code>SelectorStrategy</code></strong></p>
+<ul>
+<li>Fields: <code>priority: u8</code>, <code>value: String</code>, <code>selector_type: SelectorType</code> (ID, XPath, CSS, Attribute).</li>
+</ul>
+</li>
+<li>
+<p><input disabled="" type="checkbox"> <strong>Algorithm: <code>calculate_best_selector(node: &amp;cdp::browser_protocol::dom::Node) -&gt; SmartSelector</code></strong></p>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Step 1 (Attributes):</strong> Scan node attributes (<code>data-testid</code>, <code>id</code>, <code>name</code>).
+<ul>
+<li><em>Filter:</em> Exclude numeric or semi-random IDs via regex (<code>regex = r"^[a-zA-Z][a-zA-Z0-9-_]+$"</code>).</li>
+<li><strong>Priorities:</strong>
 <ol>
-<li>Try <code>css_id</code> (#submit)</li>
-<li>If not found, try <code>xpath</code></li>
-<li>If not found, try <code>text_content</code> (“Giriş Yap” button)</li>
-<li>If not found, try <code>attributes</code> (data-testid=“login-button”)</li>
+<li><strong>Stable ID</strong> (e.g., <code>submit-btn</code>)</li>
+<li><strong>Test Attributes</strong> (<code>data-testid</code>, <code>data-cy</code>, <code>aria-label</code>)</li>
+<li><strong>Unique Name</strong> (<code>name="username"</code>)</li>
 </ol>
-<p>This is done using <code>scraper</code> crate for real-time HTML analysis during replay.</p>
-<hr>
-<h2 id="-implementation-roadmap"><a class="header" href="#-implementation-roadmap">📦 Implementation Roadmap</a></h2>
-<h3 id="phase-1-foundation-v12"><a class="header" href="#phase-1-foundation-v12">Phase 1: Foundation (v1.2)</a></h3>
-<ul>
-<li><input disabled="" type="checkbox"> Add <code>chromiumoxide</code> dependency</li>
-<li><input disabled="" type="checkbox"> Implement basic CDP connection</li>
-<li><input disabled="" type="checkbox"> Create Flow data structures</li>
-<li><input disabled="" type="checkbox"> Add <code>sled</code> for state storage</li>
+</li>
 </ul>
-<h3 id="phase-2-lsr-core-v13"><a class="header" href="#phase-2-lsr-core-v13">Phase 2: LSR Core (v1.3)</a></h3>
+</li>
+<li><input disabled="" type="checkbox"> <strong>Step 2 (Text Content):</strong> If node is an Element and has <code>innerText</code>, generate Semantic XPath.
 <ul>
-<li><input disabled="" type="checkbox"> Event stream processing</li>
-<li><input disabled="" type="checkbox"> Smart selector generation</li>
-<li><input disabled="" type="checkbox"> Event correlation (DOM ↔ Network)</li>
-<li><input disabled="" type="checkbox"> Password field encryption</li>
+<li>Format: <code>//{tag}[contains(text(), '{text}')]</code> (e.g., <code>//button[normalize-space()='Login']</code>).</li>
 </ul>
-<h3 id="phase-3-flow-engine-v14"><a class="header" href="#phase-3-flow-engine-v14">Phase 3: Flow Engine (v1.4)</a></h3>
+</li>
+<li><input disabled="" type="checkbox"> <strong>Step 3 (Path Generation):</strong> Fallback: Traverse up the DOM tree (Parent traversing).
 <ul>
-<li><input disabled="" type="checkbox"> Visual mode execution (CDP)</li>
-<li><input disabled="" type="checkbox"> Protocol mode execution (HTTP-only)</li>
-<li><input disabled="" type="checkbox"> Template engine integration</li>
-<li><input disabled="" type="checkbox"> Self-healing selector logic</li>
+<li>Start from the nearest parent with a Stable ID: <code>#parent-id &gt; div &gt; button</code>.</li>
+<li>Hierarchical CSS as last resort.</li>
 </ul>
-<h3 id="phase-4-advanced-features-v15"><a class="header" href="#phase-4-advanced-features-v15">Phase 4: Advanced Features (v1.5)</a></h3>
+</li>
+</ul>
+</li>
+<li>
+<p><input disabled="" type="checkbox"> <strong>Validation (Crucial):</strong></p>
 <ul>
-<li><input disabled="" type="checkbox"> Scripting support (<code>rhai</code>)</li>
-<li><input disabled="" type="checkbox"> Flow debugging tools</li>
-<li><input disabled="" type="checkbox"> Performance profiling</li>
-<li><input disabled="" type="checkbox"> Parallel flow execution</li>
+<li><input disabled="" type="checkbox"> Test the generated selector in the live page: <code>document.querySelectorAll(selector).length</code>.</li>
+<li><input disabled="" type="checkbox"> If result is not <code>1</code> (Unique), fallback to the next strategy or extend the path.</li>
 </ul>
-<hr>
-<h2 id="-dependencies-to-add"><a class="header" href="#-dependencies-to-add">🔧 Dependencies to Add</a></h2>
-<pre><code class="language-toml">[dependencies]
-# Browser Control
-chromiumoxide = "0.5"
-
-# Data Storage
-sled = "0.34"
-
-# Parsing &amp; Extraction
-scraper = "0.18"
-jsonpath-rust = "0.3"
-
-# Template Engine
-tera = "1.19"
-
-# Scripting (Optional)
-rhai = "1.16"
-
-# Security
-secrecy = "0.8"
-
-# Zero-Copy
-bytes = "1.5"
-</code></pre>
-<hr>
-<h2 id="-performance-benchmarks-target"><a class="header" href="#-performance-benchmarks-target">🎯 Performance Benchmarks (Target)</a></h2>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Metric</th><th>Puppeteer (Node.js)</th><th>Selenium (Python)</th><th>Proxxy (Rust)</th></tr>
-</thead>
-<tbody>
-<tr><td><strong>Memory per Flow</strong></td><td>~100 MB</td><td>~150 MB</td><td><strong>~10 MB</strong></td></tr>
-<tr><td><strong>Startup Time</strong></td><td>~2s</td><td>~3s</td><td><strong>~100ms</strong></td></tr>
-<tr><td><strong>Concurrent Flows</strong></td><td>~10</td><td>~5</td><td><strong>~1000</strong></td></tr>
-<tr><td><strong>Selector Lookup</strong></td><td>~5ms</td><td>~10ms</td><td><strong>~0.5ms</strong></td></tr>
-</tbody>
-</table>
-</div>
-<hr>
-<h2 id="-example-recording-a-login-flow"><a class="header" href="#-example-recording-a-login-flow">🚀 Example: Recording a Login Flow</a></h2>
-<pre class="playground"><code class="language-rust">use proxxy_lsr::{Recorder, Event};
-
-#[tokio::main]
-async fn main() {
-    let mut recorder = Recorder::new("https://example.com/login").await?;
-    
-    // Start recording
-    recorder.start().await?;
-    
-    // User performs actions (clicks, types)
-    // LSR automatically captures:
-    // - DOM events
-    // - Network requests
-    // - Smart selectors
-    
-    // Stop and save
-    let flow = recorder.stop().await?;
-    flow.save("login_flow.json")?;
-}</code></pre>
-<hr>
-<h2 id="-example-replaying-a-flow"><a class="header" href="#-example-replaying-a-flow">🎬 Example: Replaying a Flow</a></h2>
-<pre class="playground"><code class="language-rust">use proxxy_flow::{FlowEngine, ExecutionMode};
-
-#[tokio::main]
-async fn main() {
-    let engine = FlowEngine::new(ExecutionMode::Visual).await?;
-    
-    // Load flow
-    let flow = Flow::load("login_flow.json")?;
-    
-    // Execute with variables
-    let result = engine.execute(flow, hashmap! {
-        "username" =&gt; "test@example.com",
-        "password" =&gt; "secret123"
-    }).await?;
-    
-    println!("Login successful: {}", result.success);
-}</code></pre>
-<hr>
-<h2 id="-security-considerations"><a class="header" href="#-security-considerations">🔐 Security Considerations</a></h2>
-<ol>
-<li><strong>Password Encryption</strong>: All password fields use <code>secrecy</code> crate</li>
-<li><strong>No Plaintext Logs</strong>: Sensitive data never appears in logs</li>
-<li><strong>Secure Storage</strong>: <code>sled</code> database encrypted at rest</li>
-<li><strong>Memory Safety</strong>: Rust’s ownership prevents data leaks</li>
-</ol>
-<hr>
-<h2 id="-architecture-diagram"><a class="header" href="#-architecture-diagram">📊 Architecture Diagram</a></h2>
-<pre><code>┌─────────────────────────────────────────────────────────┐
-│                    Proxxy Flow System                    │
-├─────────────────────────────────────────────────────────┤
-│                                                           │
-│  ┌──────────────┐         ┌──────────────┐              │
-│  │     LSR      │────────▶│  Flow Engine │              │
-│  │  (Recorder)  │         │  (Executor)  │              │
-│  └──────────────┘         └──────────────┘              │
-│         │                        │                       │
-│         │                        │                       │
-│         ▼                        ▼                       │
-│  ┌──────────────┐         ┌──────────────┐              │
-│  │     Sled     │         │ chromiumoxide│              │
-│  │  (Storage)   │         │   (Browser)  │              │
-│  └──────────────┘         └──────────────┘              │
-│                                  │                       │
-│                                  ▼                       │
-│                           ┌──────────────┐              │
-│                           │    Chrome    │              │
-│                           │     CDP      │              │
-│                           └──────────────┘              │
-└─────────────────────────────────────────────────────────┘
-</code></pre>
-<hr>
-<p><strong>Version:</strong> 1.1.0 (Planned for v1.2+)<br><strong>Status:</strong> 📋 Design Phase<br><strong>Target:</strong> 10x Performance Improvement over Competitors</p>
+</li>
+<li>
+<p><input disabled="" type="checkbox"> <strong>Input Analysis:</strong> Automatically detect sensitive data fields (<code>type="password"</code>) and mark <code>LoginStep::Type</code> as <code>is_masked: true</code>.</p>
+</li>
+</ul>
+<p><strong>Blacklist (Never Use):</strong></p>
+<ul>
+<li>Random/Utility classes (e.g., Tailwind <code>w-full</code>, <code>p-4</code>).</li>
+<li>Hashed classes (e.g., <code>css-1x2y3z</code>).</li>
+<li>Dynamic IDs (ending in numbers or changing per session).</li>
+<li>Excessively long full paths (<code>html &gt; body &gt; div &gt; ...</code>).</li>
+</ul>
+<h2 id="-5-replayer-engine-srclsrreplayerrs"><a class="header" href="#-5-replayer-engine-srclsrreplayerrs">▶️ 5. Replayer Engine (<code>src/lsr/replayer.rs</code>)</a></h2>
+<p><em>Playback logic and Orchestrator Cookie synchronization.</em></p>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Execution Logic</strong>
+<ul>
+<li><input disabled="" type="checkbox"> Execute profile step-by-step.</li>
+<li><input disabled="" type="checkbox"> Attempt Self-Healing (alternative selectors) if element is not found.</li>
+</ul>
+</li>
+<li><input disabled="" type="checkbox"> <strong>Session Sync</strong>
+<ul>
+<li><input disabled="" type="checkbox"> On login success, fetch cookies (<code>Network.getCookies</code>).</li>
+<li><input disabled="" type="checkbox"> Inject cookies into <strong>Orchestrator</strong>’s <code>SessionManager</code> or <code>CookieJar</code> so that traffic routed through the Proxy uses this authenticated session.</li>
+</ul>
+</li>
+</ul>
+<h2 id="-6-testing-strategy"><a class="header" href="#-6-testing-strategy">🧪 6. Testing Strategy</a></h2>
+<p><em>Unit and Integration tests.</em></p>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Mock Server Integration</strong>
+<ul>
+<li><input disabled="" type="checkbox"> Use <code>wiremock</code> to simulate a login form (<code>/login</code>).</li>
+</ul>
+</li>
+<li><input disabled="" type="checkbox"> <strong>Tests (<code>tests/lsr_tests.rs</code>)</strong>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>HAR Import:</strong> Verify correct <code>LoginProfile</code> generation from sample <code>.har</code>.</li>
+<li><input disabled="" type="checkbox"> <strong>Full Flow:</strong> Record -&gt; Replay -&gt; Cookie Check loop on Mock Server.</li>
+<li><input disabled="" type="checkbox"> <strong>Workspace Check:</strong> Verify <code>flow-engine</code> correctly uses types from <code>proxy-core</code> or <code>orchestrator</code>.</li>
+</ul>
+</li>
+</ul>
+<h2 id="-7-documentation"><a class="header" href="#-7-documentation">📚 7. Documentation</a></h2>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Architecture:</strong> Architecture diagrams showing module placement and data flow.</li>
+<li><input disabled="" type="checkbox"> <strong>Guide:</strong> Guide on generating and importing profiles from HAR files.</li>
+</ul>
 
                     </main>
 

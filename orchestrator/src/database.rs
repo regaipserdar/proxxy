@@ -1,10 +1,12 @@
 use crate::pb::{traffic_event, SystemMetricsEvent, TrafficEvent};
+use crate::models::settings::{ScopeConfig, InterceptionConfig};
 use sqlx::{sqlite::SqlitePoolOptions, Pool, Row, Sqlite};
 use std::path::{PathBuf};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::info;
 use std::fs;
+use serde::{Serialize, de::DeserializeOwned};
 
 #[derive(Debug, Clone)]
 pub struct Project {
@@ -644,4 +646,164 @@ impl Database {
         }
         Ok(events)
     }
+
+    // ============================================================================
+    // SETTINGS MANAGEMENT
+    // ============================================================================
+
+    /// Get a setting value by key (generic)
+    pub async fn get_setting<T: DeserializeOwned>(&self, key: &str) -> Result<Option<T>, sqlx::Error> {
+        let pool = match self.get_pool().await {
+            Ok(p) => p,
+            Err(_) => return Ok(None),
+        };
+
+        let row = sqlx::query("SELECT value FROM project_settings WHERE key = ?")
+            .bind(key)
+            .fetch_optional(&pool)
+            .await?;
+
+        if let Some(row) = row {
+            let value_json: String = row.get("value");
+            let value: T = serde_json::from_str(&value_json)
+                .map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
+            Ok(Some(value))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Save a setting value by key (generic)
+    pub async fn save_setting<T: Serialize>(&self, key: &str, value: &T) -> Result<(), sqlx::Error> {
+        let pool = match self.get_pool().await {
+            Ok(p) => p,
+            Err(e) => return Err(sqlx::Error::Io(std::io::Error::new(
+                std::io::ErrorKind::NotConnected,
+                e.to_string(),
+            ))),
+        };
+
+        let value_json = serde_json::to_string(value)
+            .map_err(|e| sqlx::Error::Protocol(e.to_string()))?;
+        let timestamp = chrono::Utc::now().timestamp();
+
+        sqlx::query(
+            r#"
+            INSERT INTO project_settings (key, value, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(key) DO UPDATE SET
+                value = excluded.value,
+                updated_at = excluded.updated_at
+            "#
+        )
+        .bind(key)
+        .bind(value_json)
+        .bind(timestamp)
+        .execute(&pool)
+        .await?;
+
+        Ok(())
+    }
+
+    /// Get scope configuration
+    pub async fn get_scope_config(&self) -> Result<ScopeConfig, sqlx::Error> {
+        Ok(self.get_setting("scope").await?.unwrap_or_default())
+    }
+
+    /// Save scope configuration
+    pub async fn save_scope_config(&self, config: &ScopeConfig) -> Result<(), sqlx::Error> {
+        self.save_setting("scope", config).await
+    }
+
+    /// Get interception configuration
+    pub async fn get_interception_config(&self) -> Result<InterceptionConfig, sqlx::Error> {
+        Ok(self.get_setting("interception").await?.unwrap_or_default())
+    }
+
+    /// Save interception configuration
+    pub async fn save_interception_config(&self, config: &InterceptionConfig) -> Result<(), sqlx::Error> {
+        self.save_setting("interception", config).await
+    }
+
+    // ============================================================================
+    // PROJECT IMPORT/EXPORT (.proxxy format)
+    // ============================================================================
+
+    /// Export project to .proxxy file (ZIP archive)
+    pub async fn export_project(&self, name: &str, output_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+        use std::io::Write;
+        
+        let project_path = self.projects_dir.join(name);
+        if !project_path.exists() {
+            return Err("Project does not exist".into());
+        }
+
+        let db_path = project_path.join("proxxy.db");
+        if !db_path.exists() {
+            return Err("Project database not found".into());
+        }
+
+        // Create ZIP archive
+        let file = std::fs::File::create(output_path)?;
+        let mut zip = zip::ZipWriter::new(file);
+        
+        let options: zip::write::FileOptions<'_, ()> = zip::write::FileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated);
+
+        // Add database file
+        zip.start_file("proxxy.db", options)?;
+        let db_content = std::fs::read(&db_path)?;
+        zip.write_all(&db_content)?;
+
+        // Add metadata
+        let metadata = serde_json::json!({
+            "name": name,
+            "exported_at": chrono::Utc::now().to_rfc3339(),
+            "version": "1.0"
+        });
+        zip.start_file("metadata.json", options)?;
+        zip.write_all(serde_json::to_string_pretty(&metadata)?.as_bytes())?;
+
+        zip.finish()?;
+        info!("✓ Exported project '{}' to {}", name, output_path);
+        Ok(())
+    }
+
+    /// Import project from .proxxy file
+    pub async fn import_project(&self, proxxy_path: &str, project_name: Option<&str>) -> Result<String, Box<dyn std::error::Error>> {
+        use std::io::Read;
+        
+        let file = std::fs::File::open(proxxy_path)?;
+        let mut archive = zip::ZipArchive::new(file)?;
+
+        // Read metadata
+        let mut metadata_file = archive.by_name("metadata.json")?;
+        let mut metadata_content = String::new();
+        metadata_file.read_to_string(&mut metadata_content)?;
+        drop(metadata_file); // Release borrow
+        
+        let metadata: serde_json::Value = serde_json::from_str(&metadata_content)?;
+        
+        let original_name = metadata["name"].as_str().ok_or("Invalid metadata")?;
+        let final_name = project_name.unwrap_or(original_name);
+
+        // Create project directory
+        let project_path = self.projects_dir.join(final_name);
+        if project_path.exists() {
+            return Err(format!("Project '{}' already exists", final_name).into());
+        }
+        fs::create_dir_all(&project_path)?;
+
+        // Extract database
+        let mut db_file = archive.by_name("proxxy.db")?;
+        let mut db_content = Vec::new();
+        db_file.read_to_end(&mut db_content)?;
+        
+        let db_path = project_path.join("proxxy.db");
+        std::fs::write(&db_path, db_content)?;
+
+        info!("✓ Imported project '{}' from {}", final_name, proxxy_path);
+        Ok(final_name.to_string())
+    }
 }
+

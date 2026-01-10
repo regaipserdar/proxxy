@@ -1,11 +1,12 @@
 use crate::pb::proxy_service_server::ProxyService;
 use crate::pb::{
     InterceptCommand, MetricsCommand, RegisterAgentRequest, RegisterAgentResponse,
-    SystemMetricsEvent, TrafficEvent,
+    SystemMetricsEvent, TrafficEvent, traffic_event,
 };
 use crate::AgentRegistry;
+use crate::models::settings::{ScopeConfig, InterceptionConfig};
 use std::sync::Arc;
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::{broadcast, mpsc, RwLock};
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status, Streaming};
 use tracing::{debug, error, info, warn};
@@ -20,6 +21,9 @@ pub struct ProxyServiceImpl {
     metrics_broadcast_tx: broadcast::Sender<SystemMetricsEvent>,
     db: Arc<Database>,
     ca: Arc<CertificateAuthority>,
+    scope: Arc<RwLock<ScopeConfig>>,
+    #[allow(dead_code)] // Reserved for future interception implementation
+    interception: Arc<RwLock<InterceptionConfig>>,
 }
 
 impl ProxyServiceImpl {
@@ -29,6 +33,8 @@ impl ProxyServiceImpl {
         metrics_broadcast_tx: broadcast::Sender<SystemMetricsEvent>,
         db: Arc<Database>,
         ca: Arc<CertificateAuthority>,
+        scope: Arc<RwLock<ScopeConfig>>,
+        interception: Arc<RwLock<InterceptionConfig>>,
     ) -> Self {
         Self {
             agent_registry,
@@ -36,6 +42,8 @@ impl ProxyServiceImpl {
             metrics_broadcast_tx,
             db,
             ca,
+            scope,
+            interception,
         }
     }
 }
@@ -129,6 +137,7 @@ impl ProxyService for ProxyServiceImpl {
         let db = self.db.clone();
         let agent_id_cl = agent_id.clone();
         let registry = self.agent_registry.clone();
+        let scope = self.scope.clone();
 
         // Spawn task to handle inbound traffic events
         tokio::spawn(async move {
@@ -140,20 +149,47 @@ impl ProxyService for ProxyServiceImpl {
                     event_count, agent_id_cl, event.request_id
                 );
 
-                // 1. Broadcast event to UI/Subscribers (fast path)
-                if let Err(e) = broadcast.send(event.clone()) {
-                    warn!("   ⚠️  Failed to broadcast event: {}", e);
-                }
+                // SCOPE CHECK - Determine if we should record this event
+                let scope_config = scope.read().await;
+                let should_record = if scope_config.enabled {
+                    // Extract URL from event
+                    let url = match &event.event {
+                        Some(traffic_event::Event::Request(req)) => Some(req.url.as_str()),
+                        _ => None,
+                    };
 
-                // 2. Save to DB asynchronously (background task)
-                let db_bg = db.clone();
-                let event_bg = event.clone();
-                let agent_id_bg = agent_id_cl.clone();
-                tokio::spawn(async move {
-                    if let Err(e) = db_bg.save_request(&event_bg, &agent_id_bg).await {
-                        error!("   ✗ Failed to save to DB: {}", e);
+                    if let Some(url) = url {
+                        let in_scope = crate::scope::is_in_scope(&scope_config, url);
+                        if !in_scope {
+                            debug!("⏭️ Out-of-scope (not recording): {}", url);
+                        }
+                        in_scope
+                    } else {
+                        true // No URL = record by default
                     }
-                });
+                } else {
+                    true // Scope disabled = record everything
+                };
+                drop(scope_config); // Release lock
+
+                // Only broadcast and save if in scope
+                if should_record {
+                    // 1. Broadcast event to UI/Subscribers (fast path)
+                    if let Err(e) = broadcast.send(event.clone()) {
+                        warn!("   ⚠️  Failed to broadcast event: {}", e);
+                    }
+
+                    // 2. Save to DB asynchronously (background task)
+                    let db_bg = db.clone();
+                    let event_bg = event.clone();
+                    let agent_id_bg = agent_id_cl.clone();
+                    tokio::spawn(async move {
+                        if let Err(e) = db_bg.save_request(&event_bg, &agent_id_bg).await {
+                            error!("   ✗ Failed to save to DB: {}", e);
+                        }
+                    });
+                }
+                // Note: Proxy continues to forward the request regardless of scope
             }
             info!(
                 "🔌 Agent {} stream ended (processed {} events)",
