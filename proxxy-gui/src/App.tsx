@@ -9,7 +9,7 @@ import { AgentsView } from '@/pages/agents/page';
 import { AgentDetailView } from '@/pages/agents/[agentId]/page';
 import { DesignerView } from '@/pages/designer/page';
 import { ScopeManager } from '@/pages/scope/page';
-import { ProxyView } from '@/pages/proxy/page';
+import { ProxyPage } from '@/pages/proxy/page';
 import { RepeaterView } from '@/pages/repeater/page';
 import { IntruderView } from '@/pages/intruder/page';
 import { SettingsView } from '@/pages/settings/page';
@@ -29,7 +29,7 @@ function App() {
                 <Route path="/agents/:agentId" element={<AgentDetailView />} />
                 <Route path="/designer" element={<DesignerView />} />
                 <Route path="/scope" element={<ScopeManager />} />
-                <Route path="/proxy" element={<ProxyView />} />
+                <Route path="/proxy" element={<ProxyPage />} />
                 <Route path="/repeater" element={<RepeaterView />} />
                 <Route path="/intruder" element={<IntruderView />} />
                 <Route path="/settings" element={<SettingsView />} />
