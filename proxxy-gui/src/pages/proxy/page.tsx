@@ -1,22 +1,26 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useSubscription, useLazyQuery } from '@apollo/client';
 import {
-  Search, Trash2, Copy, Database, X,
-  Pause, Play, Loader2, Clock, Globe
+  Search, Trash2, Download, Copy, Database, Code, X,
+  Send, Filter, ArrowUpDown, Clock, Globe, FileJson, Pause, Play, Loader2
 } from 'lucide-react';
 import {
   GET_HTTP_TRANSACTIONS,
   TRAFFIC_UPDATES,
   GET_TRANSACTION_DETAILS
-} from '@/graphql/operations';
+} from '../../graphql/operations';
+import { HttpTransaction } from '../../types/graphql';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { format } from 'date-fns';
 
-// --- Helper Functions ---
+// Yardımcı Fonksiyonlar
 const formatTime = (ts: string | number) => {
   try {
     const date = new Date(typeof ts === 'number' ? ts * 1000 : ts);
@@ -41,107 +45,31 @@ const getStatusColor = (status: number) => {
   return 'text-red-500';
 };
 
-// --- Components ---
-
-// Code Viewer Component
-const CodeViewer = ({ content }: { content: string }) => {
-  return (
-    <ScrollArea className="h-full w-full">
-      <div className="relative group">
-        <div className="p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap break-all text-slate-300 selection:bg-blue-500/30">
-          {content}
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 hover:bg-blue-500 text-white h-8 w-8 p-0"
-          onClick={() => navigator.clipboard.writeText(content)}
-        >
-          <Copy className="w-4 h-4" />
-        </Button>
-      </div>
-    </ScrollArea>
-  );
-};
-
-// Request Inspector Component
-const RequestInspector = ({ data, loading, baseInfo }: { data: any, loading: boolean, baseInfo: any }) => {
-  if (loading) return <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-blue-500" /></div>;
-  if (!baseInfo) return null;
-
-  const requestContent = data?.requestHeaders ? `${data.requestHeaders}\n\n${data.requestBody || ''}` : 'Loading details...';
-  const responseContent = data?.responseHeaders ? `${data.responseHeaders}\n\n${data.responseBody || ''}` : 'Loading details...';
-
-  return (
-    <div className="h-full flex flex-col bg-[#0E1015]">
-      {/* Detail Header */}
-      <div className="p-4 border-b border-white/5 bg-[#111318]">
-        <div className="flex items-center gap-3 mb-2">
-          <Badge variant="outline" className={`${getMethodColor(baseInfo.method)} text-xs border-0`}>{baseInfo.method}</Badge>
-          <span className="font-mono text-sm text-slate-300 truncate flex-1" title={baseInfo.url}>{baseInfo.url}</span>
-        </div>
-        <div className="flex items-center gap-4 text-xs text-slate-500 font-mono">
-          <div className="flex items-center gap-1"><Clock className="w-3 h-3" /> {formatTime(baseInfo.timestamp)}</div>
-          <div className="flex items-center gap-1"><Globe className="w-3 h-3" /> {new URL(baseInfo.url).hostname}</div>
-          <div className={`font-bold ${getStatusColor(baseInfo.status)}`}>{baseInfo.status}</div>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <Tabs defaultValue="request" className="flex-1 flex flex-col overflow-hidden">
-        <div className="px-4 border-b border-white/5 bg-[#0B0D11]">
-          <TabsList className="h-10 bg-transparent gap-4 p-0">
-            <TabsTrigger
-              value="request"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:text-blue-400 rounded-none px-0 text-xs font-bold uppercase tracking-wider text-slate-500 shadow-none border-b-2 border-transparent"
-            >
-              Request
-            </TabsTrigger>
-            <TabsTrigger
-              value="response"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-emerald-500 data-[state=active]:text-emerald-400 rounded-none px-0 text-xs font-bold uppercase tracking-wider text-slate-500 shadow-none border-b-2 border-transparent"
-            >
-              Response
-            </TabsTrigger>
-          </TabsList>
-        </div>
-
-        <TabsContent value="request" className="flex-1 m-0 overflow-hidden relative group data-[state=active]:flex flex-col">
-          <CodeViewer content={requestContent} />
-        </TabsContent>
-
-        <TabsContent value="response" className="flex-1 m-0 overflow-hidden relative group data-[state=active]:flex flex-col">
-          <CodeViewer content={responseContent} />
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-};
-
-// Main Page Component
 export const ProxyPage = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filterQuery, setFilterQuery] = useState('');
   const [isLive, setIsLive] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // 1. List Data (Initial Load)
+  // 1. Liste Verisi (Initial Load)
   const { data: initialData, loading, refetch } = useQuery(GET_HTTP_TRANSACTIONS, {
     fetchPolicy: 'cache-and-network',
-    variables: { limit: 100 }
+    variables: { limit: 100 } // Son 100 istek
   });
 
-  // 2. Live Data Stream (Subscription)
+  // 2. Canlı Veri Akışı (Subscription)
   useSubscription(TRAFFIC_UPDATES, {
-    onData: () => {
+    onData: ({ client, data }) => {
       if (!isLive) return;
-      // Scroll to bottom logic can be added here if needed
+      // Apollo Cache otomatik güncellenir, 
+      // ancak manuel scroll veya yeni veriyi başa ekleme logiği buraya konabilir.
     }
   });
 
-  // 3. Detail Data (Lazy Load)
+  // 3. Detay Verisi (Lazy Load)
   const [getDetails, { data: detailsData, loading: detailsLoading }] = useLazyQuery(GET_TRANSACTION_DETAILS);
 
+  // Seçim değişince detayları çek
   useEffect(() => {
     if (selectedId) {
       getDetails({ variables: { requestId: selectedId } });
@@ -151,6 +79,7 @@ export const ProxyPage = () => {
   const requests = initialData?.requests || [];
   const selectedRequest = detailsData?.request;
 
+  // Filtreleme Mantığı
   const filteredRequests = useMemo(() => {
     if (!filterQuery) return requests;
     const terms = filterQuery.toLowerCase().split(' ');
@@ -173,6 +102,8 @@ export const ProxyPage = () => {
   }, [requests, filterQuery]);
 
   const handleClear = () => {
+    // Burada backend'e "Clear DB" komutu gönderilebilir
+    // Şimdilik sadece client cache temizleme:
     refetch();
   };
 
@@ -225,11 +156,7 @@ export const ProxyPage = () => {
 
       {/* MAIN CONTENT SPLIT VIEW */}
       <div className="flex-1 overflow-hidden">
-        {/* FIX: Use 'horizontal' not 'direction="horizontal"' if using newer version, 
-            or 'direction="horizontal"' for older. 
-            Using 'direction="horizontal"' as it is standard for vertical split (panels side by side) 
-        */}
-        <ResizablePanelGroup orientation="horizontal">
+        <ResizablePanelGroup direction="horizontal">
 
           {/* LEFT PANEL: REQUEST LIST */}
           <ResizablePanel defaultSize={40} minSize={25} className="bg-[#0E1015]">
@@ -301,5 +228,72 @@ export const ProxyPage = () => {
         </ResizablePanelGroup>
       </div>
     </div>
+  );
+};
+
+// Alt Bileşen: Request Inspector (Detay Görünümü)
+const RequestInspector = ({ data, loading, baseInfo }: { data: any, loading: boolean, baseInfo: any }) => {
+  if (loading) return <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-blue-500" /></div>;
+  if (!baseInfo) return null; // Veri henüz yüklenmediyse baseInfo kullan
+
+  const requestContent = data?.requestHeaders ? `${data.requestHeaders}\n\n${data.requestBody || ''}` : 'Loading...';
+  const responseContent = data?.responseHeaders ? `${data.responseHeaders}\n\n${data.responseBody || ''}` : 'Loading...';
+
+  return (
+    <div className="h-full flex flex-col bg-[#0E1015]">
+      {/* Detail Header */}
+      <div className="p-4 border-b border-white/5 bg-[#111318]">
+        <div className="flex items-center gap-3 mb-2">
+          <Badge variant="outline" className={`${getMethodColor(baseInfo.method)} text-xs`}>{baseInfo.method}</Badge>
+          <span className="font-mono text-sm text-slate-300 truncate flex-1">{baseInfo.url}</span>
+        </div>
+        <div className="flex items-center gap-4 text-xs text-slate-500 font-mono">
+          <div className="flex items-center gap-1"><Clock className="w-3 h-3" /> {formatTime(baseInfo.timestamp)}</div>
+          <div className="flex items-center gap-1"><Globe className="w-3 h-3" /> {new URL(baseInfo.url).hostname}</div>
+          <div className={`font-bold ${getStatusColor(baseInfo.status)}`}>{baseInfo.status} OK</div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <Tabs defaultValue="request" className="flex-1 flex flex-col overflow-hidden">
+        <div className="px-4 border-b border-white/5 bg-[#0B0D11]">
+          <TabsList className="h-10 bg-transparent gap-4">
+            <TabsTrigger value="request" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:text-blue-400 rounded-none px-0 text-xs font-bold uppercase tracking-wider text-slate-500">
+              Request
+            </TabsTrigger>
+            <TabsTrigger value="response" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-emerald-500 data-[state=active]:text-emerald-400 rounded-none px-0 text-xs font-bold uppercase tracking-wider text-slate-500">
+              Response
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="request" className="flex-1 m-0 overflow-hidden relative group">
+          <CodeViewer content={requestContent} type="req" />
+        </TabsContent>
+
+        <TabsContent value="response" className="flex-1 m-0 overflow-hidden relative group">
+          <CodeViewer content={responseContent} type="res" />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
+
+// Alt Bileşen: Kod Görüntüleyici
+const CodeViewer = ({ content, type }: { content: string, type: 'req' | 'res' }) => {
+  return (
+    <ScrollArea className="h-full w-full">
+      <div className="p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap break-all text-slate-300 selection:bg-blue-500/30">
+        {content}
+      </div>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 hover:bg-blue-500 text-white"
+        onClick={() => navigator.clipboard.writeText(content)}
+      >
+        <Copy className="w-3 h-3" />
+      </Button>
+    </ScrollArea>
   );
 };
