@@ -70,6 +70,8 @@ export const GET_REQUEST_DETAIL = gql`
   }
 `;
 
+export const GET_TRANSACTION_DETAILS = GET_REQUEST_DETAIL;
+
 /**
  * LIGHTWEIGHT: Dashboard summary
  * Use for: Dashboard overview

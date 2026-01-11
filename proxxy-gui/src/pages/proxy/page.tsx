@@ -1,318 +1,305 @@
-import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useQuery, useSubscription, useLazyQuery } from '@apollo/client';
 import {
-  Search, Trash2, Download,
-  Copy, Database, Code, X
+  Search, Trash2, Copy, Database, X,
+  Pause, Play, Loader2, Clock, Globe
 } from 'lucide-react';
-import { useRequests } from '@/hooks/useRequests';
+import {
+  GET_HTTP_TRANSACTIONS,
+  TRAFFIC_UPDATES,
+  GET_TRANSACTION_DETAILS
+} from '@/graphql/operations';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { format } from 'date-fns';
 
-export const ProxyView = () => {
-  const { requests, clearRequests } = useRequests();
+// --- Helper Functions ---
+const formatTime = (ts: string | number) => {
+  try {
+    const date = new Date(typeof ts === 'number' ? ts * 1000 : ts);
+    return format(date, 'HH:mm:ss.SSS');
+  } catch { return '--:--:--'; }
+};
+
+const getMethodColor = (method: string) => {
+  switch (method?.toUpperCase()) {
+    case 'GET': return 'text-blue-400 bg-blue-500/10 border-blue-500/20';
+    case 'POST': return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+    case 'PUT': return 'text-orange-400 bg-orange-500/10 border-orange-500/20';
+    case 'DELETE': return 'text-red-400 bg-red-500/10 border-red-500/20';
+    default: return 'text-slate-400 bg-slate-500/10 border-slate-500/20';
+  }
+};
+
+const getStatusColor = (status: number) => {
+  if (status < 300) return 'text-emerald-400';
+  if (status < 400) return 'text-blue-400';
+  if (status < 500) return 'text-amber-400';
+  return 'text-red-500';
+};
+
+// --- Components ---
+
+// Code Viewer Component
+const CodeViewer = ({ content }: { content: string }) => {
+  return (
+    <ScrollArea className="h-full w-full">
+      <div className="relative group">
+        <div className="p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap break-all text-slate-300 selection:bg-blue-500/30">
+          {content}
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 hover:bg-blue-500 text-white h-8 w-8 p-0"
+          onClick={() => navigator.clipboard.writeText(content)}
+        >
+          <Copy className="w-4 h-4" />
+        </Button>
+      </div>
+    </ScrollArea>
+  );
+};
+
+// Request Inspector Component
+const RequestInspector = ({ data, loading, baseInfo }: { data: any, loading: boolean, baseInfo: any }) => {
+  if (loading) return <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-blue-500" /></div>;
+  if (!baseInfo) return null;
+
+  const requestContent = data?.requestHeaders ? `${data.requestHeaders}\n\n${data.requestBody || ''}` : 'Loading details...';
+  const responseContent = data?.responseHeaders ? `${data.responseHeaders}\n\n${data.responseBody || ''}` : 'Loading details...';
+
+  return (
+    <div className="h-full flex flex-col bg-[#0E1015]">
+      {/* Detail Header */}
+      <div className="p-4 border-b border-white/5 bg-[#111318]">
+        <div className="flex items-center gap-3 mb-2">
+          <Badge variant="outline" className={`${getMethodColor(baseInfo.method)} text-xs border-0`}>{baseInfo.method}</Badge>
+          <span className="font-mono text-sm text-slate-300 truncate flex-1" title={baseInfo.url}>{baseInfo.url}</span>
+        </div>
+        <div className="flex items-center gap-4 text-xs text-slate-500 font-mono">
+          <div className="flex items-center gap-1"><Clock className="w-3 h-3" /> {formatTime(baseInfo.timestamp)}</div>
+          <div className="flex items-center gap-1"><Globe className="w-3 h-3" /> {new URL(baseInfo.url).hostname}</div>
+          <div className={`font-bold ${getStatusColor(baseInfo.status)}`}>{baseInfo.status}</div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <Tabs defaultValue="request" className="flex-1 flex flex-col overflow-hidden">
+        <div className="px-4 border-b border-white/5 bg-[#0B0D11]">
+          <TabsList className="h-10 bg-transparent gap-4 p-0">
+            <TabsTrigger
+              value="request"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:text-blue-400 rounded-none px-0 text-xs font-bold uppercase tracking-wider text-slate-500 shadow-none border-b-2 border-transparent"
+            >
+              Request
+            </TabsTrigger>
+            <TabsTrigger
+              value="response"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-emerald-500 data-[state=active]:text-emerald-400 rounded-none px-0 text-xs font-bold uppercase tracking-wider text-slate-500 shadow-none border-b-2 border-transparent"
+            >
+              Response
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="request" className="flex-1 m-0 overflow-hidden relative group data-[state=active]:flex flex-col">
+          <CodeViewer content={requestContent} />
+        </TabsContent>
+
+        <TabsContent value="response" className="flex-1 m-0 overflow-hidden relative group data-[state=active]:flex flex-col">
+          <CodeViewer content={responseContent} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
+
+// Main Page Component
+export const ProxyPage = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'request' | 'response'>('request');
   const [filterQuery, setFilterQuery] = useState('');
-  const [contentSearch, setContentSearch] = useState('');
+  const [isLive, setIsLive] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Resizable Panel Logic
-  const [panelWidth, setPanelWidth] = useState(550);
-  const isResizing = useRef(false);
+  // 1. List Data (Initial Load)
+  const { data: initialData, loading, refetch } = useQuery(GET_HTTP_TRANSACTIONS, {
+    fetchPolicy: 'cache-and-network',
+    variables: { limit: 100 }
+  });
 
-  const startResizing = useCallback(() => {
-    isResizing.current = true;
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-  }, []);
-
-  const stopResizing = useCallback(() => {
-    isResizing.current = false;
-    document.body.style.cursor = 'default';
-    document.body.style.userSelect = 'auto';
-  }, []);
-
-  const onResize = useCallback((e: MouseEvent) => {
-    if (!isResizing.current) return;
-    const newWidth = window.innerWidth - e.clientX;
-    if (newWidth > 300 && newWidth < 1200) {
-      setPanelWidth(newWidth);
+  // 2. Live Data Stream (Subscription)
+  useSubscription(TRAFFIC_UPDATES, {
+    onData: () => {
+      if (!isLive) return;
+      // Scroll to bottom logic can be added here if needed
     }
-  }, []);
+  });
+
+  // 3. Detail Data (Lazy Load)
+  const [getDetails, { data: detailsData, loading: detailsLoading }] = useLazyQuery(GET_TRANSACTION_DETAILS);
 
   useEffect(() => {
-    window.addEventListener('mousemove', onResize);
-    window.addEventListener('mouseup', stopResizing);
-    return () => {
-      window.removeEventListener('mousemove', onResize);
-      window.removeEventListener('mouseup', stopResizing);
-    };
-  }, [onResize, stopResizing]);
+    if (selectedId) {
+      getDetails({ variables: { requestId: selectedId } });
+    }
+  }, [selectedId, getDetails]);
 
-  const selectedRequest = useMemo(() =>
-    requests.find(r => r.id === selectedId), [requests, selectedId]
-  );
+  const requests = initialData?.requests || [];
+  const selectedRequest = detailsData?.request;
 
-  // Simulated GQL Filtering for the main table
   const filteredRequests = useMemo(() => {
     if (!filterQuery) return requests;
-
     const terms = filterQuery.toLowerCase().split(' ');
-    return requests.filter(r => {
+
+    return requests.filter((r: any) => {
       return terms.every(term => {
         if (term.includes(':')) {
           const [key, val] = term.split(':');
-          if (key === 'method') return r.method.toLowerCase() === val;
-          if (key === 'status') return r.status.toString() === val;
-          if (key === 'host') return r.host.toLowerCase().includes(val);
-          if (key === 'path') return r.path.toLowerCase().includes(val);
+          if (key === 'method') return r.method?.toLowerCase() === val;
+          if (key === 'status') return r.status?.toString() === val;
+          if (key === 'url') return r.url?.toLowerCase().includes(val);
         }
-        return r.path.toLowerCase().includes(term) || r.host.toLowerCase().includes(term) || r.method.toLowerCase().includes(term);
+        return (
+          r.url?.toLowerCase().includes(term) ||
+          r.method?.toLowerCase().includes(term) ||
+          r.requestId.includes(term)
+        );
       });
     });
   }, [requests, filterQuery]);
 
-  const currentContent = useMemo(() => {
-    if (!selectedRequest) return '';
-    return activeTab === 'request' ? selectedRequest.rawRequest : selectedRequest.rawResponse;
-  }, [selectedRequest, activeTab]);
-
-  return (
-    <div className="flex h-full w-full bg-[#0A0E14] overflow-hidden select-none">
-      {/* Table Side */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <div className="h-14 border-b border-white/10 flex items-center justify-between px-4 bg-[#111318]">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-[#9DCDE8]/5 border border-[#9DCDE8]/10 rounded-lg">
-              <Database size={12} className="text-[#9DCDE8]" />
-              <span className="text-[10px] font-bold text-[#9DCDE8] uppercase tracking-[0.15em]">Intercept Active</span>
-            </div>
-            <div className="relative group">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-[#9DCDE8] transition-colors" />
-              <input
-                type="text"
-                placeholder="GraphQL Query: method:POST status:200..."
-                value={filterQuery}
-                onChange={(e) => setFilterQuery(e.target.value)}
-                className="bg-black/60 border border-white/10 rounded-lg pl-9 pr-12 py-1.5 text-xs text-white/80 focus:outline-none focus:border-[#9DCDE8]/40 w-[350px] transition-all font-mono"
-              />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-20 hover:opacity-100 transition-opacity">
-                <Code size={12} className="text-[#9DCDE8]" />
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => {
-              const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(requests, null, 2));
-              const downloadAnchorNode = document.createElement('a');
-              downloadAnchorNode.setAttribute("href", dataStr);
-              downloadAnchorNode.setAttribute("download", "traffic_export.json");
-              document.body.appendChild(downloadAnchorNode);
-              downloadAnchorNode.click();
-              downloadAnchorNode.remove();
-            }} className="p-2 hover:bg-white/5 rounded-lg text-white/20 hover:text-white transition-colors" title="Export to JSON">
-              <Download size={16} />
-            </button>
-            <button onClick={clearRequests} className="p-2 hover:bg-white/5 rounded-lg text-white/20 hover:text-white transition-colors" title="Clear all logs">
-              <Trash2 size={16} />
-            </button>
-          </div>
-        </div>
-
-        <div className="flex-1 relative overflow-hidden">
-          <VirtualTable
-            data={filteredRequests}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-          />
-        </div>
-      </div>
-
-      {/* Resize Handle */}
-      <div
-        onMouseDown={startResizing}
-        className="w-1.5 bg-white/5 hover:bg-[#9DCDE8]/40 cursor-col-resize transition-all flex items-center justify-center group relative z-30"
-      >
-        <div className="w-[1px] h-12 bg-white/10 group-hover:bg-[#9DCDE8]/50" />
-      </div>
-
-      {/* Inspection Panel */}
-      <div style={{ width: panelWidth }} className="flex flex-col bg-[#0D0F13] shadow-[-20px_0_40px_rgba(0,0,0,0.6)] z-20">
-        <div className="h-14 border-b border-white/10 flex items-center px-4 bg-[#111318] gap-4">
-          <div className="flex gap-1">
-            <TabButton active={activeTab === 'request'} onClick={() => setActiveTab('request')}>Request</TabButton>
-            <TabButton active={activeTab === 'response'} onClick={() => setActiveTab('response')}>Response</TabButton>
-          </div>
-
-          {/* In-Panel Search */}
-          <div className="flex-1 max-w-[200px] ml-4 relative group">
-            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-[#9DCDE8] transition-colors" />
-            <input
-              type="text"
-              placeholder={`Search in ${activeTab}...`}
-              value={contentSearch}
-              onChange={(e) => setContentSearch(e.target.value)}
-              className="w-full bg-black/40 border border-white/5 rounded-md pl-8 pr-2 py-1 text-[10px] text-white/60 focus:outline-none focus:border-[#9DCDE8]/30 font-mono transition-all"
-            />
-            {contentSearch && (
-              <button
-                onClick={() => setContentSearch('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-white/20 hover:text-white"
-              >
-                <X size={10} />
-              </button>
-            )}
-          </div>
-
-          <div className="ml-auto flex gap-1">
-            <button className="p-2 rounded-lg text-white/20 hover:text-white hover:bg-white/5" title="Copy Raw"><Copy size={14} /></button>
-            <button className="p-2 rounded-lg text-white/20 hover:text-white hover:bg-white/5" title="Send to Repeater"><RepeatIcon size={14} /></button>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-auto bg-[#080A0E] relative">
-          {selectedRequest ? (
-            <div className="h-full flex flex-col">
-              <div className="p-4 border-b border-white/5 bg-white/[0.02]">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-3">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${getMethodColor(selectedRequest.method)}`}>
-                      {selectedRequest.method}
-                    </span>
-                    <span className="text-white/40 text-[10px] font-mono tracking-tighter truncate max-w-[250px]">{selectedRequest.host}</span>
-                  </div>
-                  <span className="text-[10px] font-mono opacity-20">{selectedRequest.timestamp}</span>
-                </div>
-                <h3 className="text-xs font-mono text-white/90 break-all">{selectedRequest.path}</h3>
-              </div>
-              <div className="flex-1 overflow-auto">
-                <CodeViewer
-                  content={currentContent}
-                  search={contentSearch}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center opacity-10 gap-6">
-              <div className="w-20 h-20 rounded-3xl border-2 border-dashed border-white flex items-center justify-center animate-pulse">
-                <Search size={40} />
-              </div>
-              <p className="text-xs font-bold uppercase tracking-[0.3em]">Query Analysis Pending</p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const RepeatIcon = ({ size }: { size: number }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m17 2 4 4-4 4" /><path d="M3 11v-1a4 4 0 0 1 4-4h14" /><path d="m7 22-4-4 4-4" /><path d="M21 13v1a4 4 0 0 1-4 4H3" /></svg>;
-
-const TabButton = ({ children, active, onClick }: any) => (
-  <button
-    onClick={onClick}
-    className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-[0.1em] transition-all border ${active ? 'bg-[#9DCDE8]/10 text-[#9DCDE8] border-[#9DCDE8]/20 shadow-[0_0_15px_rgba(157,205,232,0.1)]' : 'text-white/20 border-transparent hover:text-white/40'
-      }`}
-  >
-    {children}
-  </button>
-);
-
-const VirtualTable = ({ data, selectedId, onSelect }: any) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [scrollTop, setScrollTop] = useState(0);
-  const rowHeight = 36;
-  const viewportHeight = 800;
-
-  const onScroll = (e: any) => setScrollTop(e.currentTarget.scrollTop);
-
-  const startIndex = Math.max(0, Math.floor(scrollTop / rowHeight) - 5);
-  const endIndex = Math.min(data.length, Math.floor((scrollTop + viewportHeight) / rowHeight) + 5);
-  const visibleRows = data.slice(startIndex, endIndex);
-
-  return (
-    <div ref={containerRef} onScroll={onScroll} className="h-full overflow-auto relative scroll-smooth bg-[#0A0E14]">
-      <div className="sticky top-0 z-20 bg-[#111318]/95 backdrop-blur-md border-b border-white/5 flex text-[9px] font-bold uppercase tracking-[0.15em] text-white/20 h-9 items-center px-2">
-        <div className="w-16 px-2">Index</div>
-        <div className="w-20 px-2">Verb</div>
-        <div className="w-48 px-2">Authority</div>
-        <div className="flex-1 px-2">Resource Path</div>
-        <div className="w-24 px-2">Status</div>
-        <div className="w-28 px-2 text-right">Elapsed</div>
-      </div>
-
-      <div style={{ height: data.length * rowHeight }} className="relative">
-        {visibleRows.map((item: any, idx: number) => (
-          <div
-            key={item.id}
-            onClick={() => onSelect(item.id)}
-            style={{
-              position: 'absolute',
-              top: (startIndex + idx) * rowHeight,
-              height: rowHeight,
-              width: '100%'
-            }}
-            className={`flex items-center text-[11px] border-b border-white/[0.02] hover:bg-white/[0.04] cursor-pointer group transition-all ${selectedId === item.id ? 'bg-[#9DCDE8]/5 text-white' : 'text-white/50'
-              }`}
-          >
-            <div className={`absolute left-0 w-1 h-full transition-all ${selectedId === item.id ? 'bg-[#9DCDE8]' : 'bg-transparent group-hover:bg-white/10'}`} />
-            <div className="w-16 px-4 font-mono text-[9px] opacity-20">{startIndex + idx + 1}</div>
-            <div className="w-20 px-2">
-              <span className={`px-1.5 py-0.5 rounded-[3px] text-[8px] font-bold ${getMethodColor(item.method)}`}>
-                {item.method}
-              </span>
-            </div>
-            <div className={`w-48 px-2 truncate transition-colors ${selectedId === item.id ? 'text-[#9DCDE8]' : 'text-white/60'}`}>{item.host}</div>
-            <div className="flex-1 px-2 truncate opacity-40 font-mono tracking-tight">{item.path}</div>
-            <div className="w-24 px-2 font-bold font-mono">
-              <span className={item.status < 300 ? 'text-emerald-500' : item.status < 500 ? 'text-amber-500' : 'text-red-500'}>
-                {item.status}
-              </span>
-            </div>
-            <div className="w-28 px-2 text-right text-[10px] font-mono opacity-20">24ms</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-const CodeViewer = ({ content, search }: { content: string, search: string }) => {
-  const highlightSearch = (text: string) => {
-    if (!search || !text) return <span>{text}</span>;
-    const parts = text.split(new RegExp(`(${search})`, 'gi'));
-    return (
-      <span>
-        {parts.map((part, i) =>
-          part.toLowerCase() === search.toLowerCase() ? (
-            <mark key={i} className="bg-[#9DCDE8] text-black rounded-sm px-0.5">{part}</mark>
-          ) : (
-            part
-          )
-        )}
-      </span>
-    );
+  const handleClear = () => {
+    refetch();
   };
 
   return (
-    <pre className="p-6 font-mono leading-relaxed select-text text-[12px] whitespace-pre-wrap break-all">
-      {content.split('\n').map((line, i) => {
-        const isHeader = line.includes(': ');
-        return (
-          <div key={i} className="flex gap-6 group hover:bg-white/[0.02] -mx-6 px-6 transition-colors">
-            <span className="w-8 text-right opacity-10 select-none text-[10px] font-mono shrink-0">{i + 1}</span>
-            <span className={isHeader ? 'text-[#9DCDE8]/80' : 'text-white/60'}>
-              {highlightSearch(line)}
-            </span>
-          </div>
-        );
-      })}
-    </pre>
-  );
-};
+    <div className="h-full w-full bg-[#0B0D11] text-slate-200 font-sans flex flex-col overflow-hidden">
 
-const getMethodColor = (method: string) => {
-  switch (method) {
-    case 'GET': return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/10';
-    case 'POST': return 'bg-[#9DCDE8]/10 text-[#9DCDE8] border border-[#9DCDE8]/10';
-    case 'PUT': return 'bg-amber-500/10 text-amber-400 border border-amber-500/10';
-    case 'DELETE': return 'bg-red-500/10 text-red-400 border border-red-500/10';
-    default: return 'bg-white/5 text-white/40 border border-white/5';
-  }
+      {/* HEADER TOOLBAR */}
+      <div className="h-14 border-b border-white/5 bg-[#111318] flex items-center justify-between px-4 shrink-0">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-emerald-400">
+            <Database className="w-5 h-5" />
+            <h1 className="font-bold tracking-tight">Proxy History</h1>
+          </div>
+
+          <div className="h-6 w-[1px] bg-white/10 mx-2" />
+
+          <div className="relative group">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
+            <input
+              type="text"
+              placeholder="Filter (method:POST status:200...)"
+              value={filterQuery}
+              onChange={(e) => setFilterQuery(e.target.value)}
+              className="bg-black/20 border border-white/10 rounded-lg pl-9 pr-4 py-1.5 text-xs w-64 focus:outline-none focus:border-emerald-500/50 transition-all font-mono"
+            />
+            {filterQuery && (
+              <button onClick={() => setFilterQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsLive(!isLive)}
+            className={`h-8 gap-2 border ${isLive ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' : 'border-white/10 bg-white/5 text-slate-400'}`}
+          >
+            {isLive ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            <span className="text-xs font-bold">{isLive ? 'LIVE' : 'PAUSED'}</span>
+          </Button>
+
+          <Button variant="ghost" size="sm" onClick={handleClear} className="h-8 w-8 p-0 hover:bg-red-500/10 hover:text-red-400">
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* MAIN CONTENT SPLIT VIEW */}
+      <div className="flex-1 overflow-hidden">
+        {/* FIX: Use 'horizontal' not 'direction="horizontal"' if using newer version, 
+            or 'direction="horizontal"' for older. 
+            Using 'direction="horizontal"' as it is standard for vertical split (panels side by side) 
+        */}
+        <ResizablePanelGroup orientation="horizontal">
+
+          {/* LEFT PANEL: REQUEST LIST */}
+          <ResizablePanel defaultSize={40} minSize={25} className="bg-[#0E1015]">
+            <div className="h-full flex flex-col">
+              {/* Table Header */}
+              <div className="grid grid-cols-[60px_80px_1fr_60px] gap-2 px-4 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 bg-[#111318]">
+                <span>ID</span>
+                <span>Method</span>
+                <span>URL</span>
+                <span className="text-right">Status</span>
+              </div>
+
+              {/* Scrollable List */}
+              <div className="flex-1 overflow-y-auto custom-scrollbar" ref={scrollRef}>
+                {loading ? (
+                  <div className="flex justify-center py-10"><Loader2 className="animate-spin text-slate-600" /></div>
+                ) : filteredRequests.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-slate-600 gap-2">
+                    <Search className="w-8 h-8 opacity-20" />
+                    <span className="text-xs">No traffic found</span>
+                  </div>
+                ) : (
+                  filteredRequests.map((req: any, i: number) => (
+                    <div
+                      key={req.requestId || i}
+                      onClick={() => setSelectedId(req.requestId)}
+                      className={`grid grid-cols-[60px_80px_1fr_60px] gap-2 px-4 py-2 border-b border-white/[0.02] cursor-pointer transition-colors text-xs font-mono hover:bg-white/[0.02] ${selectedId === req.requestId ? 'bg-blue-500/10 border-l-2 border-l-blue-500' : 'border-l-2 border-l-transparent'
+                        }`}
+                    >
+                      <span className="text-slate-500 truncate">#{req.requestId.slice(-4)}</span>
+                      <span className={`px-1.5 py-0.5 rounded w-fit text-[10px] font-bold border ${getMethodColor(req.method)}`}>
+                        {req.method}
+                      </span>
+                      <span className="text-slate-300 truncate" title={req.url}>{req.url}</span>
+                      <span className={`text-right font-bold ${getStatusColor(req.status)}`}>
+                        {req.status || '...'}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Footer Status */}
+              <div className="px-3 py-1 bg-[#0B0D11] border-t border-white/5 text-[10px] text-slate-500 flex justify-between font-mono">
+                <span>{filteredRequests.length} Requests</span>
+                <span>{formatTime(Date.now())}</span>
+              </div>
+            </div>
+          </ResizablePanel>
+
+          <ResizableHandle withHandle className="bg-white/5 hover:bg-blue-500/50 transition-colors w-1" />
+
+          {/* RIGHT PANEL: INSPECTOR */}
+          <ResizablePanel defaultSize={60}>
+            {selectedId ? (
+              <RequestInspector
+                data={selectedRequest}
+                loading={detailsLoading}
+                baseInfo={requests.find((r: any) => r.requestId === selectedId)}
+              />
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-slate-600 bg-[#0B0D11]">
+                <Database className="w-12 h-12 opacity-20 mb-4" />
+                <p className="text-sm font-medium">Select a request to inspect details</p>
+              </div>
+            )}
+          </ResizablePanel>
+
+        </ResizablePanelGroup>
+      </div>
+    </div>
+  );
 };
