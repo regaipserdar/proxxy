@@ -11,7 +11,8 @@ use tracing::{info, warn};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 use axum::http::Method;
-use async_graphql_axum::{GraphQLProtocol, GraphQLWebSocket, WebSocketUpgrade};
+use async_graphql_axum::{GraphQLProtocol, GraphQLWebSocket};
+use axum::extract::ws::WebSocketUpgrade;
 
 pub mod pb {
     pub use proxy_core::pb::*;
@@ -252,7 +253,6 @@ impl Orchestrator {
             .route("/graphql", 
                 get(graphiql)
                 .post(graphql_handler)
-                // Bu satır, tarayıcının attığı Preflight isteğinin 404 almamasını sağlar:
                 .options(|| async { axum::http::StatusCode::NO_CONTENT })
             )
             .route("/graphql/ws", get(graphql_ws_handler))

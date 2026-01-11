@@ -74,10 +74,12 @@ impl QueryRoot {
             use crate::pb::traffic_event;
             let traffic_event = TrafficEvent {
                 request_id: id.clone(),
-                event: Some(traffic_event::Event::Request(req)),
+                event: Some(traffic_event::Event::Request(req.clone())),
             };
             let mut gql = TrafficEventGql::from(traffic_event);
             gql.agent_id = Some(aid);
+            gql.url = Some(req.url);
+            gql.method = Some(req.method);
             Ok(Some(gql))
         } else {
             Ok(None)
@@ -260,7 +262,7 @@ impl MutationRoot {
         let execute_cmd = InterceptCommand {
             command: Some(intercept_command::Command::Execute(ExecuteRequest {
                 request_id: replay_request_id.clone(),
-                request: Some(request_data.clone()),
+                request: Some(request_data.1.clone()),
             })),
         };
 
@@ -272,8 +274,8 @@ impl MutationRoot {
             success: true,
             message: format!("Replay request sent to agent {}", agent_id),
             replay_request_id: Some(replay_request_id),
-            original_url: request_data.url,
-            original_method: request_data.method,
+            original_url: request_data.1.url,
+            original_method: request_data.1.method,
         })
     }
 

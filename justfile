@@ -19,3 +19,11 @@ test:
 # Run multiple (Helper - note: these usually need separate terminals)
 # Usage: just orch & just agent & just gui
 dev: gui orch agent
+
+# Run the Mock Vulnerable Server
+mock:
+	cd test-server && cargo run --bin test_server
+
+# Run comprehensive vulnerability scan through proxy
+scan:
+	./test_all_vulns.sh
