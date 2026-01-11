@@ -47,12 +47,13 @@ test_endpoint() {
     
     echo -ne "${CATEGORY} ${YELLOW}[$TOTAL]${NC} ${METHOD} ${PATH} "
     
+    # Simple curl without subshell complexity
     if [ "$METHOD" == "POST" ]; then
-        HTTP_CODE=$(curl -x http://$PROXY_HOST:$PROXY_PORT -s -o /dev/null -w "%{http_code}" -X POST -H "Content-Type: application/json" -d "$DATA" "$URL" 2>/dev/null)
+        HTTP_CODE=$(/usr/bin/curl -x http://$PROXY_HOST:$PROXY_PORT -s -o /dev/null -w "%{http_code}" -X POST -H "Content-Type: application/json" -d "$DATA" "$URL")
     elif [ "$METHOD" == "DELETE" ]; then
-        HTTP_CODE=$(curl -x http://$PROXY_HOST:$PROXY_PORT -s -o /dev/null -w "%{http_code}" -X DELETE "$URL" 2>/dev/null)
+        HTTP_CODE=$(/usr/bin/curl -x http://$PROXY_HOST:$PROXY_PORT -s -o /dev/null -w "%{http_code}" -X DELETE "$URL")
     else
-        HTTP_CODE=$(curl -x http://$PROXY_HOST:$PROXY_PORT -s -o /dev/null -w "%{http_code}" "$URL" 2>/dev/null)
+        HTTP_CODE=$(/usr/bin/curl -x http://$PROXY_HOST:$PROXY_PORT -s -o /dev/null -w "%{http_code}" "$URL")
     fi
 
     if [[ "$HTTP_CODE" =~ ^[2-4] ]]; then
@@ -63,7 +64,7 @@ test_endpoint() {
         FAILED=$((FAILED + 1))
     fi
     
-    /bin/sleep 0.2
+    /bin/sleep 0.1
 }
 
 # ==========================================
