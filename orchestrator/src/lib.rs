@@ -11,6 +11,7 @@ use tracing::{info, warn};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 use axum::http::Method;
+use async_graphql_axum::{GraphQLProtocol, GraphQLWebSocket, WebSocketUpgrade};
 
 pub mod pb {
     pub use proxy_core::pb::*;
@@ -150,7 +151,7 @@ impl Orchestrator {
         let ca = std::sync::Arc::new(proxy_core::CertificateAuthority::new(ca_path)?);
 
         let agent_registry = std::sync::Arc::new(AgentRegistry::new());
-        let (broadcast_tx, _broadcast_rx) = tokio::sync::broadcast::channel(100);
+        let (broadcast_tx, _broadcast_rx) = tokio::sync::broadcast::channel::<(String, crate::pb::TrafficEvent)>(100);
         let (metrics_broadcast_tx, _metrics_broadcast_rx) = tokio::sync::broadcast::channel(100);
 
         // Initialize scope and interception state
@@ -254,6 +255,7 @@ impl Orchestrator {
                 // Bu satır, tarayıcının attığı Preflight isteğinin 404 almamasını sağlar:
                 .options(|| async { axum::http::StatusCode::NO_CONTENT })
             )
+            .route("/graphql/ws", get(graphql_ws_handler))
             // Nested API routes
             .nest("/api", api_routes)
             // Swagger / Docs
@@ -313,20 +315,17 @@ async fn graphql_handler(
     axum::Json(state.schema.execute(req).await)
 }
 
-// TODO: Re-enable after axum 0.8 upgrade
-/*
 async fn graphql_ws_handler(
-    Extension(schema): Extension<ProxySchema>,
+    State(state): State<AppState>,
     protocol: GraphQLProtocol,
     upgrade: WebSocketUpgrade,
 ) -> impl axum::response::IntoResponse {
     upgrade
         .protocols(async_graphql::http::ALL_WEBSOCKET_PROTOCOLS)
         .on_upgrade(move |stream| {
-            GraphQLWebSocket::new(stream, schema, protocol).serve()
+            GraphQLWebSocket::new(stream, state.schema, protocol).serve()
         })
 }
-*/
 
 #[derive(Serialize, utoipa::ToSchema)]
 struct TrafficResponse {

@@ -308,7 +308,7 @@ impl Database {
         Ok(())
     }
 
-    pub async fn get_recent_requests(&self, limit: i64) -> Result<Vec<TrafficEvent>, sqlx::Error> {
+    pub async fn get_recent_requests(&self, agent_id: Option<&str>, limit: i64) -> Result<Vec<(String, TrafficEvent)>, sqlx::Error> {
         let pool = match self.get_pool().await {
              Ok(p) => p,
              Err(_) => return Ok(Vec::new()),
@@ -323,26 +323,35 @@ impl Database {
 
         // Let's modify the query to return Request events.
 
-        let rows = sqlx::query(
-            "SELECT request_id, req_method, req_url, req_headers, req_body, tls_info FROM http_transactions ORDER BY req_timestamp DESC LIMIT ?"
-        )
-        .bind(limit)
-        .fetch_all(&pool)
-        .await?;
+        let query = if let Some(aid) = agent_id {
+            sqlx::query(
+                "SELECT request_id, agent_id, req_method, req_url, req_headers, req_body, tls_info, res_status, res_headers, res_body FROM http_transactions WHERE agent_id = ? ORDER BY req_timestamp DESC LIMIT ?"
+            )
+            .bind(aid)
+            .bind(limit)
+        } else {
+            sqlx::query(
+                "SELECT request_id, agent_id, req_method, req_url, req_headers, req_body, tls_info, res_status, res_headers, res_body FROM http_transactions ORDER BY req_timestamp DESC LIMIT ?"
+            )
+            .bind(limit)
+        };
 
-        let mut events = Vec::new();
+        let rows = query.fetch_all(&pool).await?;
+
+        let mut results = Vec::new();
         for row in rows {
             let request_id: String = row.get("request_id");
+            let agent_id: String = row.get("agent_id");
             let method: String = row.get("req_method");
             let url: String = row.get("req_url");
             let headers_json: String = row.get("req_headers");
-            let body: Vec<u8> = row.get("req_body"); // Might be null? BLOB.
+            let body: Vec<u8> = row.get("req_body");
             let tls_json: String = row.get("tls_info");
 
             let headers: Option<crate::pb::HttpHeaders> = serde_json::from_str(&headers_json).ok();
             let tls: Option<crate::pb::TlsDetails> = serde_json::from_str(&tls_json).ok();
 
-            events.push(TrafficEvent {
+            results.push((agent_id, TrafficEvent {
                 request_id,
                 event: Some(traffic_event::Event::Request(crate::pb::HttpRequestData {
                     method,
@@ -351,15 +360,15 @@ impl Database {
                     body,
                     tls,
                 })),
-            });
+            }));
         }
-        Ok(events)
+        Ok(results)
     }
 
     pub async fn get_request_by_id(
         &self,
         request_id: &str,
-    ) -> Result<Option<crate::pb::HttpRequestData>, sqlx::Error> {
+    ) -> Result<Option<(String, crate::pb::HttpRequestData)>, sqlx::Error> {
         let pool = match self.get_pool().await {
              Ok(p) => p,
              Err(_) => return Ok(None),
@@ -377,17 +386,18 @@ impl Database {
             let headers_json: String = row.get("req_headers");
             let body: Vec<u8> = row.get("req_body");
             let tls_json: String = row.get("tls_info");
+            let agent_id: String = row.get("agent_id");
 
             let headers: Option<crate::pb::HttpHeaders> = serde_json::from_str(&headers_json).ok();
             let tls: Option<crate::pb::TlsDetails> = serde_json::from_str(&tls_json).ok();
 
-            Ok(Some(crate::pb::HttpRequestData {
+            Ok(Some((agent_id, crate::pb::HttpRequestData {
                 method,
                 url,
                 headers,
                 body,
                 tls,
-            }))
+            })))
         } else {
             Ok(None)
         }

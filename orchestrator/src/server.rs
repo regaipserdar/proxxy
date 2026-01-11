@@ -17,7 +17,7 @@ use proxy_core::CertificateAuthority;
 
 pub struct ProxyServiceImpl {
     agent_registry: Arc<AgentRegistry>,
-    broadcast_tx: broadcast::Sender<TrafficEvent>,
+    broadcast_tx: broadcast::Sender<(String, TrafficEvent)>,
     metrics_broadcast_tx: broadcast::Sender<SystemMetricsEvent>,
     db: Arc<Database>,
     ca: Arc<CertificateAuthority>,
@@ -29,7 +29,7 @@ pub struct ProxyServiceImpl {
 impl ProxyServiceImpl {
     pub fn new(
         agent_registry: Arc<AgentRegistry>,
-        broadcast_tx: broadcast::Sender<TrafficEvent>,
+        broadcast_tx: broadcast::Sender<(String, TrafficEvent)>,
         metrics_broadcast_tx: broadcast::Sender<SystemMetricsEvent>,
         db: Arc<Database>,
         ca: Arc<CertificateAuthority>,
@@ -175,7 +175,7 @@ impl ProxyService for ProxyServiceImpl {
                 // Only broadcast and save if in scope
                 if should_record {
                     // 1. Broadcast event to UI/Subscribers (fast path)
-                    if let Err(e) = broadcast.send(event.clone()) {
+                    if let Err(e) = broadcast.send((agent_id_cl.clone(), event.clone())) {
                         warn!("   ⚠️  Failed to broadcast event: {}", e);
                     }
 

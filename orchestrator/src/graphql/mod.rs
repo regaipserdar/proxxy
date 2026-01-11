@@ -32,17 +32,24 @@ impl QueryRoot {
     /// Get list of Requests (LIGHTWEIGHT)
 
     /// Use this for table/list views
-    async fn requests(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<TrafficEventGql>> {
+    /// Use this for table/list views
+    async fn requests(
+        &self, 
+        ctx: &Context<'_>,
+        agent_id: Option<String>,
+    ) -> async_graphql::Result<Vec<TrafficEventGql>> {
         let db = ctx.data::<Arc<Database>>()?;
         let events = db
-            .get_recent_requests(50)
+            .get_recent_requests(agent_id.as_deref(), 50)
             .await
             .map_err(|e| async_graphql::Error::new(e.to_string()))?;
 
         // OPTIMIZATION: Pre-allocate with known capacity
         let mut result = Vec::with_capacity(events.len());
-        for event in events {
-            result.push(TrafficEventGql::from(event));
+        for (aid, event) in events {
+            let mut gql = TrafficEventGql::from(event);
+            gql.agent_id = Some(aid);
+            result.push(gql);
         }
         Ok(result)
     }
@@ -63,13 +70,15 @@ impl QueryRoot {
             .map_err(|e| async_graphql::Error::new(e.to_string()))?;
 
         // Convert HttpRequestData to TrafficEvent
-        if let Some(req) = request_data {
+        if let Some((aid, req)) = request_data {
             use crate::pb::traffic_event;
             let traffic_event = TrafficEvent {
                 request_id: id.clone(),
                 event: Some(traffic_event::Event::Request(req)),
             };
-            Ok(Some(TrafficEventGql::from(traffic_event)))
+            let mut gql = TrafficEventGql::from(traffic_event);
+            gql.agent_id = Some(aid);
+            Ok(Some(gql))
         } else {
             Ok(None)
         }
@@ -390,16 +399,31 @@ pub struct SubscriptionRoot;
 
 #[Subscription]
 impl SubscriptionRoot {
-    async fn events(&self, ctx: &Context<'_>) -> impl Stream<Item = TrafficEventGql> {
+    async fn events(
+        &self, 
+        ctx: &Context<'_>,
+        agent_id: Option<String>,
+    ) -> impl Stream<Item = TrafficEventGql> {
         let broadcast = ctx
-            .data::<tokio::sync::broadcast::Sender<TrafficEvent>>()
+            .data::<tokio::sync::broadcast::Sender<(String, TrafficEvent)>>()
             .expect("Broadcast missing")
             .clone();
         let rx = broadcast.subscribe();
 
         // OPTIMIZATION: Use filter_map directly without intermediate allocations
-        tokio_stream::wrappers::BroadcastStream::new(rx)
-            .filter_map(|res| res.ok().map(TrafficEventGql::from))
+        tokio_stream::wrappers::BroadcastStream::new(rx).filter_map(move |res| {
+            res.ok().and_then(|(aid, event)| {
+                // Filter by agent_id if specified
+                if let Some(ref filter_id) = agent_id {
+                    if aid != *filter_id {
+                        return None;
+                    }
+                }
+                let mut gql = TrafficEventGql::from(event);
+                gql.agent_id = Some(aid);
+                Some(gql)
+            })
+        })
     }
 
     async fn system_metrics_updates(

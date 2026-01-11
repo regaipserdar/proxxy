@@ -1,5 +1,5 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { Zap, Activity, ArrowUpRight, ArrowDownRight, Globe } from 'lucide-react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { Activity, ArrowUpRight } from 'lucide-react';
 import { HttpTransaction } from '../../types/graphql';
 import { Card, CardContent } from "@/components/ui/card";
 

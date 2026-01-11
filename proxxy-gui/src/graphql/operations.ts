@@ -33,19 +33,14 @@ export const GET_AGENTS = gql`
  * For body/headers, use GET_REQUEST_DETAIL query
  */
 export const GET_HTTP_TRANSACTIONS = gql`
-  query GetHttpTransactions {
-    requests {
+  query GetHttpTransactions($agentId: String) {
+    requests(agentId: $agentId) {
       requestId
       method
       url
       status
       timestamp
       agentId
-      # ❌ NO requestBody
-      # ❌ NO requestHeaders  
-      # ❌ NO responseBody
-      # ❌ NO responseHeaders
-      # These are fetched on-demand via GET_REQUEST_DETAIL
     }
   }
 `;
@@ -156,13 +151,18 @@ export const GET_AGENT_DETAILS = gql`
       lastHeartbeat
     }
     currentSystemMetrics(agentId: $agentId) {
-      agentId      # ✅ Required for Apollo Cache keyFields
-      timestamp    # ✅ Required for Apollo Cache keyFields
+      agentId
+      timestamp
       cpuUsagePercent
       memoryUsedBytes
       memoryTotalBytes
+      networkRxBytesPerSec
+      networkTxBytesPerSec
+      diskReadBytesPerSec
+      diskWriteBytesPerSec
       processCpuPercent
       processMemoryBytes
+      processUptimeSeconds
     }
   }
 `;
@@ -281,19 +281,14 @@ export const INTERCEPT_REQUEST = gql`
  * For body/headers, user must click to fetch via GET_REQUEST_DETAIL
  */
 export const TRAFFIC_UPDATES = gql`
-  subscription TrafficUpdates {
-    events {
+  subscription TrafficUpdates($agentId: String) {
+    events(agentId: $agentId) {
       requestId
       method
       url
       status
       timestamp
       agentId
-      # ❌ NO requestBody
-      # ❌ NO requestHeaders
-      # ❌ NO responseBody
-      # ❌ NO responseHeaders
-      # Fetch these on-demand when user clicks
     }
   }
 `;
