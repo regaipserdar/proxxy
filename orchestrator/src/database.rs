@@ -186,10 +186,7 @@ impl Database {
         hostname: &str,
         version: &str,
     ) -> Result<(), sqlx::Error> {
-        let pool = match self.get_pool().await {
-            Ok(p) => p,
-            Err(_) => return Ok(()), // Ignore if no DB (or return Error?)
-        };
+        let pool = self.get_pool().await.map_err(|e| sqlx::Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
 
         let timestamp = chrono::Utc::now().timestamp();
         sqlx::query(
@@ -412,93 +409,92 @@ impl Database {
         Ok(row.map(|r| r.get("agent_id")))
     }
 
+    pub async fn save_orchestrator_metrics(
+        &self,
+        metrics_event: &SystemMetricsEvent,
+    ) -> Result<(), sqlx::Error> {
+        let pool = self.get_pool().await.map_err(|e| sqlx::Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+
+        if let Some(metrics) = &metrics_event.metrics {
+            let network_rx = metrics.network.as_ref().map(|n| n.rx_bytes_total as i64).unwrap_or(0);
+            let network_tx = metrics.network.as_ref().map(|n| n.tx_bytes_total as i64).unwrap_or(0);
+            let network_rx_rate = metrics.network.as_ref().map(|n| n.rx_bytes_per_sec as i64).unwrap_or(0);
+            let network_tx_rate = metrics.network.as_ref().map(|n| n.tx_bytes_per_sec as i64).unwrap_or(0);
+
+            let disk_read = metrics.disk.as_ref().map(|d| d.read_bytes_total as i64).unwrap_or(0);
+            let disk_write = metrics.disk.as_ref().map(|d| d.write_bytes_total as i64).unwrap_or(0);
+            let disk_read_rate = metrics.disk.as_ref().map(|d| d.read_bytes_per_sec as i64).unwrap_or(0);
+            let disk_write_rate = metrics.disk.as_ref().map(|d| d.write_bytes_per_sec as i64).unwrap_or(0);
+            let disk_available = metrics.disk.as_ref().map(|d| d.available_bytes as i64).unwrap_or(0);
+            let disk_total = metrics.disk.as_ref().map(|d| d.total_bytes as i64).unwrap_or(0);
+
+            let process_cpu = metrics.process.as_ref().map(|p| p.cpu_usage_percent).unwrap_or(0.0);
+            let process_memory = metrics.process.as_ref().map(|p| p.memory_bytes as i64).unwrap_or(0);
+            let process_uptime = metrics.process.as_ref().map(|p| p.uptime_seconds as i64).unwrap_or(0);
+            let process_threads = metrics.process.as_ref().map(|p| p.thread_count as i64).unwrap_or(0);
+            let process_fds = metrics.process.as_ref().map(|p| p.file_descriptor_count as i64).unwrap_or(0);
+
+            sqlx::query(
+                r#"
+                INSERT INTO orchestrator_metrics (
+                    timestamp, cpu_usage_percent, memory_used_bytes, memory_total_bytes,
+                    network_rx_bytes, network_tx_bytes, network_rx_bytes_per_sec, network_tx_bytes_per_sec,
+                    disk_read_bytes, disk_write_bytes, disk_read_bytes_per_sec, disk_write_bytes_per_sec,
+                    disk_available_bytes, disk_total_bytes,
+                    process_cpu_percent, process_memory_bytes, process_uptime_seconds,
+                    process_thread_count, process_fd_count
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                "#
+            )
+            .bind(metrics_event.timestamp)
+            .bind(metrics.cpu_usage_percent)
+            .bind(metrics.memory_used_bytes as i64)
+            .bind(metrics.memory_total_bytes as i64)
+            .bind(network_rx)
+            .bind(network_tx)
+            .bind(network_rx_rate)
+            .bind(network_tx_rate)
+            .bind(disk_read)
+            .bind(disk_write)
+            .bind(disk_read_rate)
+            .bind(disk_write_rate)
+            .bind(disk_available)
+            .bind(disk_total)
+            .bind(process_cpu)
+            .bind(process_memory)
+            .bind(process_uptime)
+            .bind(process_threads)
+            .bind(process_fds)
+            .execute(&pool)
+            .await?;
+        }
+        Ok(())
+    }
     pub async fn save_system_metrics(
         &self,
         metrics_event: &SystemMetricsEvent,
     ) -> Result<(), sqlx::Error> {
-        let pool = match self.get_pool().await {
-             Ok(p) => p,
-             Err(_) => return Ok(()),
-        };
+        let pool = self.get_pool().await.map_err(|e| sqlx::Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
 
         if let Some(metrics) = &metrics_event.metrics {
-            let network_rx = metrics
-                .network
-                .as_ref()
-                .map(|n| n.rx_bytes_total as i64)
-                .unwrap_or(0);
-            let network_tx = metrics
-                .network
-                .as_ref()
-                .map(|n| n.tx_bytes_total as i64)
-                .unwrap_or(0);
-            let network_rx_rate = metrics
-                .network
-                .as_ref()
-                .map(|n| n.rx_bytes_per_sec as i64)
-                .unwrap_or(0);
-            let network_tx_rate = metrics
-                .network
-                .as_ref()
-                .map(|n| n.tx_bytes_per_sec as i64)
-                .unwrap_or(0);
+            let network_rx = metrics.network.as_ref().map(|n| n.rx_bytes_total as i64).unwrap_or(0);
+            let network_tx = metrics.network.as_ref().map(|n| n.tx_bytes_total as i64).unwrap_or(0);
+            let network_rx_rate = metrics.network.as_ref().map(|n| n.rx_bytes_per_sec as i64).unwrap_or(0);
+            let network_tx_rate = metrics.network.as_ref().map(|n| n.tx_bytes_per_sec as i64).unwrap_or(0);
 
-            let disk_read = metrics
-                .disk
-                .as_ref()
-                .map(|d| d.read_bytes_total as i64)
-                .unwrap_or(0);
-            let disk_write = metrics
-                .disk
-                .as_ref()
-                .map(|d| d.write_bytes_total as i64)
-                .unwrap_or(0);
-            let disk_read_rate = metrics
-                .disk
-                .as_ref()
-                .map(|d| d.read_bytes_per_sec as i64)
-                .unwrap_or(0);
-            let disk_write_rate = metrics
-                .disk
-                .as_ref()
-                .map(|d| d.write_bytes_per_sec as i64)
-                .unwrap_or(0);
-            let disk_available = metrics
-                .disk
-                .as_ref()
-                .map(|d| d.available_bytes as i64)
-                .unwrap_or(0);
-            let disk_total = metrics
-                .disk
-                .as_ref()
-                .map(|d| d.total_bytes as i64)
-                .unwrap_or(0);
+            let disk_read = metrics.disk.as_ref().map(|d| d.read_bytes_total as i64).unwrap_or(0);
+            let disk_write = metrics.disk.as_ref().map(|d| d.write_bytes_total as i64).unwrap_or(0);
+            let disk_read_rate = metrics.disk.as_ref().map(|d| d.read_bytes_per_sec as i64).unwrap_or(0);
+            let disk_write_rate = metrics.disk.as_ref().map(|d| d.write_bytes_per_sec as i64).unwrap_or(0);
+            let disk_available = metrics.disk.as_ref().map(|d| d.available_bytes as i64).unwrap_or(0);
+            let disk_total = metrics.disk.as_ref().map(|d| d.total_bytes as i64).unwrap_or(0);
 
-            let process_cpu = metrics
-                .process
-                .as_ref()
-                .map(|p| p.cpu_usage_percent)
-                .unwrap_or(0.0);
-            let process_memory = metrics
-                .process
-                .as_ref()
-                .map(|p| p.memory_bytes as i64)
-                .unwrap_or(0);
-            let process_uptime = metrics
-                .process
-                .as_ref()
-                .map(|p| p.uptime_seconds as i64)
-                .unwrap_or(0);
-            let process_threads = metrics
-                .process
-                .as_ref()
-                .map(|p| p.thread_count as i64)
-                .unwrap_or(0);
-            let process_fds = metrics
-                .process
-                .as_ref()
-                .map(|p| p.file_descriptor_count as i64)
-                .unwrap_or(0);
+            let process_cpu = metrics.process.as_ref().map(|p| p.cpu_usage_percent).unwrap_or(0.0);
+            let process_memory = metrics.process.as_ref().map(|p| p.memory_bytes as i64).unwrap_or(0);
+            let process_uptime = metrics.process.as_ref().map(|p| p.uptime_seconds as i64).unwrap_or(0);
+            let process_threads = metrics.process.as_ref().map(|p| p.thread_count as i64).unwrap_or(0);
+            let process_fds = metrics.process.as_ref().map(|p| p.file_descriptor_count as i64).unwrap_or(0);
 
             sqlx::query(
                 r#"
@@ -544,46 +540,70 @@ impl Database {
         agent_id: Option<&str>,
         limit: i64,
     ) -> Result<Vec<SystemMetricsEvent>, sqlx::Error> {
-        let query = if let Some(agent_id) = agent_id {
-            sqlx::query(
-                r#"
-                SELECT agent_id, timestamp, cpu_usage_percent, memory_used_bytes, memory_total_bytes,
-                       network_rx_bytes, network_tx_bytes, network_rx_bytes_per_sec, network_tx_bytes_per_sec,
-                       disk_read_bytes, disk_write_bytes, disk_read_bytes_per_sec, disk_write_bytes_per_sec,
-                       disk_available_bytes, disk_total_bytes,
-                       process_cpu_percent, process_memory_bytes, process_uptime_seconds,
-                       process_thread_count, process_fd_count
-                FROM system_metrics 
-                WHERE agent_id = ?
-                ORDER BY timestamp DESC 
-                LIMIT ?
-                "#
-            )
-            .bind(agent_id)
-            .bind(limit)
-        } else {
-            sqlx::query(
-                r#"
-                SELECT agent_id, timestamp, cpu_usage_percent, memory_used_bytes, memory_total_bytes,
-                       network_rx_bytes, network_tx_bytes, network_rx_bytes_per_sec, network_tx_bytes_per_sec,
-                       disk_read_bytes, disk_write_bytes, disk_read_bytes_per_sec, disk_write_bytes_per_sec,
-                       disk_available_bytes, disk_total_bytes,
-                       process_cpu_percent, process_memory_bytes, process_uptime_seconds,
-                       process_thread_count, process_fd_count
-                FROM system_metrics 
-                ORDER BY timestamp DESC 
-                LIMIT ?
-                "#
-            )
-            .bind(limit)
-        };
-
         let pool = match self.get_pool().await {
-             Ok(p) => p,
-             Err(_) => return Ok(Vec::new()),
+            Ok(p) => p,
+            Err(_) => return Ok(Vec::new()),
         };
 
-        let rows = query.fetch_all(&pool).await?;
+        let rows = if let Some(agent_id) = agent_id {
+            if agent_id == "orchestrator" {
+                // Fetch from orchestrator_metrics table
+                sqlx::query(
+                    r#"
+                    SELECT 'orchestrator' as agent_id, timestamp, cpu_usage_percent, memory_used_bytes, memory_total_bytes,
+                           network_rx_bytes, network_tx_bytes, network_rx_bytes_per_sec, network_tx_bytes_per_sec,
+                           disk_read_bytes, disk_write_bytes, disk_read_bytes_per_sec, disk_write_bytes_per_sec,
+                           disk_available_bytes, disk_total_bytes,
+                           process_cpu_percent, process_memory_bytes, process_uptime_seconds,
+                           process_thread_count, process_fd_count
+                    FROM orchestrator_metrics 
+                    ORDER BY timestamp DESC 
+                    LIMIT ?
+                    "#
+                )
+                .bind(limit)
+                .fetch_all(&pool)
+                .await?
+            } else {
+                // Fetch from system_metrics table for proxy agents
+                sqlx::query(
+                    r#"
+                    SELECT agent_id, timestamp, cpu_usage_percent, memory_used_bytes, memory_total_bytes,
+                           network_rx_bytes, network_tx_bytes, network_rx_bytes_per_sec, network_tx_bytes_per_sec,
+                           disk_read_bytes, disk_write_bytes, disk_read_bytes_per_sec, disk_write_bytes_per_sec,
+                           disk_available_bytes, disk_total_bytes,
+                           process_cpu_percent, process_memory_bytes, process_uptime_seconds,
+                           process_thread_count, process_fd_count
+                    FROM system_metrics 
+                    WHERE agent_id = ?
+                    ORDER BY timestamp DESC 
+                    LIMIT ?
+                    "#
+                )
+                .bind(agent_id)
+                .bind(limit)
+                .fetch_all(&pool)
+                .await?
+            }
+        } else {
+            // General query from system_metrics (agents only)
+            sqlx::query(
+                r#"
+                SELECT agent_id, timestamp, cpu_usage_percent, memory_used_bytes, memory_total_bytes,
+                       network_rx_bytes, network_tx_bytes, network_rx_bytes_per_sec, network_tx_bytes_per_sec,
+                       disk_read_bytes, disk_write_bytes, disk_read_bytes_per_sec, disk_write_bytes_per_sec,
+                       disk_available_bytes, disk_total_bytes,
+                       process_cpu_percent, process_memory_bytes, process_uptime_seconds,
+                       process_thread_count, process_fd_count
+                FROM system_metrics 
+                ORDER BY timestamp DESC 
+                LIMIT ?
+                "#
+            )
+            .bind(limit)
+            .fetch_all(&pool)
+            .await?
+        };
 
         let mut events = Vec::new();
         for row in rows {

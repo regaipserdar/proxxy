@@ -13,7 +13,7 @@ use utoipa_swagger_ui::SwaggerUi;
 use axum::http::Method;
 
 pub mod pb {
-    tonic::include_proto!("proxy");
+    pub use proxy_core::pb::*;
 }
 
 // Re-export for compatibility with UI
@@ -156,6 +156,40 @@ impl Orchestrator {
         // Initialize scope and interception state
         let scope = Arc::new(RwLock::new(ScopeConfig::default()));
         let interception = Arc::new(RwLock::new(InterceptionConfig::default()));
+
+        // Start Orchestrator System Metrics Collector
+        let db_metrics = db.clone();
+        let metrics_tx = metrics_broadcast_tx.clone();
+        tokio::spawn(async move {
+            info!("🚀 Starting Orchestrator metrics collector...");
+            
+            // 0. The orchestrator metrics will be saved with agent_id = "orchestrator"
+            // We will remove the Foreign Key constraint in the database to allow this 
+            // without treating the orchestrator as a proxy agent.
+
+            let mut collector = proxy_core::system_metrics::SystemMetricsCollector::new("orchestrator".to_string());
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
+            
+            loop {
+                interval.tick().await;
+                // Only try to save if a project is loaded
+                if db_metrics.pool().await.is_some() {
+                    match collector.collect_metrics().await {
+                        Ok(event) => {
+                            // 1. Save to DB (Orchestrator dedicated table)
+                            if let Err(e) = db_metrics.save_orchestrator_metrics(&event).await {
+                                 warn!("   ✗ Failed to save orchestrator metrics: {}", e);
+                            }
+                            // 2. Broadcast
+                            let _ = metrics_tx.send(event);
+                        }
+                        Err(e) => {
+                            warn!("   ✗ Failed to collect orchestrator metrics: {}", e);
+                        }
+                    }
+                }
+            }
+        });
 
         let proxy_service = crate::server::ProxyServiceImpl::new(
             agent_registry.clone(),

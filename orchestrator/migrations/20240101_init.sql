@@ -66,6 +66,32 @@ CREATE TABLE IF NOT EXISTS system_metrics (
     FOREIGN KEY(agent_id) REFERENCES agents(id)
 );
 
+-- Orchestrator Metrics Table (Separate from Agents)
+CREATE TABLE IF NOT EXISTS orchestrator_metrics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp INTEGER NOT NULL,
+    cpu_usage_percent REAL NOT NULL,
+    memory_used_bytes INTEGER NOT NULL,
+    memory_total_bytes INTEGER NOT NULL,
+    network_rx_bytes INTEGER NOT NULL,
+    network_tx_bytes INTEGER NOT NULL,
+    network_rx_bytes_per_sec INTEGER NOT NULL,
+    network_tx_bytes_per_sec INTEGER NOT NULL,
+    disk_read_bytes INTEGER NOT NULL,
+    disk_write_bytes INTEGER NOT NULL,
+    disk_read_bytes_per_sec INTEGER NOT NULL,
+    disk_write_bytes_per_sec INTEGER NOT NULL,
+    disk_available_bytes INTEGER NOT NULL,
+    disk_total_bytes INTEGER NOT NULL,
+    process_cpu_percent REAL NOT NULL,
+    process_memory_bytes INTEGER NOT NULL,
+    process_uptime_seconds INTEGER NOT NULL,
+    process_thread_count INTEGER NOT NULL,
+    process_fd_count INTEGER NOT NULL,
+    created_at INTEGER DEFAULT (strftime('%s', 'now'))
+);
+
 -- Indexes for system metrics
 CREATE INDEX IF NOT EXISTS idx_system_metrics_agent_timestamp ON system_metrics(agent_id, timestamp);
 CREATE INDEX IF NOT EXISTS idx_system_metrics_timestamp ON system_metrics(timestamp);
+CREATE INDEX IF NOT EXISTS idx_orchestrator_metrics_timestamp ON orchestrator_metrics(timestamp);

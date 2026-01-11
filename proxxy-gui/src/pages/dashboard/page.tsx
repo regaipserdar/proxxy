@@ -7,14 +7,19 @@ import { QuickActionsCard } from '@/components/dashboard/QuickActionsCard';
 import { RecentTrafficTable } from '@/components/dashboard/RecentTrafficTable';
 import { SystemMetricsOverview } from '@/components/dashboard/SystemMetricsOverview';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { Database, ShieldCheck, Activity, LogOut } from 'lucide-react';
+import { LayoutDashboard, Activity } from 'lucide-react';
 import { GET_AGENTS, GET_PROJECTS, TRAFFIC_UPDATES, GET_HTTP_TRANSACTIONS, UNLOAD_PROJECT } from '@/graphql/operations';
+
+// Shadcn UI Components
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  // 1. Proje Bilgisi (Active Project derived from list)
+  // 1. Proje Bilgisi
   const { data: projectsData } = useQuery(GET_PROJECTS, {
-    pollInterval: 5000, // Sync with other tabs
+    pollInterval: 5000,
     fetchPolicy: 'cache-first'
   });
 
@@ -29,25 +34,20 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
-  // 2. Ajan Bilgisi (Polling ile güncel tutulur)
+  // 2. Ajan Bilgisi
   const { data: agentsData, loading: agentsLoading } = useQuery(GET_AGENTS, {
     pollInterval: 5000,
     fetchPolicy: 'cache-and-network'
   });
 
-  // 3. Trafik Verisi (Initial Load)
+  // 3. Trafik Verisi
   const { data: trafficData, loading: trafficLoading, error: trafficError } = useQuery(GET_HTTP_TRANSACTIONS, {
     fetchPolicy: 'network-only',
     variables: { limit: 50 }
   });
 
-  // 4. Canlı Trafik (Subscription)
-  useSubscription(TRAFFIC_UPDATES, {
-    onData: () => {
-      // Apollo Cache otomatik güncellenir (requestId sayesinde), 
-      // ama liste güncellemesi için cache merge stratejisi client.ts içinde olmalı.
-    }
-  });
+  // 4. Canlı Trafik
+  useSubscription(TRAFFIC_UPDATES);
 
   const isLoading = agentsLoading || trafficLoading;
   const isOnline = !trafficError;
@@ -57,111 +57,70 @@ export const DashboardPage: React.FC = () => {
 
   if (isLoading && !trafficData) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="flex h-full items-center justify-center bg-background">
         <LoadingSpinner />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 p-6 w-full min-h-full dotted-bg text-slate-200">
+    <div className="min-h-full bg-background/95 text-foreground p-6 space-y-8 animate-in fade-in duration-500">
 
-      {/* HEADER SECTION */}
-      <div data-tauri-drag-region className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-            <Activity className="w-6 h-6 text-emerald-400" />
-            Dashboard
-          </h1>
-          <p className="text-white/60 text-sm mt-1">Real-time system overview and monitoring</p>
+      {/* COMPACT HEADER */}
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-lg border border-primary/20">
+              <LayoutDashboard className="w-5 h-5 text-primary" />
+            </div>
+            <h1 className="text-3xl font-extrabold tracking-tight">Control Center</h1>
+          </div>
+          <p className="text-muted-foreground text-xs font-medium ml-1 uppercase tracking-widest">Real-time system pulse</p>
         </div>
 
-        {/* PROJECT CONTEXT BADGE */}
         <div className="flex items-center gap-4">
-          <div className="flex flex-col items-end">
-            <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-0.5">
-              Current Workspace
-            </div>
-            {activeProject ? (
-              <div className="flex flex-col items-end">
-                <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg text-emerald-400">
-                  <Database className="w-4 h-4" />
-                  <span className="font-mono text-sm font-bold">{activeProject.name}</span>
-                </div>
-                <div className="text-[10px] text-slate-500 mt-1 font-mono">
-                  Loaded project '<span className="text-emerald-500/70">{activeProject.name}</span>' from <span className="text-slate-400">{activeProject.path}/proxxy.db</span>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-lg text-red-400">
-                <ShieldCheck className="w-4 h-4" />
-                <span className="font-mono text-sm font-bold">NO ACTIVE PROJECT</span>
-              </div>
-            )}
-          </div>
+          <Badge variant="outline" className={`h-8 px-4 rounded-xl text-[10px] font-black gap-2.5 bg-white/[0.02] border-white/5 shadow-inner ${isOnline ? 'text-emerald-500 border-emerald-500/20' : 'text-red-500 border-red-500/20'}`}>
+            <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-red-500'}`} />
+            {isOnline ? 'Orchestrator live' : 'Orchestrator offline'}
+          </Badge>
+        </div>
+      </header>
 
-          {/* Switch Project Button */}
-          <button
-            onClick={handleSwitchProject}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10 hover:text-white transition-all group"
-            title="Switch Workspace"
-          >
-            <LogOut className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-            <span className="text-xs font-bold uppercase tracking-wider">Switch</span>
-          </button>
-
-          {/* Connection Indicator */}
-          <div className="h-8 w-[1px] bg-white/10 mx-2 hidden md:block"></div>
-
-          <div className="flex flex-col items-end">
-            <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-0.5">
-              System Status
-            </div>
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}`} />
-              <span className={`text-xs font-bold ${isOnline ? 'text-emerald-400' : 'text-red-500'}`}>
-                {isOnline ? 'ORCHESTRATOR ONLINE' : 'DISCONNECTED'}
-              </span>
-            </div>
-          </div>
+      {/* COMPACT KPI GRID (Now includes Resources) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div className="h-full"><AgentStatusCard agents={agents} /></div>
+        <div className="h-full"><TrafficSummaryCard traffic={traffic} /></div>
+        <div className="h-full"><SystemHealthCard isOnline={isOnline} /></div>
+        <div className="h-full"><SystemMetricsOverview isOnline={isOnline} /></div>
+        <div className="h-full">
+          <QuickActionsCard
+            isOrchestratorOnline={isOnline}
+            activeProjectName={activeProject?.name}
+            onSwitchProject={handleSwitchProject}
+            onSystemAction={async (action) => { console.log("Action:", action); }}
+          />
         </div>
       </div>
 
-      {/* ERROR BANNER */}
-      {!isOnline && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex items-center gap-3">
-          <div className="p-2 bg-red-500/20 rounded-full">
-            <Activity className="w-5 h-5 text-red-500" />
+      {/* LOWER CONTENT: RECENT INTERCEPTS (Highly compact) */}
+      <Card className="bg-[#111318] border-white/5 overflow-hidden shadow-2xl flex flex-col">
+        <CardHeader className="flex flex-row items-center justify-between p-4 py-3 border-b border-white/5 bg-white/[0.01]">
+          <div className="flex items-center gap-3">
+            <Activity className="w-4 h-4 text-primary" />
+            <CardTitle className="text-xs font-black uppercase tracking-widest">Recent Intercepts</CardTitle>
           </div>
-          <div>
-            <h3 className="text-red-400 font-bold text-sm">Connection Lost</h3>
-            <p className="text-red-300/60 text-xs">
-              Unable to reach Orchestrator. Real-time updates are paused.
-            </p>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/proxy')} className="h-7 px-3 text-[9px] font-black text-primary hover:text-primary hover:bg-primary/10 tracking-widest uppercase">
+            Full Log →
+          </Button>
+        </CardHeader>
+        <CardContent className="p-0">
+          {/* Sadece 5 satır civarı gösterecek şekilde yüksekliği sınırlıyoruz */}
+          <div className="max-h-[320px] overflow-hidden">
+            <RecentTrafficTable traffic={traffic} isConnected={isOnline} />
           </div>
-        </div>
-      )}
+        </CardContent>
+      </Card>
 
-      {/* KPI CARDS GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <AgentStatusCard agents={agents} />
-        <TrafficSummaryCard traffic={traffic} />
-        <SystemHealthCard isOnline={isOnline} />
-        <QuickActionsCard isOrchestratorOnline={isOnline} />
-      </div>
-
-      {/* MAIN CONTENT GRID */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-[600px]">
-        {/* TRAFFIC TABLE (2/3 Width) */}
-        <div className="xl:col-span-2 h-full">
-          <RecentTrafficTable traffic={traffic} isConnected={isOnline} />
-        </div>
-
-        {/* METRICS (1/3 Width) */}
-        <div className="xl:col-span-1 h-full">
-          <SystemMetricsOverview isOnline={isOnline} />
-        </div>
-      </div>
     </div>
   );
 };

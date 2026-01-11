@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity, Clock, ArrowRight } from 'lucide-react';
+import { ArrowRight, Globe } from 'lucide-react';
 import { HttpTransaction } from '../../types/graphql';
 import { format } from 'date-fns';
+import { Badge } from "@/components/ui/badge";
 
 interface RecentTrafficTableProps {
   traffic: HttpTransaction[];
@@ -14,37 +15,29 @@ export const RecentTrafficTable: React.FC<RecentTrafficTableProps> = ({
   isConnected = true
 }) => {
   const navigate = useNavigate();
-  const recentTraffic = traffic.slice(0, 10);
+  // Dashboard focus: only show last 5-6 items for a compact view
+  const recentTraffic = traffic.slice(0, 6);
 
-  // "Live" göstergesi için son işlem zamanını takip et
   const [isTrafficFlowing, setIsTrafficFlowing] = useState(false);
   const [lastTrafficLength, setLastTrafficLength] = useState(0);
 
   useEffect(() => {
     if (traffic.length > 0 && traffic.length !== lastTrafficLength) {
-      // Yeni traffic geldiğinde
       setLastTrafficLength(traffic.length);
-
-      // Timestamp'i doğru parse et
       const timestamp = (traffic[0] as any).timestamp;
       let lastTxTime: number;
 
       if (typeof timestamp === 'string') {
-        // ISO string formatı
         lastTxTime = new Date(timestamp).getTime();
       } else if (typeof timestamp === 'number') {
-        // Unix timestamp (saniye veya milisaniye)
         lastTxTime = timestamp > 1e12 ? timestamp : timestamp * 1000;
       } else {
         lastTxTime = 0;
       }
 
       const now = Date.now();
-      const isRecent = lastTxTime > 0 && (now - lastTxTime) < 5000; // 5 saniye içinde
-
+      const isRecent = lastTxTime > 0 && (now - lastTxTime) < 5000;
       setIsTrafficFlowing(isRecent);
-
-      // 3 saniye sonra idle'a çek
       const timer = setTimeout(() => setIsTrafficFlowing(false), 3000);
       return () => clearTimeout(timer);
     } else if (traffic.length === 0) {
@@ -53,110 +46,91 @@ export const RecentTrafficTable: React.FC<RecentTrafficTableProps> = ({
     }
   }, [traffic, lastTrafficLength]);
 
-  const getMethodStyle = (method?: string) => {
-    switch (method?.toUpperCase()) {
-      case 'GET': return 'text-blue-400 bg-blue-500/10 border-blue-500/20';
-      case 'POST': return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
-      case 'PUT': return 'text-orange-400 bg-orange-500/10 border-orange-500/20';
-      case 'DELETE': return 'text-red-400 bg-red-500/10 border-red-500/20';
-      default: return 'text-gray-400 bg-gray-500/10 border-gray-500/20';
+  const getMethodBadge = (method?: string) => {
+    const m = method?.toUpperCase() || 'UNKNOWN';
+    switch (m) {
+      case 'GET': return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+      case 'POST': return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+      case 'PUT': return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+      case 'DELETE': return 'bg-red-500/10 text-red-500 border-red-500/20';
+      default: return 'bg-muted text-muted-foreground border-border';
     }
   };
 
   const getStatusColor = (status?: number) => {
-    if (!status) return 'text-gray-500';
-    if (status >= 200 && status < 300) return 'text-emerald-400';
+    if (!status) return 'text-muted-foreground';
+    if (status >= 200 && status < 300) return 'text-emerald-500';
     if (status >= 300 && status < 400) return 'text-blue-400';
-    if (status >= 400 && status < 500) return 'text-yellow-400';
+    if (status >= 400 && status < 500) return 'text-yellow-500';
     return 'text-red-500';
   };
 
   const formatExactTime = (timestamp: string | number | undefined) => {
     try {
       if (!timestamp) return '--:--:--';
-      // Backend'den saniye geliyorsa 1000 ile çarp, milisaniye geliyorsa çarpma
       const date = new Date(typeof timestamp === 'number' ? timestamp * 1000 : timestamp);
-      return format(date, 'HH:mm:ss.SSS');
+      return format(date, 'HH:mm:ss');
     } catch {
-      return 'Invalid Date';
+      return 'Err';
     }
   };
 
   return (
-    <div className="bg-[#111318] border border-white/5 rounded-xl flex flex-col h-full">
-      {/* Header */}
-      <div className="p-4 border-b border-white/5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
-            <Activity className="h-4 w-4 text-indigo-400" />
-          </div>
-          <div>
-            <h2 className="text-sm font-bold text-white tracking-wide">Live Traffic</h2>
-            <div className="flex items-center gap-2 mt-0.5">
-              {/* Gerçek Durum Göstergesi */}
-              <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? (isTrafficFlowing ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500') : 'bg-red-500'}`} />
-              <p className="text-[10px] font-mono text-white/40 uppercase">
-                {!isConnected ? 'DISCONNECTED' : (isTrafficFlowing ? 'RECEIVING DATA' : 'IDLE')}
-              </p>
-            </div>
-          </div>
-        </div>
-        <button
-          onClick={() => navigate('/traffic')}
-          className="group flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-all text-xs font-medium text-white/60 hover:text-white"
-        >
-          View All
-          <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
-        </button>
-      </div>
-
-      {/* List Content */}
-      <div className="flex-1 overflow-hidden p-2 space-y-1">
+    <div className="flex flex-col h-full bg-[#111318]">
+      <div className="flex-1 p-3 space-y-1.5 overflow-hidden">
         {recentTraffic.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-white/20 py-8">
-            <Activity className="h-8 w-8 mb-2 opacity-20" />
-            <p className="text-xs">Waiting for requests...</p>
+          <div className="h-40 flex flex-col items-center justify-center text-muted-foreground/20 gap-3 border border-dashed border-white/5 rounded-xl mx-1 text-center px-4">
+            {isConnected ? (
+              <>
+                <div className="h-5 w-5 border-b-2 border-primary rounded-full animate-spin" />
+                <p className="text-[9px] font-black uppercase tracking-[0.2em]">Listening for packets...</p>
+              </>
+            ) : (
+              <>
+                <Globe className="h-6 w-6 opacity-30" />
+                <p className="text-[9px] font-black uppercase tracking-[0.2em]">Signal Lost...</p>
+              </>
+            )}
           </div>
         ) : (
           recentTraffic.map((tx, i) => (
             <div
               key={tx.requestId || i}
-              onClick={() => navigate(`/traffic/${tx.requestId}`)}
-              className="group flex items-center gap-3 p-2 rounded hover:bg-white/5 cursor-pointer transition-colors border border-transparent hover:border-white/5"
+              onClick={() => navigate(`/proxy/${tx.requestId}`)}
+              className="group flex items-center gap-4 p-2.5 rounded-xl bg-white/[0.01] border border-white/5 hover:bg-white/[0.04] hover:border-primary/20 cursor-pointer transition-all animate-in slide-in-from-bottom-2 duration-300"
             >
-              {/* Time - Monospace ve Gri */}
-              <div className="hidden sm:flex items-center gap-1.5 text-white/30 min-w-[90px]">
-                <Clock className="h-3 w-3" />
-                <span className="text-[10px] font-mono tracking-tighter">
-                  {formatExactTime((tx as any).timestamp)}
+              <div className="flex items-center gap-2.5 min-w-[100px] shrink-0">
+                <span className={`text-[10px] font-black font-mono w-8 text-center ${getStatusColor(tx.status)}`}>
+                  {tx.status || '---'}
                 </span>
+                <Badge variant="outline" className={`h-5 min-w-[45px] justify-center font-black text-[8px] uppercase tracking-tighter rounded-md ${getMethodBadge(tx.method)}`}>
+                  {tx.method || '???'}
+                </Badge>
               </div>
 
-              {/* Method */}
-              <div className={`px-1.5 py-0.5 rounded text-[10px] font-bold border min-w-[45px] text-center ${getMethodStyle(tx.method)}`}>
-                {tx.method || '???'}
-              </div>
-
-              {/* URL - Truncate */}
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-white/80 group-hover:text-white truncate font-mono">
+                <p className="text-[11px] font-mono text-slate-400 group-hover:text-slate-200 truncate">
                   {tx.url}
                 </p>
               </div>
 
-              {/* Status */}
-              <div className={`text-xs font-bold font-mono text-right min-w-[35px] ${getStatusColor(tx.status)}`}>
-                {tx.status || '---'}
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="hidden md:block text-[9px] font-bold text-muted-foreground/40 font-mono tracking-tighter">
+                  {formatExactTime((tx as any).timestamp)}
+                </span>
+                <ArrowRight className="w-3 h-3 text-primary opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0" />
               </div>
             </div>
           ))
         )}
       </div>
 
-      {/* Footer Stats */}
-      <div className="px-4 py-3 border-t border-white/5 bg-white/[0.02] flex justify-between items-center text-[10px] text-white/30 font-mono">
-        <span>BUFFER: {recentTraffic.length} items</span>
-        <span>LATENCY: &lt;1ms</span>
+      <div className="p-2 px-4 bg-white/[0.01] border-t border-white/5 flex justify-between items-center h-8">
+        <div className="flex items-center gap-3">
+          <div className={`w-1 h-1 rounded-full ${isTrafficFlowing ? 'bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]' : 'bg-slate-800'}`} />
+          <span className="text-[8px] font-black text-muted-foreground/30 uppercase tracking-widest">{isTrafficFlowing ? 'STREAM_ACTIVE' : 'IDLE'}</span>
+        </div>
+        <span className="text-[8px] font-black text-muted-foreground/30 uppercase tracking-widest">{recentTraffic.length}_PACKETS</span>
       </div>
     </div>
   );

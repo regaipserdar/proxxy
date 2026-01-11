@@ -39,6 +39,7 @@ base64 = "0.22.1"
 glob = "0.3"
 regex = "1.10"
 zip = "2.2"
+sysinfo = { workspace = true }
 
 [build-dependencies]
 tonic-build = { workspace = true }

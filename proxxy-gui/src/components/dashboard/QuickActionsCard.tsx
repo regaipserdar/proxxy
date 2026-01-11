@@ -1,95 +1,55 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { 
-  Settings, Activity, Users, BarChart3, Play, Pause, 
-  RotateCcw, Server, Database, Wifi,
-  CheckCircle, XCircle, Clock
+import {
+  Play, Pause, RotateCcw,
+  CheckCircle, XCircle, Loader2,
+  Database, LogOut
 } from 'lucide-react';
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
 interface QuickActionsCardProps {
   isOrchestratorOnline?: boolean;
   onSystemAction?: (action: string) => Promise<void>;
+  activeProjectName?: string;
+  onSwitchProject?: () => void;
 }
 
-export const QuickActionsCard: React.FC<QuickActionsCardProps> = ({ 
+export const QuickActionsCard: React.FC<QuickActionsCardProps> = ({
   isOrchestratorOnline = false,
-  onSystemAction 
+  onSystemAction,
+  activeProjectName,
+  onSwitchProject
 }) => {
-  const navigate = useNavigate();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-
-  const navigationActions = [
-    {
-      id: 'view-agents',
-      label: 'View Agents',
-      icon: Users,
-      color: 'text-blue-400',
-      bgColor: 'bg-blue-500/10',
-      borderColor: 'border-blue-500/20',
-      onClick: () => navigate('/agents'),
-    },
-    {
-      id: 'view-traffic',
-      label: 'View Traffic',
-      icon: Activity,
-      color: 'text-emerald-400',
-      bgColor: 'bg-emerald-500/10',
-      borderColor: 'border-emerald-500/20',
-      onClick: () => navigate('/proxy'),
-    },
-    {
-      id: 'view-metrics',
-      label: 'View Metrics',
-      icon: BarChart3,
-      color: 'text-purple-400',
-      bgColor: 'bg-purple-500/10',
-      borderColor: 'border-purple-500/20',
-      onClick: () => navigate('/metrics'),
-    },
-    {
-      id: 'settings',
-      label: 'Settings',
-      icon: Settings,
-      color: 'text-gray-400',
-      bgColor: 'bg-gray-500/10',
-      borderColor: 'border-gray-500/20',
-      onClick: () => navigate('/settings'),
-    },
-  ];
 
   const systemActions = [
     {
       id: 'start',
-      label: 'Start System',
+      label: 'Start Core',
       icon: Play,
       color: 'text-emerald-400',
-      bgColor: 'bg-emerald-500/10',
-      borderColor: 'border-emerald-500/20',
       disabled: isOrchestratorOnline,
     },
     {
       id: 'stop',
-      label: 'Stop System',
+      label: 'Stop Core',
       icon: Pause,
       color: 'text-red-400',
-      bgColor: 'bg-red-500/10',
-      borderColor: 'border-red-500/20',
       disabled: !isOrchestratorOnline,
     },
     {
       id: 'restart',
-      label: 'Restart',
+      label: 'Reset',
       icon: RotateCcw,
       color: 'text-amber-400',
-      bgColor: 'bg-amber-500/10',
-      borderColor: 'border-amber-500/20',
       disabled: false,
     },
   ];
 
   const handleSystemAction = async (actionId: string) => {
     if (!onSystemAction) return;
-    
     setActionLoading(actionId);
     try {
       await onSystemAction(actionId);
@@ -100,133 +60,73 @@ export const QuickActionsCard: React.FC<QuickActionsCardProps> = ({
     }
   };
 
-  const getStatusIcon = () => {
-    if (isOrchestratorOnline) {
-      return <CheckCircle className="h-6 w-6 text-emerald-400" />;
-    }
-    return <XCircle className="h-6 w-6 text-red-400" />;
-  };
-
-  const getStatusColor = () => {
-    if (isOrchestratorOnline) {
-      return 'text-emerald-400';
-    }
-    return 'text-red-400';
-  };
-
   return (
-    <div className="bg-[#111318] border border-white/5 rounded-xl p-6 hover:border-white/10 transition-all group">
-      <div className="flex items-start justify-between mb-4">
-        <div className={`p-3 rounded-lg ${isOrchestratorOnline ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
-          {getStatusIcon()}
-        </div>
-        <div className={`px-2 py-1 rounded-full bg-white/5 text-xs font-bold ${getStatusColor()} uppercase tracking-wider`}>
-          {isOrchestratorOnline ? 'Online' : 'Offline'}
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        {/* System Status */}
-        <div>
-          <h3 className="text-xs font-bold text-white/40 uppercase tracking-wider">System Status</h3>
-          <div className="text-lg font-bold text-white mt-1 font-mono">
-            {isOrchestratorOnline ? 'Operational' : 'Disconnected'}
+    <Card className="bg-[#111318] border-white/5 hover:border-indigo-500/40 transition-all group overflow-hidden shadow-2xl h-full flex flex-col">
+      <CardContent className="p-4 relative flex-1 flex flex-col gap-4">
+        {/* Workspace Management Section (New) */}
+        <div className="space-y-2 relative z-10">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-white  uppercase tracking-[0.2em]">Active Scope</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 rounded-md hover:bg-destructive/10 hover:text-destructive group/switch"
+              onClick={onSwitchProject}
+              title="Switch Workspace"
+            >
+              <LogOut className="w-3 h-3 group-hover/switch:-translate-x-0.5 transition-transform" />
+            </Button>
           </div>
-          <div className="text-xs text-white/60 mt-1">
-            Orchestrator: {isOrchestratorOnline ? 'Connected' : 'Offline'}
-          </div>
-        </div>
-
-        {/* Navigation Actions */}
-        <div>
-          <div className="text-xs text-white/40 mb-2 uppercase tracking-wider">Navigation</div>
-          <div className="space-y-2">
-            {navigationActions.map((action) => {
-              const Icon = action.icon;
-              return (
-                <button
-                  key={action.id}
-                  onClick={action.onClick}
-                  className={`w-full flex items-center gap-3 p-2 rounded-lg ${action.bgColor} ${action.borderColor} border hover:bg-white/5 transition-all group/action`}
-                >
-                  <Icon className={`h-4 w-4 ${action.color}`} />
-                  <span className="text-sm text-white/80 group-hover/action:text-white transition-colors">
-                    {action.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          <Badge variant="outline" className="w-full h-9 justify-start gap-2.5 bg-white/[0.02] border-white/5 text-primary-foreground/90 font-mono text-xs overflow-hidden">
+            <Database className="w-3.5 h-3.5 text-white shrink-0" />
+            <span className="truncate text-orange-500">{activeProjectName || "No Project Loaded"}</span>
+          </Badge>
         </div>
 
-        {/* System Controls */}
-        <div className="pt-2 border-t border-white/5">
-          <div className="text-xs text-white/40 mb-2 uppercase tracking-wider">System Controls</div>
-          <div className="space-y-2">
+        <Separator className="bg-white/5" />
+
+        {/* System Actions Section */}
+        <div className="space-y-2 relative z-10">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              {isOrchestratorOnline ? <CheckCircle className="h-3.5 w-3.5 text-emerald-400" /> : <XCircle className="h-3.5 w-3.5 text-red-500" />}
+              <span className={`text-[10px] font-bold uppercase tracking-widest ${isOrchestratorOnline ? 'text-emerald-500' : 'text-red-500'}`}>
+                {isOrchestratorOnline ? 'Active' : 'Standby'}
+              </span>
+            </div>
+            <Badge variant="outline" className="h-4 rounded-sm text-[7px] font-black bg-black/40 border-white/5 tracking-widest px-1">SYSTEM</Badge>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
             {systemActions.map((action) => {
               const Icon = action.icon;
               const isLoading = actionLoading === action.id;
               const isDisabled = action.disabled && !isLoading;
-              
+
               return (
-                <button
+                <Button
                   key={action.id}
+                  variant="outline"
+                  size="sm"
                   onClick={() => handleSystemAction(action.id)}
                   disabled={isDisabled}
-                  className={`w-full flex items-center justify-center gap-2 p-2 rounded-lg ${action.bgColor} ${action.borderColor} border transition-all ${
-                    isDisabled 
-                      ? 'opacity-50 cursor-not-allowed' 
-                      : 'hover:bg-white/5 hover:border-white/10'
-                  }`}
+                  className={`h-12 flex-col gap-1 rounded-xl border-white/5 bg-white/[0.01] hover:bg-white/[0.05] transition-all group/btn ${isDisabled ? 'opacity-30' : 'opacity-100'
+                    }`}
                 >
                   {isLoading ? (
-                    <Clock className="h-4 w-4 text-white/60 animate-spin" />
+                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
                   ) : (
-                    <Icon className={`h-4 w-4 ${isDisabled ? 'text-white/30' : action.color}`} />
+                    <Icon className={`h-3.5 w-3.5 ${isDisabled ? 'text-muted-foreground' : action.color} transition-transform group-hover/btn:scale-110`} />
                   )}
-                  <span className={`text-sm font-bold ${isDisabled ? 'text-white/30' : action.color}`}>
-                    {isLoading ? 'Processing...' : action.label}
+                  <span className="text-[8px] font-black uppercase tracking-tighter leading-none">
+                    {action.id === 'restart' ? 'Reset' : action.id}
                   </span>
-                </button>
+                </Button>
               );
             })}
           </div>
         </div>
-
-        {/* Service Status Indicators */}
-        <div className="pt-2 border-t border-white/5">
-          <div className="text-xs text-white/40 mb-2 uppercase tracking-wider">Services</div>
-          <div className="space-y-1">
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <Server className="h-3 w-3 text-white/40" />
-                <span className="text-white/60">Orchestrator</span>
-              </div>
-              <span className={`font-bold ${isOrchestratorOnline ? 'text-emerald-400' : 'text-red-400'}`}>
-                {isOrchestratorOnline ? 'UP' : 'DOWN'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <Database className="h-3 w-3 text-white/40" />
-                <span className="text-white/60">Database</span>
-              </div>
-              <span className={`font-bold ${isOrchestratorOnline ? 'text-emerald-400' : 'text-amber-400'}`}>
-                {isOrchestratorOnline ? 'UP' : 'UNKNOWN'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <Wifi className="h-3 w-3 text-white/40" />
-                <span className="text-white/60">WebSocket</span>
-              </div>
-              <span className={`font-bold ${isOrchestratorOnline ? 'text-emerald-400' : 'text-red-400'}`}>
-                {isOrchestratorOnline ? 'CONNECTED' : 'DISCONNECTED'}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 };
