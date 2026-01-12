@@ -257,7 +257,7 @@ impl AttackError {
 }
 
 /// Error severity levels
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub enum ErrorSeverity {
     Low,
     Medium,
@@ -266,7 +266,7 @@ pub enum ErrorSeverity {
 }
 
 /// Error categories for grouping and filtering
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ErrorCategory {
     Infrastructure,
     Configuration,

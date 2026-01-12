@@ -27,3 +27,18 @@ mock:
 # Run comprehensive vulnerability scan through proxy
 scan:
 	./test_all_vulns.sh
+
+# Run Attack Engine & Security Test Suite
+test-security:
+	./test_attack_engine.sh
+
+# Run Unit Tests & Property-Based Tests
+test-units:
+	./test_units.sh
+
+# Run all tests
+test-all: test-units test-security
+
+# Run the Mock Vulnerable Server (alias for test-server)
+test-server:
+	cd test-server && cargo run --bin test_server
