@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 7fa29550b6c3399e1c35fe0d9f85ada21f8f5fe8b1a7fe23a452580763b0a7f7 # shrinks to (name, request_template, _url, target_agent_id) = ("a", "{\"body\":\"\",\"headers\":{\"User-Agent\":\"Test Agent\"},\"method\":\"GET\",\"url\":\"http://A.aa/\"}", "http://A.aa/", Some("a0aAaAaaaa"))
+cc 9a4938ee474cfd3b6c10eeaa382ab87b6888868e8221599536b512de5e03ad9e # shrinks to name = "nUqfdL2 7UVph J47wc6 OEHbtoz9UYjG3AunWwQM", attack_mode = "battering_ram"
+cc f8b5fae118beee196a431f0103b09eba92757060a36ae719c5d1ea2e4a69f0ae # shrinks to (primary_agent, agent_status, request_data) = ("agent-0", "Online", HttpRequestData { method: "GET", url: "http://-.aa/", headers: Some(HttpHeaders { headers: {"User-Agent": "Test Agent", "Content-Type": "application/json"} }), body: [], tls: None })

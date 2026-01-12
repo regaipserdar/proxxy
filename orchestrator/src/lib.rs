@@ -24,9 +24,15 @@ pub type OrchestratorService = Orchestrator;
 pub mod database;
 pub mod graphql;
 pub mod models;
+pub mod repeater;
+pub mod intruder;
 pub mod scope;
 pub mod server;
 pub mod session_manager;
+pub mod session_integration;
+pub mod result_streaming;
+pub mod performance_monitoring;
+pub mod error_handling;
 pub use database::Database;
 pub use session_manager::AgentRegistry;
 
@@ -49,7 +55,7 @@ pub struct Orchestrator {
     config: OrchestratorConfig,
 }
 
-use crate::graphql::{MutationRoot, ProxySchema, QueryRoot, SubscriptionRoot};
+use crate::graphql::{MutationRoot, ProxySchema, QueryRoot, SubscriptionRoot, RepeaterExecutionGql, IntruderAttackProgressGql, IntruderResultGql};
 use crate::models::settings::{ScopeConfig, InterceptionConfig};
 use tokio::sync::RwLock;
 
@@ -203,12 +209,46 @@ impl Orchestrator {
             interception.clone(),
         );
 
+        // Initialize RepeaterManager
+        let repeater_manager = Arc::new(crate::repeater::RepeaterManager::new(
+            db.clone(),
+            agent_registry.clone(),
+        ));
+        
+        // Initialize the repeater manager
+        if let Err(e) = repeater_manager.initialize().await {
+            warn!("Failed to initialize RepeaterManager: {}", e);
+        }
+
+        // Initialize IntruderManager
+        let intruder_manager = Arc::new(
+            crate::intruder::IntruderManager::new(db.clone())
+                .await
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?
+        );
+
+        // Initialize SessionManager
+        let session_manager = Arc::new(crate::session_integration::SessionManager::new());
+
+        // Create broadcast channel for repeater executions
+        let (repeater_broadcast_tx, _repeater_broadcast_rx) = tokio::sync::broadcast::channel::<RepeaterExecutionGql>(100);
+
+        // Create broadcast channels for intruder updates
+        let (intruder_progress_tx, _intruder_progress_rx) = tokio::sync::broadcast::channel::<IntruderAttackProgressGql>(100);
+        let (intruder_results_tx, _intruder_results_rx) = tokio::sync::broadcast::channel::<IntruderResultGql>(1000);
+
         // GraphQL Schema
         let schema = async_graphql::Schema::build(QueryRoot, MutationRoot, SubscriptionRoot)
             .data(db.clone())
             .data(agent_registry.clone())
             .data(broadcast_tx.clone())
             .data(metrics_broadcast_tx.clone())
+            .data(repeater_manager.clone())
+            .data(repeater_broadcast_tx.clone())
+            .data(intruder_manager.clone())
+            .data(intruder_progress_tx.clone())
+            .data(intruder_results_tx.clone())
+            .data(session_manager.clone())
             .data(scope.clone())
             .data(interception.clone())
             .finish();

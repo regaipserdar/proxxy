@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc f7c77f778717c1c6b7b121d03a7726ebd104f8fc230dcab9ff3cbfddac6d7276 # shrinks to template = "§0§§0§"
+cc 4e985f92e31307873bed5c9d966f23726922512ecab1f2c0008e451d95fd00cd # shrinks to template = "§a§§0§", payload_values = {}
+cc 4eac082272cc12bb845ae7c8182d33cdf9b622158be0f4917f45bd906485af34 # shrinks to template = "§A§§a§"

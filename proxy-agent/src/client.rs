@@ -1,15 +1,74 @@
 use proxy_core::pb::proxy_service_client::ProxyServiceClient;
 use proxy_core::pb::{MetricsCommand, RegisterAgentRequest, SystemMetricsEvent, TrafficEvent};
 use proxy_core::{SystemMetricsCollector, SystemMetricsCollectorConfig};
+use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Mutex};
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{error, info, warn};
+
+/// Tracks active attack requests for graceful shutdown
+#[derive(Debug, Clone)]
+struct AttackTracker {
+    active_requests: Arc<Mutex<std::collections::HashSet<String>>>,
+    shutdown_signal: Arc<tokio::sync::Notify>,
+}
+
+impl AttackTracker {
+    fn new() -> Self {
+        Self {
+            active_requests: Arc::new(Mutex::new(std::collections::HashSet::new())),
+            shutdown_signal: Arc::new(tokio::sync::Notify::new()),
+        }
+    }
+
+    async fn add_request(&self, request_id: String) {
+        let mut requests = self.active_requests.lock().await;
+        requests.insert(request_id);
+    }
+
+    async fn remove_request(&self, request_id: &str) {
+        let mut requests = self.active_requests.lock().await;
+        requests.remove(request_id);
+        
+        // If no more active requests and shutdown was signaled, notify completion
+        if requests.is_empty() {
+            self.shutdown_signal.notify_waiters();
+        }
+    }
+
+    async fn wait_for_completion(&self) {
+        loop {
+            {
+                let requests = self.active_requests.lock().await;
+                if requests.is_empty() {
+                    break;
+                }
+            }
+            
+            // Wait for notification or timeout
+            tokio::select! {
+                _ = self.shutdown_signal.notified() => {
+                    break;
+                }
+                _ = tokio::time::sleep(Duration::from_millis(100)) => {
+                    // Continue checking
+                }
+            }
+        }
+    }
+
+    async fn get_active_count(&self) -> usize {
+        let requests = self.active_requests.lock().await;
+        requests.len()
+    }
+}
 
 pub struct OrchestratorClient {
     endpoint: String,
     pub agent_id: String,
     name: String,
+    attack_tracker: AttackTracker,
 }
 
 impl OrchestratorClient {
@@ -18,7 +77,110 @@ impl OrchestratorClient {
             endpoint,
             agent_id,
             name,
+            attack_tracker: AttackTracker::new(),
         }
+    }
+
+    /// Unified HTTP request execution with session data injection
+    async fn execute_http_request(
+        client: &reqwest::Client,
+        mut req_data: proxy_core::pb::HttpRequestData,
+        req_id: String,
+        session_id: Option<String>,
+        session_headers: Option<std::collections::HashMap<String, String>>,
+        attack_tracker: Option<AttackTracker>,
+    ) -> proxy_core::pb::TrafficEvent {
+        use proxy_core::pb::{traffic_event, HttpHeaders, HttpResponseData};
+
+        // Track this request if it's an attack request
+        if let Some(ref tracker) = attack_tracker {
+            tracker.add_request(req_id.clone()).await;
+        }
+
+        // Inject session data if provided
+        if let Some(session_headers) = session_headers {
+            if req_data.headers.is_none() {
+                req_data.headers = Some(HttpHeaders {
+                    headers: std::collections::HashMap::new(),
+                });
+            }
+            
+            if let Some(ref mut headers) = req_data.headers {
+                for (key, value) in session_headers {
+                    headers.headers.insert(key, value);
+                }
+            }
+        }
+
+        // Log session information if present
+        if let Some(session_id) = session_id {
+            info!("Executing request with session: {}", session_id);
+        }
+
+        // Construct Request
+        let mut builder = client.request(
+            reqwest::Method::from_bytes(req_data.method.as_bytes())
+                .unwrap_or(reqwest::Method::GET),
+            &req_data.url,
+        );
+
+        if let Some(h) = req_data.headers {
+            for (k, v) in h.headers {
+                builder = builder.header(k, v);
+            }
+        }
+
+        if !req_data.body.is_empty() {
+            builder = builder.body(req_data.body);
+        }
+
+        // Execute request with error handling
+        let result = match builder.send().await {
+            Ok(resp) => {
+                // Convert headers
+                let mut headers_map = std::collections::HashMap::new();
+                for (k, v) in resp.headers() {
+                    headers_map.insert(
+                        k.to_string(),
+                        v.to_str().unwrap_or("").to_string(),
+                    );
+                }
+
+                let status = resp.status().as_u16() as i32;
+                let body = resp.bytes().await.unwrap_or_default().to_vec();
+
+                proxy_core::pb::TrafficEvent {
+                    request_id: req_id.clone(),
+                    event: Some(traffic_event::Event::Response(HttpResponseData {
+                        status_code: status,
+                        headers: Some(HttpHeaders {
+                            headers: headers_map,
+                        }),
+                        body,
+                        tls: None,
+                    })),
+                }
+            }
+            Err(e) => {
+                error!("HTTP request failed: {}", e);
+                proxy_core::pb::TrafficEvent {
+                    request_id: req_id.clone(),
+                    event: Some(traffic_event::Event::Response(HttpResponseData {
+                        status_code: 502,
+                        headers: None,
+                        body: format!("Request Error: {}", e).into_bytes(),
+                        tls: None,
+                    })),
+                }
+            }
+        };
+
+        // Remove from tracking
+        if let Some(ref tracker) = attack_tracker {
+            tracker.remove_request(&req_id).await;
+        }
+
+        result
     }
 
     pub async fn register(&self) -> Result<(String, String), String> {
@@ -113,110 +275,176 @@ impl OrchestratorClient {
 
                             let tx_replay = tx_stream.clone();
                             let http_client = http_client.clone();
+                            let attack_tracker = self.attack_tracker.clone();
 
                             // Spawn response handler (commands)
                             let stream_handle = tokio::spawn(async move {
                                 use proxy_core::pb::{
                                     intercept_command, traffic_event, HttpHeaders, HttpResponseData,
+                                    attack_command, AttackCommand, RepeaterRequest, IntruderRequest,
                                 };
 
                                 while let Ok(Some(cmd)) = inbound.message().await {
-                                    if let Some(intercept_command::Command::Execute(exec_req)) =
-                                        cmd.command
-                                    {
-                                        let req_data = exec_req.request.clone().unwrap_or_default();
-                                        info!(
-                                            "Executing Replay Request: {} {}",
-                                            req_data.method, req_data.url
-                                        );
-
-                                        let client = http_client.clone();
-                                        let tx = tx_replay.clone();
-                                        let req_id = exec_req.request_id.clone();
-
-                                        tokio::spawn(async move {
-                                            // Construct Request
-                                            let mut builder = client.request(
-                                                reqwest::Method::from_bytes(
-                                                    req_data.method.as_bytes(),
-                                                )
-                                                .unwrap_or(reqwest::Method::GET),
-                                                &req_data.url,
+                                    match cmd.command {
+                                        Some(intercept_command::Command::Execute(exec_req)) => {
+                                            let req_data = exec_req.request.clone().unwrap_or_default();
+                                            info!(
+                                                "Executing Replay Request: {} {}",
+                                                req_data.method, req_data.url
                                             );
 
-                                            if let Some(h) = req_data.headers {
-                                                for (k, v) in h.headers {
-                                                    builder = builder.header(k, v);
+                                            let client = http_client.clone();
+                                            let tx = tx_replay.clone();
+                                            let req_id = exec_req.request_id.clone();
+
+                                            tokio::spawn(async move {
+                                                let result_event = Self::execute_http_request(
+                                                    &client, req_data, req_id, None, None, None
+                                                ).await;
+
+                                                if let Err(e) = tx.send(result_event).await {
+                                                    warn!("Failed to send replay result: {}", e);
+                                                }
+                                            });
+                                        }
+                                        Some(intercept_command::Command::Attack(attack_cmd)) => {
+                                            match attack_cmd.command {
+                                                Some(attack_command::Command::RepeaterRequest(repeater_req)) => {
+                                                    let req_data = repeater_req.request.clone().unwrap_or_default();
+                                                    info!(
+                                                        "Executing Repeater Request: {} {}",
+                                                        req_data.method, req_data.url
+                                                    );
+
+                                                    let client = http_client.clone();
+                                                    let tx = tx_replay.clone();
+                                                    let req_id = repeater_req.request_id.clone();
+                                                    let session_id = if repeater_req.session_id.is_empty() { 
+                                                        None 
+                                                    } else { 
+                                                        Some(repeater_req.session_id.clone()) 
+                                                    };
+                                                    let session_headers = if repeater_req.session_headers.is_empty() {
+                                                        None
+                                                    } else {
+                                                        Some(repeater_req.session_headers.clone())
+                                                    };
+                                                    let tracker = Some(attack_tracker.clone());
+
+                                                    tokio::spawn(async move {
+                                                        let result_event = Self::execute_http_request(
+                                                            &client, req_data, req_id, session_id, session_headers, tracker
+                                                        ).await;
+
+                                                        if let Err(e) = tx.send(result_event).await {
+                                                            warn!("Failed to send repeater result: {}", e);
+                                                        }
+                                                    });
+                                                }
+                                                Some(attack_command::Command::IntruderRequest(intruder_req)) => {
+                                                    let req_data = intruder_req.request.clone().unwrap_or_default();
+                                                    info!(
+                                                        "Executing Intruder Request: {} {} (payloads: {:?})",
+                                                        req_data.method, req_data.url, intruder_req.payload_values
+                                                    );
+
+                                                    let client = http_client.clone();
+                                                    let tx = tx_replay.clone();
+                                                    let req_id = intruder_req.request_id.clone();
+                                                    let session_id = if intruder_req.session_id.is_empty() { 
+                                                        None 
+                                                    } else { 
+                                                        Some(intruder_req.session_id.clone()) 
+                                                    };
+                                                    let session_headers = if intruder_req.session_headers.is_empty() {
+                                                        None
+                                                    } else {
+                                                        Some(intruder_req.session_headers.clone())
+                                                    };
+                                                    let tracker = Some(attack_tracker.clone());
+
+                                                    tokio::spawn(async move {
+                                                        let result_event = Self::execute_http_request(
+                                                            &client, req_data, req_id, session_id, session_headers, tracker
+                                                        ).await;
+
+                                                        if let Err(e) = tx.send(result_event).await {
+                                                            warn!("Failed to send intruder result: {}", e);
+                                                        }
+                                                    });
+                                                }
+                                                Some(attack_command::Command::StopAttack(_)) => {
+                                                    info!("Received stop attack command");
+                                                    // Graceful attack termination - wait for active requests to complete
+                                                    let active_count = attack_tracker.get_active_count().await;
+                                                    if active_count > 0 {
+                                                        info!("Waiting for {} active attack requests to complete", active_count);
+                                                        tokio::time::timeout(
+                                                            Duration::from_secs(30),
+                                                            attack_tracker.wait_for_completion()
+                                                        ).await.unwrap_or_else(|_| {
+                                                            warn!("Timeout waiting for attack requests to complete");
+                                                        });
+                                                    }
+                                                    info!("Attack termination complete");
+                                                }
+                                                None => {
+                                                    warn!("Received empty attack command");
                                                 }
                                             }
-
-                                            if !req_data.body.is_empty() {
-                                                builder = builder.body(req_data.body);
-                                            }
-
-                                            // Execute
-                                            let result_event = match builder.send().await {
-                                                Ok(resp) => {
-                                                    // Convert headers
-                                                    let mut headers_map =
-                                                        std::collections::HashMap::new();
-                                                    for (k, v) in resp.headers() {
-                                                        headers_map.insert(
-                                                            k.to_string(),
-                                                            v.to_str().unwrap_or("").to_string(),
-                                                        );
+                                        }
+                                        Some(intercept_command::Command::Lifecycle(lifecycle_cmd)) => {
+                                            use proxy_core::pb::lifecycle_command::Action;
+                                            match lifecycle_cmd.action() {
+                                                Action::Restart => {
+                                                    info!("Received restart command (force: {})", lifecycle_cmd.force);
+                                                    
+                                                    if !lifecycle_cmd.force {
+                                                        // Graceful restart - wait for active attacks to complete
+                                                        let active_count = attack_tracker.get_active_count().await;
+                                                        if active_count > 0 {
+                                                            info!("Waiting for {} active requests before restart", active_count);
+                                                            tokio::time::timeout(
+                                                                Duration::from_secs(60),
+                                                                attack_tracker.wait_for_completion()
+                                                            ).await.unwrap_or_else(|_| {
+                                                                warn!("Timeout waiting for requests to complete before restart");
+                                                            });
+                                                        }
                                                     }
-
-                                                    let status = resp.status().as_u16() as i32;
-                                                    let body = resp
-                                                        .bytes()
-                                                        .await
-                                                        .unwrap_or_default()
-                                                        .to_vec();
-
-                                                    TrafficEvent {
-                                                        request_id: req_id,
-                                                        event: Some(
-                                                            traffic_event::Event::Response(
-                                                                HttpResponseData {
-                                                                    status_code: status,
-                                                                    headers: Some(HttpHeaders {
-                                                                        headers: headers_map,
-                                                                    }),
-                                                                    body,
-                                                                    tls: None,
-                                                                },
-                                                            ),
-                                                        ),
-                                                    }
+                                                    
+                                                    info!("Initiating agent restart...");
+                                                    // TODO: Implement actual restart mechanism
+                                                    // For now, we break the stream to trigger reconnection
+                                                    break;
                                                 }
-                                                Err(e) => {
-                                                    error!("Replay failed: {}", e);
-                                                    // Return 502/Error?
-                                                    TrafficEvent {
-                                                        request_id: req_id,
-                                                        event: Some(
-                                                            traffic_event::Event::Response(
-                                                                HttpResponseData {
-                                                                    status_code: 502,
-                                                                    headers: None,
-                                                                    body: format!(
-                                                                        "Replay Error: {}",
-                                                                        e
-                                                                    )
-                                                                    .into_bytes(),
-                                                                    tls: None,
-                                                                },
-                                                            ),
-                                                        ),
+                                                Action::Shutdown => {
+                                                    info!("Received shutdown command (force: {})", lifecycle_cmd.force);
+                                                    
+                                                    if !lifecycle_cmd.force {
+                                                        // Graceful shutdown - wait for active attacks to complete
+                                                        let active_count = attack_tracker.get_active_count().await;
+                                                        if active_count > 0 {
+                                                            info!("Waiting for {} active requests before shutdown", active_count);
+                                                            tokio::time::timeout(
+                                                                Duration::from_secs(60),
+                                                                attack_tracker.wait_for_completion()
+                                                            ).await.unwrap_or_else(|_| {
+                                                                warn!("Timeout waiting for requests to complete before shutdown");
+                                                            });
+                                                        }
                                                     }
+                                                    
+                                                    info!("Initiating agent shutdown...");
+                                                    // TODO: Implement actual shutdown mechanism
+                                                    // For now, we break the stream
+                                                    break;
                                                 }
-                                            };
-
-                                            if let Err(e) = tx.send(result_event).await {
-                                                warn!("Failed to send replay result: {}", e);
                                             }
-                                        });
+                                        }
+                                        _ => {
+                                            warn!("Received unknown command type");
+                                        }
                                     }
                                 }
                                 info!("Stream closed by server");
@@ -376,9 +604,11 @@ mod tests {
     use tonic::{Request, Response, Status, Streaming};
 
     #[tokio::test]
-    async fn test_repeater_flow() {
+    async fn test_attack_commands_flow() {
         // 1. Start Mock Target Server (HTTP)
-        let target_router = Router::new().route("/replay", get(|| async { "Hello Replay" }));
+        let target_router = Router::new()
+            .route("/repeater", get(|| async { "Repeater Response" }))
+            .route("/intruder", get(|| async { "Intruder Response" }));
         let target_addr = SocketAddr::from(([127, 0, 0, 1], 0));
         let target_listener = tokio::net::TcpListener::bind(target_addr).await.unwrap();
         let target_port = target_listener.local_addr().unwrap().port();
@@ -387,10 +617,10 @@ mod tests {
         });
 
         // 2. Start Mock Orchestrator (gRPC)
-        let (cmd_tx, cmd_rx) = mpsc::channel::<Result<InterceptCommand, Status>>(1);
-        let (event_tx, mut event_rx) = mpsc::channel::<TrafficEvent>(1);
+        let (cmd_tx, cmd_rx) = mpsc::channel::<Result<InterceptCommand, Status>>(10);
+        let (event_tx, mut event_rx) = mpsc::channel::<TrafficEvent>(10);
 
-        let orchestrator_addr = "[::1]:50099".parse::<SocketAddr>().unwrap();
+        let orchestrator_addr = "[::1]:50098".parse::<SocketAddr>().unwrap();
         let service = proxy_core::pb::proxy_service_server::ProxyServiceServer::new(TestProxy {
             cmd_rx: std::sync::Arc::new(tokio::sync::Mutex::new(Some(cmd_rx))),
             event_tx,
@@ -409,41 +639,177 @@ mod tests {
         // 3. Start Agent
         let (_log_tx, log_rx) = mpsc::channel(1); // Fake log channel input
         let client = OrchestratorClient::new(
-            "http://[::1]:50099".to_string(),
-            "test-agent".to_string(),
-            "test-name".to_string(),
+            "http://[::1]:50098".to_string(),
+            "test-agent-attack".to_string(),
+            "test-attack-name".to_string(),
         );
 
         tokio::spawn(async move {
             client.run(log_rx).await;
         });
 
-        // 4. Send Execute Command
-        let target_url = format!("http://127.0.0.1:{}/replay", target_port);
-        let execute_cmd = InterceptCommand {
-            command: Some(intercept_command::Command::Execute(ExecuteRequest {
-                request_id: "test-replay-1".to_string(),
-                request: Some(HttpRequestData {
-                    method: "GET".to_string(),
-                    url: target_url,
-                    headers: None,
-                    body: vec![],
-                    tls: None,
-                }),
-            })),
+        tokio::time::sleep(Duration::from_millis(500)).await; // Wait for agent connection
+
+        // 4. Test Repeater Request
+        let repeater_url = format!("http://127.0.0.1:{}/repeater", target_port);
+        let repeater_cmd = InterceptCommand {
+            command: Some(intercept_command::Command::Attack(
+                proxy_core::pb::AttackCommand {
+                    command: Some(proxy_core::pb::attack_command::Command::RepeaterRequest(
+                        proxy_core::pb::RepeaterRequest {
+                            request_id: "test-repeater-1".to_string(),
+                            request: Some(HttpRequestData {
+                                method: "GET".to_string(),
+                                url: repeater_url,
+                                headers: None,
+                                body: vec![],
+                                tls: None,
+                            }),
+                            session_id: "test-session".to_string(),
+                            session_headers: {
+                                let mut headers = std::collections::HashMap::new();
+                                headers.insert("X-Session-Token".to_string(), "test-token".to_string());
+                                headers
+                            },
+                        }
+                    ))
+                }
+            )),
         };
 
-        cmd_tx.send(Ok(execute_cmd)).await.unwrap();
+        cmd_tx.send(Ok(repeater_cmd)).await.unwrap();
 
-        // 5. Verify Response
-        let event = event_rx.recv().await.expect("Should receive traffic event");
-        assert_eq!(event.request_id, "test-replay-1");
+        // 5. Verify Repeater Response
+        let event = event_rx.recv().await.expect("Should receive repeater response");
+        assert_eq!(event.request_id, "test-repeater-1");
         if let Some(proxy_core::pb::traffic_event::Event::Response(resp)) = event.event {
             assert_eq!(resp.status_code, 200);
-            assert_eq!(resp.body, b"Hello Replay");
+            assert_eq!(resp.body, b"Repeater Response");
         } else {
-            panic!("Expected Response event");
+            panic!("Expected Response event for repeater");
         }
+
+        // 6. Test Intruder Request
+        let intruder_url = format!("http://127.0.0.1:{}/intruder", target_port);
+        let intruder_cmd = InterceptCommand {
+            command: Some(intercept_command::Command::Attack(
+                proxy_core::pb::AttackCommand {
+                    command: Some(proxy_core::pb::attack_command::Command::IntruderRequest(
+                        proxy_core::pb::IntruderRequest {
+                            attack_id: "test-attack-1".to_string(),
+                            request_id: "test-intruder-1".to_string(),
+                            request: Some(HttpRequestData {
+                                method: "GET".to_string(),
+                                url: intruder_url,
+                                headers: None,
+                                body: vec![],
+                                tls: None,
+                            }),
+                            payload_values: vec!["payload1".to_string(), "payload2".to_string()],
+                            session_id: "test-session".to_string(),
+                            session_headers: {
+                                let mut headers = std::collections::HashMap::new();
+                                headers.insert("X-Attack-Token".to_string(), "attack-token".to_string());
+                                headers
+                            },
+                        }
+                    ))
+                }
+            )),
+        };
+
+        cmd_tx.send(Ok(intruder_cmd)).await.unwrap();
+
+        // 7. Verify Intruder Response
+        let event = event_rx.recv().await.expect("Should receive intruder response");
+        assert_eq!(event.request_id, "test-intruder-1");
+        if let Some(proxy_core::pb::traffic_event::Event::Response(resp)) = event.event {
+            assert_eq!(resp.status_code, 200);
+            assert_eq!(resp.body, b"Intruder Response");
+        } else {
+            panic!("Expected Response event for intruder");
+        }
+
+        // 8. Test Stop Attack Command
+        let stop_cmd = InterceptCommand {
+            command: Some(intercept_command::Command::Attack(
+                proxy_core::pb::AttackCommand {
+                    command: Some(proxy_core::pb::attack_command::Command::StopAttack(true))
+                }
+            )),
+        };
+
+        cmd_tx.send(Ok(stop_cmd)).await.unwrap();
+        
+        // Give some time for the stop command to be processed
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+
+    #[tokio::test]
+    async fn test_lifecycle_commands() {
+        // 1. Start Mock Orchestrator (gRPC)
+        let (cmd_tx, cmd_rx) = mpsc::channel::<Result<InterceptCommand, Status>>(10);
+        let (event_tx, _event_rx) = mpsc::channel::<TrafficEvent>(10);
+
+        let orchestrator_addr = "[::1]:50097".parse::<SocketAddr>().unwrap();
+        let service = proxy_core::pb::proxy_service_server::ProxyServiceServer::new(TestProxy {
+            cmd_rx: std::sync::Arc::new(tokio::sync::Mutex::new(Some(cmd_rx))),
+            event_tx,
+        });
+
+        tokio::spawn(async move {
+            tonic::transport::Server::builder()
+                .add_service(service)
+                .serve(orchestrator_addr)
+                .await
+                .unwrap();
+        });
+
+        tokio::time::sleep(Duration::from_millis(500)).await; // Wait for startup
+
+        // 2. Start Agent
+        let (_log_tx, log_rx) = mpsc::channel(1);
+        let client = OrchestratorClient::new(
+            "http://[::1]:50097".to_string(),
+            "test-agent-lifecycle".to_string(),
+            "test-lifecycle-name".to_string(),
+        );
+
+        tokio::spawn(async move {
+            client.run(log_rx).await;
+        });
+
+        tokio::time::sleep(Duration::from_millis(500)).await; // Wait for agent connection
+
+        // 3. Test Restart Command
+        let restart_cmd = InterceptCommand {
+            command: Some(intercept_command::Command::Lifecycle(
+                proxy_core::pb::LifecycleCommand {
+                    action: proxy_core::pb::lifecycle_command::Action::Restart as i32,
+                    force: false,
+                }
+            )),
+        };
+
+        cmd_tx.send(Ok(restart_cmd)).await.unwrap();
+        
+        // Give some time for the restart command to be processed
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        // 4. Test Shutdown Command
+        let shutdown_cmd = InterceptCommand {
+            command: Some(intercept_command::Command::Lifecycle(
+                proxy_core::pb::LifecycleCommand {
+                    action: proxy_core::pb::lifecycle_command::Action::Shutdown as i32,
+                    force: true,
+                }
+            )),
+        };
+
+        cmd_tx.send(Ok(shutdown_cmd)).await.unwrap();
+        
+        // Give some time for the shutdown command to be processed
+        tokio::time::sleep(Duration::from_millis(100)).await;
     }
 
     struct TestProxy {

@@ -3,6 +3,8 @@ resolver = "2"
 members = [
     "proxy-core",
     "proxy-agent", 
+    "proxy-common",
+    "attack-engine",
     "orchestrator",
     "proxxy-gui/src-tauri",
     "workspace-tests",

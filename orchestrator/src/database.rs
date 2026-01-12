@@ -8,6 +8,13 @@ use tracing::info;
 use std::fs;
 use serde::{Serialize, de::DeserializeOwned};
 
+// Include database modules for repeater and intruder
+pub mod repeater;
+pub mod intruder;
+
+pub use repeater::*;
+pub use intruder::*;
+
 #[derive(Debug, Clone)]
 pub struct Project {
     pub name: String,

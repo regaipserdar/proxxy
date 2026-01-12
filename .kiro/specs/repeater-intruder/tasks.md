@@ -6,7 +6,7 @@ This implementation plan transforms the Repeater and Intruder design into a seri
 
 ## Tasks
 
-- [-] 1. Set up core attack engine infrastructure (Coordinated with Foundation)
+- [x] 1. Set up core attack engine infrastructure (Coordinated with Foundation)
   - **CRITICAL: Use foundation files created in root directory**
   - Create `attack-engine` crate in workspace
   - Define core data models and traits for attack execution using `proxy-common::Session`
@@ -16,12 +16,12 @@ This implementation plan transforms the Repeater and Intruder design into a seri
   - _Requirements: 8.1, 8.2, 8.5_
   - _Dependencies: proxy-common/src/session.rs, orchestrator/src/resource_manager.rs_
 
-- [ ] 1.1 Write property test for attack engine core types
+- [x] 1.1 Write property test for attack engine core types
   - **Property 1: Request Processing Integrity**
   - **Validates: Requirements 1.1, 1.2, 1.4, 1.5**
 
-- [ ] 2. Implement database schema extensions (Coordinated with LSR_TASKS.md)
-  - [ ] 2.1 Create migration for repeater tables
+- [x] 2. Implement database schema extensions (Coordinated with LSR_TASKS.md)
+  - [x] 2.1 Create migration for repeater tables
     - **CRITICAL: Coordinate migration order with LSR_TASKS.md Phase 2.2**
     - Add `repeater_tabs` table with tab configuration storage
     - Add `repeater_history` table for execution history
@@ -30,7 +30,7 @@ This implementation plan transforms the Repeater and Intruder design into a seri
     - _Requirements: 7.1, 7.2_
     - _Dependencies: LSR_TASKS.md Phase 2.2 (Database Schema Extensions)_
 
-  - [ ] 2.2 Create migration for intruder tables
+  - [x] 2.2 Create migration for intruder tables
     - **CRITICAL: Coordinate with LSR and ensure sequential migration numbers**
     - Add `intruder_attacks` table for attack configurations
     - Add `intruder_results` table for attack results
@@ -40,7 +40,7 @@ This implementation plan transforms the Repeater and Intruder design into a seri
     - _Requirements: 7.3, 7.4_
     - _Dependencies: LSR_TASKS.md Phase 2.2_
 
-  - [ ] 2.3 Implement database access methods
+  - [x] 2.3 Implement database access methods
     - Add CRUD operations for repeater tabs and history
     - Add CRUD operations for intruder attacks and results
     - **CRITICAL: Implement batch insert for intruder results (1000 records per transaction)**
@@ -49,89 +49,89 @@ This implementation plan transforms the Repeater and Intruder design into a seri
     - Implement buffered result writing with periodic flush (every 5 seconds OR 1000 records)
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 8.1, 8.4_
 
-- [ ] 2.4 Write property test for database operations
+    - [x] 2.4 Write property test for database operations
   - **Property 8: Data Persistence Consistency**
   - **Validates: Requirements 7.1, 7.2, 7.3, 7.4, 7.5**
 
-- [ ] 3. Create repeater module implementation
-  - [ ] 3.1 Implement RepeaterManager struct
+- [x] 3. Create repeater module implementation
+  - [x] 3.1 Implement RepeaterManager struct
     - Create tab management functionality
     - Implement request editing and validation
     - Add agent selection and validation logic
     - Include session data integration
     - _Requirements: 1.1, 1.2, 1.6, 2.1, 2.5_
 
-  - [ ] 3.2 Implement repeater execution logic
+  - [x] 3.2 Implement repeater execution logic
     - Create request execution through selected agents
     - Add response capture and processing
     - Implement history storage and retrieval
     - Include timing and metadata collection
     - _Requirements: 1.4, 1.5, 2.3_
 
-  - [ ] 3.3 Add agent failure handling for repeater
+  - [x] 3.3 Add agent failure handling for repeater
     - Implement agent availability validation
     - Add graceful error handling for offline agents
     - Include proper error messaging and user notification
     - _Requirements: 2.2, 2.4, 9.2, 9.3_
 
-- [ ] 3.4 Write property test for repeater functionality
+- [x] 3.4 Write property test for repeater functionality
   - **Property 2: Agent Selection and Routing**
   - **Validates: Requirements 2.1, 2.2, 2.3, 2.4, 2.5**
 
-- [ ] 4. Implement payload generation system
-  - [ ] 4.1 Create PayloadGenerator trait and implementations
+- [x] 4. Implement payload generation system
+  - [x] 4.1 Create PayloadGenerator trait and implementations
     - Implement WordlistGenerator for file-based payloads
     - Implement NumberRangeGenerator for numeric sequences
     - Implement CustomGenerator for user-defined payloads
     - Add proper validation and error handling
     - _Requirements: 4.1, 4.2_
 
-  - [ ] 4.2 Implement payload position parsing
+  - [x] 4.2 Implement payload position parsing
     - Create parser for §marker§ syntax in request templates
     - Add validation for payload position syntax
     - Implement position highlighting and validation
     - Include error reporting for invalid syntax
     - _Requirements: 3.2_
 
-  - [ ] 4.3 Implement attack mode logic
+  - [x] 4.3 Implement attack mode logic
     - Create Sniper mode (single position, all payloads)
     - Create BatteringRam mode (multiple positions, same payload)
     - Create Pitchfork mode (multiple positions, parallel iteration)
     - Create ClusterBomb mode (multiple positions, all combinations)
     - _Requirements: 4.3_
 
-- [ ] 4.4 Write property test for payload generation
+- [x] 4.4 Write property test for payload generation
   - **Property 5: Payload Generation Consistency**
   - **Validates: Requirements 4.1, 4.2, 4.3**
 
-- [ ] 5. Create intruder attack engine
-  - [ ] 5.1 Implement IntruderManager struct
+- [x] 5. Create intruder attack engine
+  - [x] 5.1 Implement IntruderManager struct
     - Create attack configuration management
     - Implement payload set configuration
     - Add agent selection for distributed attacks
     - Include attack template creation and validation
     - _Requirements: 3.1, 3.3, 3.4_
 
-  - [ ] 5.2 Implement payload distribution algorithms
+  - [x] 5.2 Implement payload distribution algorithms
     - Create RoundRobin distribution strategy
     - Create Batch distribution strategy
     - Add load balancing across agents
     - Include agent failure detection and redistribution
     - _Requirements: 3.5, 4.4, 4.5_
 
-  - [ ] 5.3 Implement attack execution coordination
+  - [x] 5.3 Implement attack execution coordination
     - Create concurrent request execution across agents
     - Add progress tracking and statistics
     - Implement graceful attack termination
     - Include result collection and aggregation
     - _Requirements: 5.1, 5.3, 8.1_
 
-- [ ] 5.4 Write property test for attack distribution
+- [x] 5.4 Write property test for attack distribution
   - **Property 4: Payload Distribution Algorithms**
   - **Validates: Requirements 3.5, 4.4, 4.5**
 
-- [ ] 6. Implement session integration (Coordinated with LSR_TASKS.md)
-  - [ ] 6.1 Create SessionData integration
+- [x] 6. Implement session integration (Coordinated with LSR_TASKS.md)
+  - [x] 6.1 Create SessionData integration
     - **CRITICAL: Use common session interface from LSR (proxy-common::Session)**
     - Implement session header and cookie injection compatible with LSR format
     - Add session data application to requests using LSR session structure
@@ -140,7 +140,7 @@ This implementation plan transforms the Repeater and Intruder design into a seri
     - _Requirements: 6.1, 6.2, 6.3, 6.5_
     - _Dependencies: LSR_TASKS.md Phase 6.4 (Session Cookie Management)_
 
-  - [ ] 6.2 Add session authentication handling
+  - [x] 6.2 Add session authentication handling
     - **CRITICAL: Coordinate with LSR session validation**
     - Implement authentication failure detection using LSR session indicators
     - Add session refresh options that trigger LSR profile re-execution
@@ -149,12 +149,12 @@ This implementation plan transforms the Repeater and Intruder design into a seri
     - _Requirements: 6.4_
     - _Dependencies: LSR_TASKS.md Phase 6.4, NUCLEI_TASKS.md Phase 4.2_
 
-- [ ] 6.3 Write property test for session integration
+- [x] 6.3 Write property test for session integration
   - **Property 7: Session Integration Completeness**
   - **Validates: Requirements 6.1, 6.2, 6.3, 6.4, 6.5**
 
-- [ ] 7. Extend gRPC protocol and agent infrastructure
-  - [ ] 7.1 Update proto definitions (Coordinated with proto/TAGS.md)
+- [x] 7. Extend gRPC protocol and agent infrastructure
+  - [x] 7.1 Update proto definitions (Coordinated with proto/TAGS.md)
     - **CRITICAL: Use reserved tag range 20-29 from proto/TAGS.md**
     - **CRITICAL: Coordinate with AGENT_TASKS.md Protocol Updates**
     - Add RepeaterRequest and IntruderRequest messages using tags 21-22
@@ -165,7 +165,7 @@ This implementation plan transforms the Repeater and Intruder design into a seri
     - _Requirements: 10.5_
     - _Dependencies: AGENT_TASKS.md Phase 1.1, proto/TAGS.md_
 
-  - [ ] 7.2 Implement unified HTTP execution engine in agents
+  - [x] 7.2 Implement unified HTTP execution engine in agents
     - **CRITICAL: Build on AGENT_TASKS.md HTTP Engine (Phase 2)**
     - Extend existing ExecuteRequest handler to support RepeaterRequest and IntruderRequest
     - Implement session data injection for attack requests
@@ -176,7 +176,7 @@ This implementation plan transforms the Repeater and Intruder design into a seri
     - _Requirements: 10.2_
     - _Dependencies: AGENT_TASKS.md Phase 2.1, 2.2_
 
-- [ ] 7.3 Add agent lifecycle management integration
+- [x] 7.3 Add agent lifecycle management integration
   - **NEW: Integrate with AGENT_TASKS.md Lifecycle Management**
   - Implement graceful attack termination during agent restart/shutdown
   - Handle agent lifecycle events during distributed attacks
@@ -185,27 +185,27 @@ This implementation plan transforms the Repeater and Intruder design into a seri
   - _Requirements: 2.4, 4.5, 8.2_
   - _Dependencies: AGENT_TASKS.md Phase 3_
 
-- [ ] 7.4 Write integration test for gRPC attack commands
+- [x] 7.4 Write integration test for gRPC attack commands
   - Test end-to-end attack command flow
   - Verify request execution and response capture
   - Test error handling and recovery scenarios
   - _Requirements: 10.2, 10.5_
 
-- [ ] 8. Checkpoint - Core functionality validation
+- [x] 8. Checkpoint - Core functionality validation
   - Ensure all core attack engine components work together
   - Verify database operations and data persistence
-  - Test basic repeater and intruder functionality
+  - do not Test basic repeater and intruder functionality 
   - Ask the user if questions arise
 
-- [ ] 9. Implement real-time monitoring and results
-  - [ ] 9.1 Create result streaming infrastructure
+- [x] 9. Implement real-time monitoring and results
+  - [x] 9.1 Create result streaming infrastructure
     - Implement real-time result broadcasting
     - Add progress tracking and statistics calculation
     - Create result highlighting based on configurable criteria
     - Include export functionality for results
     - _Requirements: 5.1, 5.2, 5.4, 5.5_
 
-  - [ ] 9.2 Add performance monitoring
+  - [x] 9.2 Add performance monitoring
     - Implement concurrency limiting per agent
     - Add backpressure mechanisms for high load
     - Create dynamic load balancing adjustments
@@ -220,49 +220,50 @@ This implementation plan transforms the Repeater and Intruder design into a seri
   - **Property 9: Performance and Concurrency Management**
   - **Validates: Requirements 8.1, 8.2, 8.3, 8.4, 8.5**
 
-- [ ] 10. Extend GraphQL API for repeater and intruder
-  - [ ] 10.1 Add repeater GraphQL types and resolvers
+- [x] 10. Extend GraphQL API for repeater and intruder
+  - [x] 10.1 Add repeater GraphQL types and resolvers
     - Create RepeaterTab, RepeaterExecution GraphQL types
     - Add queries for repeater tabs and history
     - Add mutations for tab creation, editing, and execution
     - Include subscriptions for real-time updates
     - _Requirements: 1.1, 1.4, 1.5, 1.6_
 
-  - [ ] 10.2 Add intruder GraphQL types and resolvers
+  - [x] 10.2 Add intruder GraphQL types and resolvers
     - Create IntruderAttack, IntruderResult GraphQL types
     - Add queries for attack configurations and results
     - Add mutations for attack creation, start, and stop
     - Include subscriptions for real-time attack progress
     - _Requirements: 3.1, 5.1, 5.2_
 
-  - [ ] 10.3 Add session integration to GraphQL
+  - [x] 10.3 Add session integration to GraphQL
     - Create session selection queries
     - Add session application mutations
     - Include session status and expiration handling
     - _Requirements: 6.1, 6.2, 6.5_
 
-- [ ] 10.4 Write integration test for GraphQL API
+- [x] 10.4 Write integration test for GraphQL API
   - Test complete GraphQL workflows for repeater and intruder
   - Verify real-time subscriptions and updates
   - Test error handling and validation
   - _Requirements: 10.1, 10.3, 10.4_
 
-- [ ] 11. Implement security and error handling
-  - [ ] 11.1 Add sensitive data masking
+- [x] 11. Implement security and error handling
+  - [x] 11.1 Add sensitive data masking
+    - make sure also disable functionality on the masking functions 
     - Implement authentication data masking in logs
     - Add sensitive value masking in UI displays
     - Create secure handling of session data
     - Include proper data sanitization
     - _Requirements: 9.1_
 
-  - [ ] 11.2 Implement comprehensive error handling
+  - [x] 11.2 Implement comprehensive error handling
     - Add detailed error messages with remediation suggestions
     - Implement quick failure detection for agents
     - Add input validation with clear error messages
     - Create graceful degradation under resource exhaustion
     - _Requirements: 9.2, 9.3, 9.4, 9.5_
 
-- [ ] 11.3 Write property test for security and error handling
+- [x] 11.3 Write property test for security and error handling
   - **Property 10: Security and Error Handling**
   - **Validates: Requirements 9.1, 9.2, 9.3, 9.4, 9.5**
 
