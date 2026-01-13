@@ -22,14 +22,22 @@ pub mod policy;
 /// Error types for proxy operations
 pub mod error;
 
+/// Memory management for response body capture
+pub mod memory_manager;
+
+/// Integration tests for memory management
+#[cfg(test)]
+pub mod memory_manager_integration_test;
+
 pub use admin::Metrics;
 pub use ca::CertificateAuthority;
 pub use certificates::CertificateManager;
-pub use config::{ProxyConfig, ProxyStartupConfig};
+pub use config::{BodyCaptureConfig, ContentTypeFilterMode, ProxyConfig, ProxyStartupConfig};
 pub use controller::InterceptController;
-pub use error::ProxyError;
+pub use error::{BodyCaptureError, ProxyError};
 pub use filter::ScopeMatcher;
 pub use handlers::LogHandler;
+pub use memory_manager::{MemoryManager, MemoryStats};
 pub use policy::{InterceptionRule, RuleAction, RuleCondition, ScopeConfig, TrafficPolicy};
 /// Re-export commonly used types
 pub use proxy::ProxyServer;

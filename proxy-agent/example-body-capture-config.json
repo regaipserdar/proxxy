@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "max_body_size": 5242880,
+  "truncate_threshold": 1048576,
+  "memory_limit": 52428800,
+  "max_concurrent_captures": 10,
+  "content_type_filters": ["json", "xml", "html", "text"],
+  "content_type_filter_mode": "Whitelist",
+  "response_timeout_secs": 30,
+  "stream_read_timeout_secs": 5
+}
