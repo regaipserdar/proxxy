@@ -1,7 +1,7 @@
 use crate::{
     admin::{start_admin_server, Metrics},
     ca::CertificateAuthority,
-    config::ProxyConfig,
+    config::{BodyCaptureConfig, ProxyConfig},
     error::ProxyError,
     handlers::LogHandler,
     Result,
@@ -16,6 +16,7 @@ pub struct ProxyServer {
     ca: CertificateAuthority,
     metrics: Arc<Metrics>,
     log_sender: Option<tokio::sync::mpsc::Sender<crate::pb::TrafficEvent>>,
+    body_capture_config: BodyCaptureConfig,
 }
 
 impl ProxyServer {
@@ -25,6 +26,7 @@ impl ProxyServer {
             ca,
             metrics: Arc::new(Metrics::default()),
             log_sender: None,
+            body_capture_config: BodyCaptureConfig::default(),
         }
     }
 
@@ -33,6 +35,11 @@ impl ProxyServer {
         sender: tokio::sync::mpsc::Sender<crate::pb::TrafficEvent>,
     ) -> Self {
         self.log_sender = Some(sender);
+        self
+    }
+
+    pub fn with_body_capture_config(mut self, config: BodyCaptureConfig) -> Self {
+        self.body_capture_config = config;
         self
     }
 
@@ -64,7 +71,11 @@ impl ProxyServer {
             .with_addr(addr)
             .with_rustls_client()
             .with_ca(authority)
-            .with_http_handler(LogHandler::new(self.metrics.clone(), self.log_sender))
+            .with_http_handler(LogHandler::new(
+                self.metrics.clone(),
+                self.log_sender,
+                self.body_capture_config
+            ))
             .build();
 
         proxy

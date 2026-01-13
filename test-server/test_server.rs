@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Path, Query, State, Request},
     http::{header, HeaderMap, HeaderValue, StatusCode},
     response::{Html, IntoResponse, Json, Redirect, Response},
     routing::{get, post, put, delete, patch},
@@ -12,6 +12,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use std::collections::HashMap;
+use uuid::Uuid;
 
 // --- Veri Yapıları ---
 
@@ -71,6 +72,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/test", get(benchmark_handler))
         .route("/health", get(health_handler))
         .route("/ping", get(ping_handler))
+
+        // --- STRESS TEST & INTEGRITY ENDPOINTS ---
+        .route("/api/json", get(handler_json))
+        .route("/api/xml", get(handler_xml))
+        .route("/api/large", get(handler_large))
+        .route("/api/echo", post(handler_echo))
 
         // --- 2. Sensitive File Exposure ---
         .route("/.env", get(env_handler))
@@ -268,6 +275,80 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     axum::serve(listener, app).await?;
     Ok(())
+}
+
+// --- STRESS TEST & INTEGRITY HANDLERS ---
+
+/// 1. JSON Handler: Her istekte değişen dinamik veri döner
+async fn handler_json() -> impl IntoResponse {
+    let now = chrono::Utc::now().to_rfc3339();
+    let uuid = Uuid::new_v4().to_string();
+    let random_val = rand::random::<u16>(); 
+
+    Json(serde_json::json!({
+        "status": "success",
+        "message": "Dynamic JSON Response",
+        "server_time": now,
+        "request_id": uuid,
+        "random_value": random_val,
+        "data": "Integrity Check Content"
+    }))
+}
+
+/// 2. XML Handler: Dinamik XML döner
+async fn handler_xml() -> impl IntoResponse {
+    let now = chrono::Utc::now().to_rfc3339();
+    let uuid = Uuid::new_v4().to_string();
+
+    let xml = format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<response>
+    <status>success</status>
+    <server_time>{}</server_time>
+    <request_id>{}</request_id>
+    <message>Dynamic XML Response</message>
+</response>"#,
+        now, uuid
+    );
+
+    (
+        [(header::CONTENT_TYPE, "application/xml")],
+        xml
+    )
+}
+
+/// 3. Large Body Handler: 1MB üstü veri döner
+async fn handler_large() -> impl IntoResponse {
+    let size = 1 * 1024 * 1024; // 1 MB
+    let pattern = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let data = pattern.repeat(size / pattern.len() + 1);
+    let final_data = &data[..size];
+
+    (
+        [
+            (header::CONTENT_TYPE, "text/plain"),
+            (header::CACHE_CONTROL, "no-cache, no-store, must-revalidate"),
+        ],
+        final_data.to_string()
+    )
+}
+
+/// 4. Echo Handler: Gönderilen Body'yi aynen geri döndürür
+async fn handler_echo(req: Request<Body>) -> impl IntoResponse {
+    let (parts, body) = req.into_parts();
+    
+    // Body'yi byte olarak oku
+    let body_bytes = axum::body::to_bytes(body, usize::MAX).await.unwrap();
+    
+    let mut headers = HeaderMap::new();
+    headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("application/json"));
+    
+    // Özel test header'ını geri yansıt
+    if let Some(val) = parts.headers.get("X-Custom-Random") {
+        headers.insert("X-Server-Reflected-Random", val.clone());
+    }
+
+    (StatusCode::OK, headers, body_bytes)
 }
 
 // --- PERFORMANCE HANDLERS ---
