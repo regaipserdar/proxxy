@@ -17,6 +17,10 @@ export const GET_AGENTS = gql`
       status
       version
       lastHeartbeat
+      cpuUsage
+      memoryUsageMb
+      uptimeSeconds
+      publicIp
     }
   }
 `;
@@ -151,6 +155,7 @@ export const GET_AGENT_DETAILS = gql`
       status
       version
       lastHeartbeat
+      publicIp
     }
     currentSystemMetrics(agentId: $agentId) {
       agentId

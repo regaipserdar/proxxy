@@ -5,7 +5,8 @@
 //! It supports gRPC streaming with configurable intervals and dynamic configuration updates.
 
 use crate::pb::{
-    DiskMetrics, MetricsCommand, NetworkMetrics, ProcessMetrics, SystemMetrics, SystemMetricsEvent,
+    AgentMetrics, DiskMetrics, MetricsCommand, NetworkMetrics, ProcessMetrics, SystemMetrics,
+    SystemMetricsEvent,
 };
 use std::collections::HashMap;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -58,6 +59,12 @@ pub struct SystemMetricsCollector {
     last_collection: Option<Instant>,
     /// Process ID for collecting process-specific metrics
     process_id: u32,
+    
+    // Public IP caching strategy
+    public_ip: Option<String>,
+    public_ip_last_attempt: Option<Instant>,
+    public_ip_retry_count: u32,
+    http_client: reqwest::Client,
 }
 
 impl SystemMetricsCollector {
@@ -68,6 +75,13 @@ impl SystemMetricsCollector {
 
         let process_id = std::process::id();
 
+        // Create HTTP client for IP resolution with short timeout
+        let http_client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(5))
+            .user_agent("proxxy-agent/1.0")
+            .build()
+            .unwrap_or_default();
+
         Self {
             system,
             agent_id,
@@ -76,6 +90,10 @@ impl SystemMetricsCollector {
             prev_disk_stats: HashMap::new(),
             last_collection: None,
             process_id,
+            public_ip: None,
+            public_ip_last_attempt: None,
+            public_ip_retry_count: 0,
+            http_client,
         }
     }
 
@@ -119,6 +137,9 @@ impl SystemMetricsCollector {
         loop {
             tokio::select! {
                 _ = interval.tick(), if enabled => {
+                     // We also try to resolve IP here if needed, but primarily for the heartbeat
+                     // For SystemMetrics stream, we stick to system info.
+                     // The user asked to inject IP into HEARTBEAT.
                     match self.collect_metrics().await {
                         Ok(metrics_event) => {
                             debug!("Collected system metrics: CPU: {:.2}%, Memory: {} MB",
@@ -159,11 +180,12 @@ impl SystemMetricsCollector {
         Ok(())
     }
 
-    /// Collect current system metrics
+    /// Collect current system metrics (Global + Process)
     pub async fn collect_metrics(
         &mut self,
     ) -> Result<SystemMetricsEvent, Box<dyn std::error::Error + Send + Sync>> {
-        // Refresh system information
+        // Refresh system information (non-blocking usually, but refresh_all can be heavy)
+        // We only refresh needed parts ideally, but for now refresh_all
         self.system.refresh_all();
 
         let now = Instant::now();
@@ -211,6 +233,79 @@ impl SystemMetricsCollector {
             timestamp,
             metrics: Some(metrics),
         })
+    }
+
+    /// Collect Agent Metrics for Heartbeating (Process specific + Public IP)
+    pub async fn collect_agent_metrics(&mut self) -> AgentMetrics {
+        // Ensure IP is resolved
+        self.resolve_public_ip().await;
+
+        // Refresh specific process
+        self.system.refresh_process(Pid::from_u32(self.process_id));
+        
+        // We also need global refresh for relative CPU? 
+        // sysinfo's process cpu usage is usually based on last refresh.
+        // If collect_metrics called refresh_all recently, we might be good, 
+        // but to be safe for a dedicated heartbeat task:
+        // self.system.refresh_processes(); // expensive?
+        // Let's just rely on refresh_process for the specific PID.
+        
+        let (cpu_usage, memory_mb, uptime) = if let Some(process) = self.system.process(Pid::from_u32(self.process_id)) {
+            (
+                process.cpu_usage(),
+                process.memory() as f64 / 1024.0 / 1024.0,
+                process.run_time(),
+            )
+        } else {
+            (0.0, 0.0, 0)
+        };
+
+        AgentMetrics {
+            agent_id: self.agent_id.clone(),
+            cpu_usage_percent: cpu_usage,
+            memory_usage_mb: memory_mb,
+            uptime_seconds: uptime,
+            public_ip: self.public_ip.clone().unwrap_or_default(),
+        }
+    }
+
+    /// Resolve Public IP with caching and backoff
+    async fn resolve_public_ip(&mut self) {
+        if self.public_ip.is_some() {
+            return;
+        }
+
+        // Check backoff
+        if let Some(last) = self.public_ip_last_attempt {
+            let backoff = Duration::from_secs(2u64.pow(self.public_ip_retry_count.min(6)));
+            if last.elapsed() < backoff {
+                return;
+            }
+        }
+
+        info!("Attempting to resolve public IP...");
+        self.public_ip_last_attempt = Some(Instant::now());
+
+        match self.http_client.get("https://api.ipify.org").send().await {
+            Ok(resp) => {
+                match resp.text().await {
+                    Ok(ip) => {
+                        let ip = ip.trim().to_string();
+                        info!("Resolved public IP: {}", ip);
+                        self.public_ip = Some(ip);
+                        self.public_ip_retry_count = 0;
+                    }
+                    Err(e) => {
+                        warn!("Failed to read IP from response: {}", e);
+                        self.public_ip_retry_count += 1;
+                    }
+                }
+            }
+            Err(e) => {
+                warn!("Failed to resolve public IP: {}", e);
+                self.public_ip_retry_count += 1;
+            }
+        }
     }
 
     /// Collect network metrics with rate calculations

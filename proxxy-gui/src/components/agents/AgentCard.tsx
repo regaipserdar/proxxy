@@ -1,6 +1,6 @@
-import { Server, Activity, Clock, Cpu, Database, ChevronRight, Loader2 } from 'lucide-react';
+import { Server, Activity, Clock, Cpu, Database, ChevronRight, Loader2, Globe } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Agent } from '../types/graphql';
+import { Agent } from '../../types/graphql';
 import { formatDistanceToNow } from 'date-fns';
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,7 +32,6 @@ export function AgentCard({ agent }: AgentCardProps) {
         }
     };
 
-    const cpuUsage = metrics?.cpuUsagePercent ?? 0;
     const memTotal = metrics?.memoryTotalBytes ? parseInt(metrics.memoryTotalBytes, 10) : 0;
     const memUsed = metrics?.memoryUsedBytes ? parseInt(metrics.memoryUsedBytes, 10) : 0;
     const memUsagePercent = memTotal > 0 ? (memUsed / memTotal) * 100 : 0;
@@ -48,8 +47,8 @@ export function AgentCard({ agent }: AgentCardProps) {
                     <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3">
                             <div className={`p-2 rounded-xl border shadow-inner transition-all duration-300 ${isOnline
-                                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 group-hover:scale-110'
-                                    : 'bg-slate-800/20 border-white/5 text-slate-500'
+                                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 group-hover:scale-110'
+                                : 'bg-slate-800/20 border-white/5 text-slate-500'
                                 }`}>
                                 <Server size={18} />
                             </div>
@@ -60,11 +59,19 @@ export function AgentCard({ agent }: AgentCardProps) {
                                 <p className="text-[10px] text-slate-500 font-mono font-medium truncate uppercase tracking-tighter">
                                     {agent.hostname}
                                 </p>
+                                {agent.publicIp && (
+                                    <div className="flex items-center gap-1 mt-0.5">
+                                        <Globe size={8} className="text-purple-400/70" />
+                                        <p className="text-[9px] text-purple-400/70 font-mono font-bold truncate uppercase tracking-tighter">
+                                            {agent.publicIp}
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <Badge variant="outline" className={`h-6 rounded-full font-black text-[9px] uppercase tracking-[0.15em] px-2.5 transition-all ${isOnline
-                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                : 'bg-slate-900 text-slate-500 border-white/5'
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                            : 'bg-slate-900 text-slate-500 border-white/5'
                             }`}>
                             {isOnline && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-2 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />}
                             {agent.status || 'Offline'}
@@ -83,9 +90,14 @@ export function AgentCard({ agent }: AgentCardProps) {
                             </div>
                             <div className="space-y-1.5">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-[11px] font-mono font-bold text-slate-300">{cpuUsage.toFixed(1)}%</span>
+                                    <span className="text-[9px] font-mono text-slate-500 uppercase">SYS</span>
+                                    <span className="text-[10px] font-mono font-bold text-slate-300">{metrics?.cpuUsagePercent?.toFixed(1) || '0.0'}%</span>
                                 </div>
-                                <Progress value={cpuUsage} className="h-1 bg-white/5" />
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-mono text-slate-500 uppercase">PROC</span>
+                                    <span className="text-[10px] font-mono font-bold text-indigo-300">{agent.cpuUsage?.toFixed(1) || '0.0'}%</span>
+                                </div>
+                                <Progress value={metrics?.cpuUsagePercent || 0} className="h-1 bg-white/5" />
                             </div>
                         </div>
                         <div className="bg-white/[0.02] rounded-xl p-3 border border-white/5 flex flex-col gap-2 transition-colors group-hover:bg-white/[0.04]">
@@ -98,7 +110,12 @@ export function AgentCard({ agent }: AgentCardProps) {
                             </div>
                             <div className="space-y-1.5">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-[11px] font-mono font-bold text-slate-300">{memUsedGB} GB</span>
+                                    <span className="text-[9px] font-mono text-slate-500 uppercase">SYS</span>
+                                    <span className="text-[10px] font-mono font-bold text-slate-300">{memUsedGB} GB</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-mono text-slate-500 uppercase">PROC</span>
+                                    <span className="text-[10px] font-mono font-bold text-emerald-300">{agent.memoryUsageMb?.toFixed(0) || '0'} MB</span>
                                 </div>
                                 <Progress value={memUsagePercent} className="h-1 bg-white/5" />
                             </div>

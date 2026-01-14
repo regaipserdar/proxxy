@@ -17,7 +17,8 @@ import {
     RefreshCw,
     Terminal,
     ChevronRight,
-    Network
+    Network,
+    Globe
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -112,59 +113,77 @@ export const AgentDetailView = () => {
         <div className="p-8 h-full flex flex-col gap-8 w-full max-w-[1600px] mx-auto overflow-y-auto custom-scrollbar animate-in slide-in-from-right duration-500">
             {/* Breadcrumbs & Navigation */}
             <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
-                <Link to="/agents" className="hover:text-white transition-colors">Fleet Console</Link>
+                <Link to="/agents" className="hover:text-white transition-colors">Agents</Link>
                 <ChevronRight size={10} className="opacity-30" />
                 <span className="text-indigo-400">Node Detail</span>
             </div>
 
-            {/* Header Section */}
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-                <div className="flex items-center gap-5">
-                    <div className={`p-5 rounded-[2rem] border transition-all duration-500 ${isOnline
-                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.1)]'
-                        : 'bg-red-500/10 border-red-500/20 text-red-400'
-                        }`}>
-                        <Server size={40} className={isOnline ? 'animate-pulse' : ''} />
-                    </div>
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-3">
-                            <h1 className="text-4xl font-black text-white uppercase tracking-tighter">
-                                {agentName}
-                            </h1>
-                            <Badge className={`${isOnline
-                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                : 'bg-red-500/10 text-red-400 border-red-500/20'
-                                } px-3 py-1 uppercase font-black tracking-widest h-fit`}>
-                                {isOnline && <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-ping" />}
-                                {agent.status}
-                            </Badge>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-bold text-slate-500 uppercase tracking-widest">
-                            <div className="flex items-center gap-2">
-                                <Terminal size={14} className="opacity-50" />
-                                <span className="text-indigo-400/70 font-mono select-all uppercase">{agent.id}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Box size={14} className="opacity-50" />
-                                <span className="text-slate-400">{agent.hostname}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Zap size={14} className="opacity-50 text-amber-500/70" />
-                                <span>Version {agent.version}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            {/* Header Section - Command Center Style */}
+            <div className="relative overflow-hidden rounded-[2rem] bg-[#111318] border border-white/5 p-8 transition-all hover:border-white/10 group/header">
+                {/* Background Effects */}
+                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-500/5 blur-[120px] rounded-full pointer-events-none opacity-50 group-hover/header:opacity-100 transition-opacity duration-1000" />
 
-                <div className="flex items-center gap-3">
-                    <button className="h-12 px-6 bg-white/[0.03] border border-white/5 rounded-2xl font-black uppercase tracking-widest text-[10px] text-white hover:bg-white/[0.06] transition-all active:scale-95 flex items-center gap-2">
-                        <RefreshCw size={14} className="text-indigo-400" />
-                        Restart Node
-                    </button>
-                    <button className="h-12 px-6 bg-red-500/10 border border-red-500/20 rounded-2xl font-black uppercase tracking-widest text-[10px] text-red-400 hover:bg-red-500/20 transition-all active:scale-95 flex items-center gap-2">
-                        <Activity size={14} />
-                        Decommission
-                    </button>
+                <div className="relative z-10 flex flex-col gap-8">
+                    {/* Top Row: Identity & Actions */}
+                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+                        {/* Name & Status */}
+                        <div className="flex items-center gap-6">
+                            <div className={`p-4 rounded-2xl border transition-all duration-500 ${isOnline
+                                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.15)]'
+                                : 'bg-red-500/10 border-red-500/20 text-red-400'
+                                }`}>
+                                <Server size={32} className={isOnline ? 'animate-pulse' : ''} />
+                            </div>
+                            <div>
+                                <h1 className="text-4xl font-black text-white uppercase tracking-tighter mb-2">
+                                    {agentName}
+                                </h1>
+                                <div className="flex items-center gap-3">
+                                    <Badge className={`${isOnline
+                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                        : 'bg-red-500/10 text-red-400 border-red-500/20'
+                                        } px-2.5 py-0.5 uppercase font-black tracking-widest text-[10px] h-6`}>
+                                        {isOnline && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-2 animate-ping" />}
+                                        {agent.status}
+                                    </Badge>
+                                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest flex items-center gap-1.5 border-l border-white/5 pl-3 ml-1">
+                                        <Clock size={10} />
+                                        Seen {agent.lastHeartbeat ? formatDistanceToNow(new Date(agent.lastHeartbeat), { addSuffix: true }) : 'Never'}
+                                    </span>
+                                    {agent.publicIp && (
+                                        <div className="flex items-center gap-1.5 border-l border-white/5 pl-3 ml-1">
+                                            <Globe size={10} className="text-purple-400/70" />
+                                            <p className="text-[10px] text-purple-400/70 font-mono font-bold truncate uppercase tracking-tighter">
+                                                {agent.publicIp}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-3">
+                            <button className="h-12 px-6 bg-white/[0.03] border border-white/5 rounded-2xl font-black uppercase tracking-widest text-[10px] text-white hover:bg-white/[0.06] transition-all active:scale-95 flex items-center gap-2 group/btn">
+                                <RefreshCw size={14} className="text-indigo-400 group-hover/btn:rotate-180 transition-transform duration-500" />
+                                Restart Node
+                            </button>
+                            <button className="h-12 px-6 bg-red-500/10 border border-red-500/20 rounded-2xl font-black uppercase tracking-widest text-[10px] text-red-400 hover:bg-red-500/20 transition-all active:scale-95 flex items-center gap-2">
+                                <Activity size={14} />
+                                Decommission
+                            </button>
+                        </div>
+                    </div>
+
+                    <Separator className="bg-white/5" />
+
+                    {/* Info Grid */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+                        <DetailItem label="Agent ID" value={agent.id} icon={<Terminal size={14} />} copyable />
+                        <DetailItem label="Hostname" value={agent.hostname} icon={<Box size={14} />} />
+                        <DetailItem label="Public IP" value={agent.publicIp} icon={<Globe size={14} />} highlight />
+                        <DetailItem label="Agent Version" value={agent.version} icon={<Zap size={14} />} />
+                    </div>
                 </div>
             </div>
 
@@ -176,20 +195,55 @@ export const AgentDetailView = () => {
                 <div className="xl:col-span-2 space-y-8">
                     {/* Primary Metrics */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <MetricTile
-                            icon={<Cpu className="text-indigo-400" />}
-                            label="System CPU"
-                            value={`${metrics?.cpuUsagePercent?.toFixed(1) || 0}%`}
-                            progress={metrics?.cpuUsagePercent || 0}
-                            subValue="Host utilization"
-                        />
-                        <MetricTile
-                            icon={<Database className="text-emerald-400" />}
-                            label="Memory"
-                            value={formatBytes(Number(metrics?.memoryUsedBytes || 0))}
-                            progress={metrics?.memoryUsedBytes && metrics?.memoryTotalBytes ? (Number(metrics.memoryUsedBytes) / Number(metrics.memoryTotalBytes)) * 100 : 0}
-                            subValue={`of ${formatBytes(Number(metrics?.memoryTotalBytes || 0))}`}
-                        />
+                        <Card className="bg-[#111318] border-white/5 hover:border-white/20 transition-all duration-300 group/tile relative overflow-hidden">
+                            <CardContent className="p-5 flex flex-col h-full gap-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="p-2 rounded-xl bg-white/[0.03] border border-white/5 group-hover/tile:scale-110 transition-transform">
+                                        <Cpu size={16} className="text-indigo-400" />
+                                    </div>
+                                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-600">CPU Usage</span>
+                                </div>
+                                <div className="space-y-2 mt-auto">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[9px] font-mono text-slate-500 uppercase">SYS</span>
+                                        <span className="text-[10px] font-mono font-bold text-slate-300">{metrics?.cpuUsagePercent?.toFixed(1) || '0.0'}%</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[9px] font-mono text-slate-500 uppercase">PROC</span>
+                                        <span className="text-[10px] font-mono font-bold text-indigo-300">{agent.cpuUsage?.toFixed(1) || '0.0'}%</span>
+                                    </div>
+                                    <Progress value={metrics?.cpuUsagePercent || 0} className="h-1 bg-white/5 mt-2" />
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="bg-[#111318] border-white/5 hover:border-white/20 transition-all duration-300 group/tile relative overflow-hidden">
+                            <CardContent className="p-5 flex flex-col h-full gap-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="p-2 rounded-xl bg-white/[0.03] border border-white/5 group-hover/tile:scale-110 transition-transform">
+                                        <Database size={16} className="text-emerald-400" />
+                                    </div>
+                                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-600">Memory</span>
+                                </div>
+                                <div className="space-y-2 mt-auto">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[9px] font-mono text-slate-500 uppercase">SYS</span>
+                                        <span className="text-[10px] font-mono font-bold text-slate-300">
+                                            {formatBytes(Number(metrics?.memoryUsedBytes || 0))}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[9px] font-mono text-slate-500 uppercase">PROC</span>
+                                        <span className="text-[10px] font-mono font-bold text-emerald-300">{agent?.memoryUsageMb?.toFixed(0) || '0'} MB</span>
+                                    </div>
+                                    <Progress
+                                        value={metrics?.memoryUsedBytes && metrics?.memoryTotalBytes ? (Number(metrics.memoryUsedBytes) / Number(metrics.memoryTotalBytes)) * 100 : 0}
+                                        className="h-1 bg-white/5 mt-2"
+                                    />
+                                </div>
+                            </CardContent>
+                        </Card>
+
                         <MetricTile
                             icon={<Network className="text-purple-400" />}
                             label="Net Throughput"
@@ -293,20 +347,20 @@ export const AgentDetailView = () => {
                         </TabsContent>
 
                         <TabsContent value="history" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-400">
-                            <Card className="bg-[#111318] border-white/5">
-                                <CardHeader className="flex flex-row items-center justify-between">
+                            <Card className="bg-[#111318] border-white/5 flex flex-col max-h-[600px]">
+                                <CardHeader className="flex flex-row items-center justify-between shrink-0 bg-[#111318] z-10">
                                     <CardTitle className="text-sm font-black uppercase tracking-widest text-white">Full Traffic Logs</CardTitle>
                                     <Badge variant="outline" className="text-[8px] border-white/10 text-slate-500">Live Updates</Badge>
                                 </CardHeader>
-                                <CardContent className="p-0">
-                                    <div className="overflow-x-auto">
+                                <CardContent className="p-0 overflow-hidden flex-1 flex flex-col">
+                                    <div className="overflow-y-auto custom-scrollbar flex-1">
                                         <table className="w-full text-left border-collapse">
-                                            <thead className="bg-white/[0.02] border-y border-white/5">
+                                            <thead className="bg-[#111318] border-y border-white/5 sticky top-0 z-20 shadow-sm">
                                                 <tr>
-                                                    <th className="px-6 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Method</th>
-                                                    <th className="px-6 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Target URL</th>
-                                                    <th className="px-6 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Status</th>
-                                                    <th className="px-6 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">Time</th>
+                                                    <th className="px-6 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest bg-[#111318]">Method</th>
+                                                    <th className="px-6 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest bg-[#111318]">Target URL</th>
+                                                    <th className="px-6 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest bg-[#111318]">Status</th>
+                                                    <th className="px-6 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right bg-[#111318]">Time</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-white/5">
@@ -432,6 +486,34 @@ const MetricTile = ({ icon, label, value, subValue, subText, progress, glow }: {
     </Card>
 );
 
+
+const DetailItem = ({ label, value, icon, copyable, highlight }: {
+    label: string,
+    value?: string | null,
+    icon: React.ReactNode,
+    copyable?: boolean,
+    highlight?: boolean
+}) => {
+    if (!value) return null;
+    return (
+        <div className="flex flex-col gap-2 group/item">
+            <div className="flex items-center gap-2 text-slate-500 group-hover/item:text-slate-400 transition-colors">
+                <div className="opacity-50">{icon}</div>
+                <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
+            </div>
+            <div
+                className={`text-sm font-mono font-bold truncate transition-all ${highlight ? 'text-purple-400' : 'text-slate-200'
+                    } ${copyable ? 'cursor-pointer hover:text-white hover:underline decoration-white/20 underline-offset-4' : ''}`}
+                onClick={() => {
+                    if (copyable) navigator.clipboard.writeText(value);
+                }}
+                title={copyable ? "Click to copy" : undefined}
+            >
+                {value}
+            </div>
+        </div>
+    );
+};
 
 function formatBytes(bytes: number, decimals = 1) {
     if (bytes === 0) return '0 B';

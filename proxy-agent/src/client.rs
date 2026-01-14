@@ -1,11 +1,11 @@
 use proxy_core::pb::proxy_service_client::ProxyServiceClient;
-use proxy_core::pb::{MetricsCommand, RegisterAgentRequest, SystemMetricsEvent, TrafficEvent};
+use proxy_core::pb::{MetricsCommand, RegisterAgentRequest, SystemMetricsEvent, TrafficEvent, HeartbeatRequest};
 use proxy_core::{SystemMetricsCollector, SystemMetricsCollectorConfig};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{mpsc, Mutex};
 use tokio_stream::wrappers::ReceiverStream;
-use tracing::{error, info, warn};
+use tracing::{error, info, warn, debug};
 
 /// Tracks active attack requests for graceful shutdown
 #[derive(Debug, Clone)]
@@ -253,8 +253,9 @@ impl OrchestratorClient {
                 }
             }
 
-            // 2. Start metrics streaming alongside traffic streaming
+            // 2. Start metrics streaming and heartbeat
             let metrics_handle = self.start_metrics_streaming().await;
+            let heartbeat_handle = self.start_heartbeat_streaming().await;
 
             // 3. Traffic Streaming Loop
             info!("Starting traffic stream...");
@@ -505,8 +506,11 @@ impl OrchestratorClient {
                 }
             }
 
-            // Cancel metrics streaming before reconnecting
+            // Cancel metrics and heartbeat streaming before reconnecting
             if let Some(handle) = metrics_handle {
+                handle.abort();
+            }
+            if let Some(handle) = heartbeat_handle {
                 handle.abort();
             }
         }
@@ -602,6 +606,100 @@ impl OrchestratorClient {
             }
             Err(e) => {
                 error!("Failed to connect for metrics streaming: {}", e);
+                None
+            }
+        }
+    }
+
+    /// Start heartbeat streaming in a separate task
+    async fn start_heartbeat_streaming(&self) -> Option<tokio::task::JoinHandle<()>> {
+        info!("Starting heartbeat streaming for agent: {}", self.agent_id);
+
+        match ProxyServiceClient::connect(self.endpoint.clone()).await {
+            Ok(mut client) => {
+                let agent_id = self.agent_id.clone();
+                let endpoint = self.endpoint.clone();
+
+                let handle = tokio::spawn(async move {
+                    let mut metrics_collector = SystemMetricsCollector::with_config(
+                        agent_id.clone(),
+                        SystemMetricsCollectorConfig::default(),
+                    );
+                    
+                    // Heartbeat every 30 seconds
+                    let mut interval = tokio::time::interval(Duration::from_secs(30));
+                    
+                    // Initial delay to separate from other startup tasks
+                    tokio::time::sleep(Duration::from_secs(2)).await;
+
+                    loop {
+                        let (tx, rx) = mpsc::channel(10);
+                        let outbound = ReceiverStream::new(rx);
+                        let mut request = tonic::Request::new(outbound);
+                        request.metadata_mut().insert("x-agent-id", agent_id.parse().unwrap());
+                        
+                        match client.heartbeat(request).await {
+                             Ok(response) => {
+                                 info!("Heartbeat stream established for agent: {}", agent_id);
+                                 let mut inbound = response.into_inner();
+                                 let tx = tx.clone(); // Use cloned tx
+
+                                 loop {
+                                     tokio::select! {
+                                         _ = interval.tick() => {
+                                             let metrics = metrics_collector.collect_agent_metrics().await;
+                                             let req = HeartbeatRequest {
+                                                 agent_id: agent_id.clone(),
+                                                 cpu_usage: metrics.cpu_usage_percent,
+                                                 memory_usage_mb: metrics.memory_usage_mb,
+                                                 uptime_seconds: metrics.uptime_seconds,
+                                                 public_ip: metrics.public_ip,
+                                             };
+                                             
+                                             debug!("Sending heartbeat: CPU {:.1}%, Mem {:.1}MB, IP {}", 
+                                                 req.cpu_usage, req.memory_usage_mb, req.public_ip);
+
+                                             if let Err(e) = tx.send(req).await {
+                                                  warn!("Failed to send heartbeat: {}", e);
+                                                  break;
+                                             }
+                                         }
+                                         msg = inbound.message() => {
+                                             match msg {
+                                                 Ok(Some(_resp)) => {
+                                                     // Received heartbeat ack
+                                                 }
+                                                 Ok(None) => {
+                                                     warn!("Heartbeat stream closed by server");
+                                                     break;
+                                                 }
+                                                 Err(e) => {
+                                                     warn!("Heartbeat stream error: {}", e);
+                                                     break;
+                                                 }
+                                             }
+                                         }
+                                     }
+                                 }
+                             }
+                             Err(e) => {
+                                 error!("Failed to establish heartbeat stream: {}", e);
+                                 tokio::time::sleep(Duration::from_secs(5)).await;
+                             }
+                        }
+
+                        // Reconnect client if loop broke
+                        if let Ok(c) = ProxyServiceClient::connect(endpoint.clone()).await {
+                             client = c;
+                        } else {
+                             tokio::time::sleep(Duration::from_secs(5)).await;
+                        }
+                    }
+                });
+                Some(handle)
+            }
+            Err(e) => {
+                error!("Failed to connect for heartbeat streaming: {}", e);
                 None
             }
         }

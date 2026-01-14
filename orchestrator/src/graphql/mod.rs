@@ -134,6 +134,10 @@ impl QueryRoot {
                 status: a.status,
                 version: a.version,
                 last_heartbeat: a.last_heartbeat,
+                cpu_usage: a.cpu_usage,
+                memory_usage_mb: a.memory_usage_mb,
+                uptime_seconds: a.uptime_seconds,
+                public_ip: a.public_ip,
             });
         }
         Ok(result)
@@ -1424,6 +1428,10 @@ pub struct AgentGql {
     pub status: String,
     pub version: String,
     pub last_heartbeat: String,
+    pub cpu_usage: f32,
+    pub memory_usage_mb: f64,
+    pub uptime_seconds: u64,
+    pub public_ip: String,
 }
 
 // ============================================================================
