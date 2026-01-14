@@ -185,6 +185,12 @@ export const GET_PROJECTS = gql`
   }
 `;
 
+export const GET_CA_CERT = gql`
+  query GetCaCert {
+    caCertPem
+  }
+`;
+
 export const CREATE_PROJECT = gql`
   mutation CreateProject($name: String!) {
     createProject(name: $name) {
@@ -344,6 +350,32 @@ export const UPDATE_REPEATER_TAB = gql`
 export const DELETE_REPEATER_TAB = gql`
   mutation DeleteRepeaterTab($id: String!) {
     deleteRepeaterTab(id: $id)
+  }
+`;
+
+export const GET_REPEATER_HISTORY = gql`
+  query GetRepeaterHistory($tabId: String!, $limit: Int) {
+    repeaterHistory(tabId: $tabId, limit: $limit) {
+      id
+      tabId
+      agentId
+      statusCode
+      durationMs
+      executedAt
+      error
+      requestData {
+        method
+        url
+        body
+        headers
+      }
+      responseData {
+        statusCode
+        body
+        headers
+        bodyLength
+      }
+    }
   }
 `;
 

@@ -1,5 +1,3 @@
-import { Badge } from '@/components/ui/badge';
-
 export interface TrafficRequest {
     requestId: string;
     method: string;

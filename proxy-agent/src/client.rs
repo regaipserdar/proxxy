@@ -312,8 +312,8 @@ impl OrchestratorClient {
                                                 Some(attack_command::Command::RepeaterRequest(repeater_req)) => {
                                                     let req_data = repeater_req.request.clone().unwrap_or_default();
                                                     info!(
-                                                        "Executing Repeater Request: {} {}",
-                                                        req_data.method, req_data.url
+                                                        "🔄 [REPEATER] Received request: {} {} (request_id: {})",
+                                                        req_data.method, req_data.url, repeater_req.request_id
                                                     );
 
                                                     let client = http_client.clone();
@@ -330,14 +330,32 @@ impl OrchestratorClient {
                                                         Some(repeater_req.session_headers.clone())
                                                     };
                                                     let tracker = Some(attack_tracker.clone());
+                                                    let req_id_log = req_id.clone();
 
                                                     tokio::spawn(async move {
+                                                        info!("🔄 [REPEATER] Executing HTTP request... (request_id: {})", req_id_log);
                                                         let result_event = Self::execute_http_request(
                                                             &client, req_data, req_id, session_id, session_headers, tracker
                                                         ).await;
 
+                                                        // Log the result
+                                                        if let Some(ref event) = result_event.event {
+                                                            match event {
+                                                                proxy_core::pb::traffic_event::Event::Response(resp) => {
+                                                                    info!("🔄 [REPEATER] Got response: status={}, body_len={} (request_id: {})", 
+                                                                        resp.status_code, resp.body.len(), req_id_log);
+                                                                }
+                                                                _ => {
+                                                                    warn!("🔄 [REPEATER] Got non-response event (request_id: {})", req_id_log);
+                                                                }
+                                                            }
+                                                        }
+
+                                                        info!("🔄 [REPEATER] Sending response back to orchestrator... (request_id: {})", req_id_log);
                                                         if let Err(e) = tx.send(result_event).await {
-                                                            warn!("Failed to send repeater result: {}", e);
+                                                            error!("🔄 [REPEATER] Failed to send repeater result: {} (request_id: {})", e, req_id_log);
+                                                        } else {
+                                                            info!("🔄 [REPEATER] Response sent successfully! (request_id: {})", req_id_log);
                                                         }
                                                     });
                                                 }

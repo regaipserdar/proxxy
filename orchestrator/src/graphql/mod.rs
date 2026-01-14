@@ -214,6 +214,12 @@ impl QueryRoot {
         }
     }
 
+    /// Get CA certificate PEM
+    async fn ca_cert_pem(&self, ctx: &Context<'_>) -> async_graphql::Result<String> {
+        let ca = ctx.data::<Arc<proxy_core::CertificateAuthority>>()?;
+        Ok(ca.get_ca_cert_pem().unwrap_or_default())
+    }
+
     /// Get execution history for a repeater tab
     async fn repeater_history(
         &self,

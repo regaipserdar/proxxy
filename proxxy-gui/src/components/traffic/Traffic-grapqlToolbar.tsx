@@ -1,7 +1,6 @@
-import React from 'react';
 import {
-    Search, Layout, SlidersHorizontal, Shield,
-    Activity, Globe, CheckCircle2, AlertCircle, Terminal
+    Search, Layout, SlidersHorizontal,
+    CheckCircle2, Terminal
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -159,8 +158,8 @@ export const TrafficToolbar = ({
                                             >
                                                 <div className="flex items-center gap-3">
                                                     <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${hideConnect
-                                                            ? 'bg-cyan-500 border-cyan-500'
-                                                            : 'border-slate-600 group-hover:border-slate-500'
+                                                        ? 'bg-cyan-500 border-cyan-500'
+                                                        : 'border-slate-600 group-hover:border-slate-500'
                                                         }`}>
                                                         {hideConnect && <CheckCircle2 className="w-3 h-3 text-white" strokeWidth={3} />}
                                                     </div>

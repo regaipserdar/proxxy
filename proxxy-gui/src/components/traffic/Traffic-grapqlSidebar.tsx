@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { Virtuoso } from 'react-virtuoso';
 import { ChevronRight, Globe, Loader2 } from 'lucide-react';
 import { TrafficRequest, getMethodColor, getStatusColor } from './types-grapql';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface TrafficSidebarProps {
     groupedRequests: Record<string, TrafficRequest[]>;
@@ -52,7 +51,7 @@ export const TrafficSidebar = ({
             <Virtuoso
                 style={{ height: '100%' }}
                 data={flatData}
-                itemContent={(index, item) => {
+                itemContent={(_index, item) => {
                     if (item.type === 'host') {
                         return (
                             <div

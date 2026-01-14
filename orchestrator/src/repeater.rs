@@ -126,6 +126,10 @@ pub struct RepeaterManager {
     agent_registry: Arc<AgentRegistry>,
     session_manager: Arc<SessionManager>,
     active_tabs: Arc<RwLock<HashMap<String, RepeaterTabConfig>>>,
+    /// Pending request -> response oneshot channel mapping
+    pending_requests: Arc<RwLock<HashMap<String, tokio::sync::oneshot::Sender<HttpResponseData>>>>,
+    /// Broadcast receiver for traffic events (to correlate responses)
+    broadcast_tx: tokio::sync::broadcast::Sender<(String, crate::pb::TrafficEvent)>,
 }
 
 impl RepeaterManager {
@@ -133,12 +137,15 @@ impl RepeaterManager {
     pub fn new(
         database: Arc<Database>,
         agent_registry: Arc<AgentRegistry>,
+        broadcast_tx: tokio::sync::broadcast::Sender<(String, crate::pb::TrafficEvent)>,
     ) -> Self {
         Self {
             database,
             agent_registry,
             session_manager: Arc::new(SessionManager::new()),
             active_tabs: Arc::new(RwLock::new(HashMap::new())),
+            pending_requests: Arc::new(RwLock::new(HashMap::new())),
+            broadcast_tx,
         }
     }
 
@@ -670,56 +677,121 @@ impl RepeaterManager {
         }
     }
 
-    /// Execute request through agent (placeholder for actual gRPC implementation)
+    /// Execute request through agent via InterceptCommand channel
     async fn execute_through_agent(
         &self,
         request: &HttpRequestData,
         agent_id: &str,
     ) -> AttackResult<HttpResponseData> {
+        use crate::pb::{InterceptCommand, intercept_command, AttackCommand, attack_command, RepeaterRequest, HttpRequestData as PbHttpRequest, HttpHeaders as PbHttpHeaders, traffic_event};
+
         info!("📡 Executing request through agent: {}", agent_id);
 
         // Validate agent is still available before execution
         self.validate_agent_availability(agent_id).await?;
 
-        // TODO: Implement actual gRPC call to agent with proper error handling
-        // For now, return a mock response to enable testing
-        
-        // Simulate potential network issues
-        if agent_id == "test-offline-agent" {
-            return Err(AttackError::AgentUnavailable {
+        // Get the agent's command channel
+        let command_tx = self.agent_registry.get_agent_tx(agent_id)
+            .ok_or_else(|| AttackError::AgentUnavailable {
                 agent_id: agent_id.to_string(),
-            });
-        }
+            })?;
 
-        if agent_id == "test-network-error" {
-            return Err(AttackError::NetworkError {
-                details: "Connection timeout after 30 seconds".to_string(),
-            });
-        }
+        // Generate unique request ID
+        let request_id = Uuid::new_v4().to_string();
 
-        // Simulate network delay
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        // Subscribe to broadcast BEFORE sending command to avoid race condition
+        let mut broadcast_rx = self.broadcast_tx.subscribe();
 
-        // Create mock response based on request
-        let mock_response = HttpResponseData {
-            status_code: 200,
-            headers: Some(attack_engine::HttpHeaders {
-                headers: {
-                    let mut headers = HashMap::new();
-                    headers.insert("Content-Type".to_string(), "application/json".to_string());
-                    headers.insert("Server".to_string(), "nginx/1.18.0".to_string());
-                    headers
-                },
-            }),
-            body: format!(
-                r#"{{"message": "Mock response for {} {}", "agent": "{}"}}"#,
-                request.method, request.url, agent_id
-            ).into_bytes(),
-            tls: None,
+        // Convert HttpRequestData to protobuf format
+        let pb_headers = request.headers.as_ref().map(|h| PbHttpHeaders {
+            headers: h.headers.clone(),
+        });
+
+        let pb_request = PbHttpRequest {
+            method: request.method.clone(),
+            url: request.url.clone(),
+            headers: pb_headers,
+            body: request.body.clone(),
+            tls: None, // TLS details not needed for repeater
         };
 
-        info!("   ✓ Mock response generated (status: 200)");
-        Ok(mock_response)
+        // Build the InterceptCommand with RepeaterRequest
+        let cmd = InterceptCommand {
+            command: Some(intercept_command::Command::Attack(AttackCommand {
+                command: Some(attack_command::Command::RepeaterRequest(RepeaterRequest {
+                    request_id: request_id.clone(),
+                    request: Some(pb_request),
+                    session_id: String::new(),
+                    session_headers: HashMap::new(),
+                })),
+            })),
+        };
+
+        // Send command to agent
+        if let Err(e) = command_tx.send(Ok(cmd)).await {
+            error!("   ✗ Failed to send command to agent: {}", e);
+            return Err(AttackError::NetworkError {
+                details: format!("Failed to send command to agent: {}", e),
+            });
+        }
+
+        info!("   ✓ Command sent, waiting for response (request_id: {})", request_id);
+
+        // Wait for response with timeout (30 seconds)
+        let timeout = std::time::Duration::from_secs(30);
+        let start = std::time::Instant::now();
+
+        info!("   🔄 [REPEATER] Waiting for response via broadcast... (request_id: {})", request_id);
+
+        loop {
+            if start.elapsed() > timeout {
+                error!("   ✗ [REPEATER] Timeout after 30 seconds (request_id: {})", request_id);
+                return Err(AttackError::NetworkError {
+                    details: "Request timed out after 30 seconds".to_string(),
+                });
+            }
+
+            // Wait for broadcast with short timeout
+            match tokio::time::timeout(std::time::Duration::from_millis(100), broadcast_rx.recv()).await {
+                Ok(Ok((agent, event))) => {
+                    // Log every event we receive
+                    info!("   📦 [REPEATER] Got broadcast event: agent={}, event_request_id={}, our_request_id={}", 
+                        agent, event.request_id, request_id);
+                    
+                    // Check if this is our response
+                    if event.request_id == request_id {
+                        info!("   ✓ [REPEATER] Request ID matches! Checking event type...");
+                        if let Some(traffic_event::Event::Response(resp)) = event.event {
+                            info!("   ✓ [REPEATER] Response received! status={}, body_len={} (request_id: {})", 
+                                resp.status_code, resp.body.len(), request_id);
+                            
+                            // Convert protobuf response to attack_engine format
+                            let headers = resp.headers.map(|h| attack_engine::HttpHeaders {
+                                headers: h.headers,
+                            });
+
+                            return Ok(HttpResponseData {
+                                status_code: resp.status_code,
+                                headers,
+                                body: resp.body,
+                                tls: None,
+                            });
+                        } else {
+                            warn!("   ⚠ [REPEATER] Event matched but was not a Response type!");
+                        }
+                    }
+                    // Not our response, continue waiting
+                }
+                Ok(Err(e)) => {
+                    // Broadcast channel error, but continue trying
+                    warn!("   ⚠ [REPEATER] Broadcast channel error: {:?}", e);
+                }
+                Err(_) => {
+                    // Timeout on recv, loop again and check total timeout
+                    continue;
+                }
+            }
+        }
     }
 
     /// Execute request with retry logic and fallback handling

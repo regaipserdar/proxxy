@@ -161,10 +161,11 @@ export const TrafficTreePage = () => {
             name = `${fullReq.method} ${fullReq.url}`;
         }
 
-        addTask({
+        // Wait for task to be created before navigating
+        // Don't pass agentId - user will select an available agent in Repeater
+        await addTask({
             name,
             request: raw,
-            agentId: fullReq.agentId,
             targetUrl: fullReq.url
         });
 

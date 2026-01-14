@@ -10,7 +10,7 @@ orch:
 
 # Run the Proxy Agent
 agent:
-    cargo run -p proxy-agent -- --name "Agent-Alpha"
+    cargo run -p proxy-agent -- --name "Agent-Beta"
 
 # Test proxy traffic
 test:

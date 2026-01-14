@@ -16,6 +16,8 @@ interface RepeaterToolbarProps {
     setIsAgentMenuOpen: (open: boolean) => void;
     handleSend: () => void;
     isSending: boolean;
+    isHistoryOpen: boolean;
+    onToggleHistory: () => void;
 }
 
 export const RepeaterToolbar: React.FC<RepeaterToolbarProps> = ({
@@ -31,7 +33,9 @@ export const RepeaterToolbar: React.FC<RepeaterToolbarProps> = ({
     isAgentMenuOpen,
     setIsAgentMenuOpen,
     handleSend,
-    isSending
+    isSending,
+    isHistoryOpen,
+    onToggleHistory
 }) => {
     const dropdownRef = useRef<HTMLDivElement>(null);
     const selectedAgent = agents.find(a => a.id === selectedAgentId) || agents[0];
@@ -132,7 +136,13 @@ export const RepeaterToolbar: React.FC<RepeaterToolbarProps> = ({
             </div>
 
             <div className="flex items-center gap-3">
-                <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 text-[11px] font-bold text-white/60 hover:text-white hover:bg-white/10 transition-all border border-transparent hover:border-white/10">
+                <button
+                    onClick={() => onToggleHistory()}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[11px] font-bold border transition-all ${isHistoryOpen
+                        ? 'bg-[#9DCDE8]/20 text-[#9DCDE8] border-[#9DCDE8]/30 shadow-[0_0_15px_rgba(157,205,232,0.1)]'
+                        : 'bg-white/5 text-white/60 hover:text-white hover:bg-white/10 border-transparent hover:border-white/10'
+                        }`}
+                >
                     <History size={14} /> History
                 </button>
 

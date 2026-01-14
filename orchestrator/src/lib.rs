@@ -64,6 +64,7 @@ struct AppState {
     schema: ProxySchema,
     agents: Arc<AgentRegistry>,
     db: Arc<Database>,
+    ca: Arc<proxy_core::CertificateAuthority>,
     start_time: std::time::Instant,
     #[allow(dead_code)] // Used via GraphQL context
     scope: Arc<RwLock<ScopeConfig>>,
@@ -213,6 +214,7 @@ impl Orchestrator {
         let repeater_manager = Arc::new(crate::repeater::RepeaterManager::new(
             db.clone(),
             agent_registry.clone(),
+            broadcast_tx.clone(),
         ));
         
         // Initialize the repeater manager
@@ -240,6 +242,7 @@ impl Orchestrator {
         // GraphQL Schema
         let schema = async_graphql::Schema::build(QueryRoot, MutationRoot, SubscriptionRoot)
             .data(db.clone())
+            .data(ca.clone())
             .data(agent_registry.clone())
             .data(broadcast_tx.clone())
             .data(metrics_broadcast_tx.clone())
@@ -257,6 +260,7 @@ impl Orchestrator {
             schema,
             agents: agent_registry.clone(),
             db: db.clone(),
+            ca: ca.clone(),
             start_time: std::time::Instant::now(),
             scope,
             interception,

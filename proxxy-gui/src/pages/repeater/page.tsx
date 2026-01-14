@@ -9,10 +9,16 @@ import { RepeaterTabs } from '@/components/repeater/RepeaterTabs';
 import { RepeaterToolbar } from '@/components/repeater/RepeaterToolbar';
 import { RepeaterInspector } from '@/components/repeater/RepeaterInspector';
 import { EmptyRepeater } from '@/components/repeater/EmptyRepeater';
+import { RepeaterHistory } from '@/components/repeater/RepeaterHistory';
 import { RepeaterAgent } from '@/components/repeater/types';
 
 export const RepeaterView = () => {
-  const { tasks, activeTaskId, addTask, updateTask, removeTask, setActiveTaskId } = useRepeaterStore();
+  const { tasks, activeTaskId, addTask, updateTask, removeTask, setActiveTaskId, loadTabs, isLoading } = useRepeaterStore();
+
+  // Load tabs from server on mount
+  useEffect(() => {
+    loadTabs();
+  }, [loadTabs]);
 
   const activeTask = useMemo(() =>
     tasks.find((t: any) => t.id === activeTaskId) || tasks[0],
@@ -25,6 +31,7 @@ export const RepeaterView = () => {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editingNameValue, setEditingNameValue] = useState('');
   const [isAgentMenuOpen, setIsAgentMenuOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   // Agent Selection State
   const { data: agentsData } = useQuery(GET_AGENTS, {
@@ -134,6 +141,53 @@ export const RepeaterView = () => {
     setIsEditingName(false);
   };
 
+  const onSelectExecution = (execution: any) => {
+    if (!activeTask) return;
+
+    // Reconstruct request
+    const req = execution.requestData;
+    let rawRequest = `${req.method} ${req.url} HTTP/1.1\n`;
+    if (req.headers) {
+      try {
+        const headers = JSON.parse(req.headers);
+        Object.entries(headers).forEach(([k, v]) => {
+          rawRequest += `${k}: ${v}\n`;
+        });
+      } catch (e) { }
+    }
+    rawRequest += `\n${req.body || ''}`;
+
+    // Reconstruct response
+    const res = execution.responseData;
+    let rawResponse = '';
+    if (res) {
+      rawResponse = `HTTP/1.1 ${res.statusCode}\n`;
+      if (res.headers) {
+        try {
+          const headers = JSON.parse(res.headers);
+          Object.entries(headers).forEach(([k, v]) => {
+            rawResponse += `${k}: ${v}\n`;
+          });
+        } catch (e) { }
+      }
+      rawResponse += `\n${res.body || ''}`;
+    }
+
+    updateTask(activeTask.id, {
+      request: rawRequest,
+      response: rawResponse || `Execution error: ${execution.error || 'Unknown error'}`
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col h-full bg-[#0A0E14] items-center justify-center gap-4">
+        <div className="w-8 h-8 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
+        <span className="text-sm text-slate-500 font-mono">Loading tabs...</span>
+      </div>
+    );
+  }
+
   if (tasks.length === 0) {
     return <EmptyRepeater handleNewTab={handleNewTab} />;
   }
@@ -163,16 +217,28 @@ export const RepeaterView = () => {
         setIsAgentMenuOpen={setIsAgentMenuOpen}
         handleSend={handleSend}
         isSending={isSending}
+        isHistoryOpen={isHistoryOpen}
+        onToggleHistory={() => setIsHistoryOpen(!isHistoryOpen)}
       />
 
-      <RepeaterInspector
-        activeTask={activeTask}
-        updateTask={updateTask}
-        reqSearch={reqSearch}
-        setReqSearch={setReqSearch}
-        resSearch={resSearch}
-        setResSearch={setResSearch}
-      />
+      <div className="flex-1 flex overflow-hidden">
+        <RepeaterInspector
+          activeTask={activeTask}
+          updateTask={updateTask}
+          reqSearch={reqSearch}
+          setReqSearch={setReqSearch}
+          resSearch={resSearch}
+          setResSearch={setResSearch}
+        />
+
+        {activeTask && isHistoryOpen && (
+          <RepeaterHistory
+            tabId={activeTask.id}
+            onSelectExecution={onSelectExecution}
+            onClose={() => setIsHistoryOpen(false)}
+          />
+        )}
+      </div>
     </div>
   );
 };
