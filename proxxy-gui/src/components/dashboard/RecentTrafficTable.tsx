@@ -96,7 +96,7 @@ export const RecentTrafficTable: React.FC<RecentTrafficTableProps> = ({
           recentTraffic.map((tx, i) => (
             <div
               key={tx.requestId || i}
-              onClick={() => navigate(`/proxy/${tx.requestId}`)}
+              onClick={() => navigate('/traffic-tree')}
               className="group flex items-center gap-4 p-2.5 rounded-xl bg-white/[0.01] border border-white/5 hover:bg-white/[0.04] hover:border-primary/20 cursor-pointer transition-all animate-in slide-in-from-bottom-2 duration-300"
             >
               <div className="flex items-center gap-2.5 min-w-[100px] shrink-0">

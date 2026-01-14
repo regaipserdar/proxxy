@@ -367,7 +367,7 @@ export const AgentDetailView = () => {
                                 </div>
                             )}
                         </div>
-                        <Link to="/proxy">
+                        <Link to="/traffic-tree">
                             <Button variant="ghost" className="w-full mt-6 text-[10px] font-black uppercase tracking-widest hover:bg-white/5 border border-white/5 h-10">
                                 Global Traffic Monitor
                             </Button>
