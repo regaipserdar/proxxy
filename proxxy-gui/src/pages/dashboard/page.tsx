@@ -109,7 +109,7 @@ export const DashboardPage: React.FC = () => {
             <Activity className="w-4 h-4 text-primary" />
             <CardTitle className="text-xs font-black uppercase tracking-widest">Recent Intercepts</CardTitle>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/proxy')} className="h-7 px-3 text-[9px] font-black text-primary hover:text-primary hover:bg-primary/10 tracking-widest uppercase">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/traffic-tree')} className="h-7 px-3 text-[9px] font-black text-primary hover:text-primary hover:bg-primary/10 tracking-widest uppercase">
             Full Log →
           </Button>
         </CardHeader>

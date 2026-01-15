@@ -7,6 +7,10 @@ export interface Agent {
   status: string; // Backend returns string, not enum
   version: string;
   lastHeartbeat: string;
+  cpuUsage?: number;
+  memoryUsageMb?: number;
+  uptimeSeconds?: number;
+  publicIp?: string;
 }
 
 export interface HttpTransaction {

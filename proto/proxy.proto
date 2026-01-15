@@ -11,6 +11,30 @@ service ProxyService {
   
   // Stream system metrics from agent to orchestrator
   rpc StreamMetrics (stream SystemMetricsEvent) returns (stream MetricsCommand);
+
+  // Heartbeat mechanism for liveness and basic observability
+  rpc Heartbeat (stream HeartbeatRequest) returns (stream HeartbeatResponse);
+}
+
+message HeartbeatRequest {
+  string agent_id = 1;
+  float cpu_usage = 2;
+  double memory_usage_mb = 3;
+  string public_ip = 4;
+  uint64 uptime_seconds = 5;
+}
+
+message HeartbeatResponse {
+  bool success = 1;
+  int64 timestamp = 2;
+}
+
+message AgentMetrics {
+  string agent_id = 1;
+  float cpu_usage_percent = 2;
+  double memory_usage_mb = 3;
+  uint64 uptime_seconds = 4;
+  string public_ip = 5;
 }
 
 message RegisterAgentRequest {

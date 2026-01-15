@@ -1,7 +1,7 @@
 use crate::{
     admin::{start_admin_server, Metrics},
     ca::CertificateAuthority,
-    config::{BodyCaptureConfig, ProxyConfig},
+    config::{ProxyConfig, BodyCaptureConfig},
     error::ProxyError,
     handlers::LogHandler,
     Result,
@@ -16,7 +16,7 @@ pub struct ProxyServer {
     ca: CertificateAuthority,
     metrics: Arc<Metrics>,
     log_sender: Option<tokio::sync::mpsc::Sender<crate::pb::TrafficEvent>>,
-    body_capture_config: BodyCaptureConfig,
+    body_capture_config: Option<BodyCaptureConfig>,
 }
 
 impl ProxyServer {
@@ -26,7 +26,7 @@ impl ProxyServer {
             ca,
             metrics: Arc::new(Metrics::default()),
             log_sender: None,
-            body_capture_config: BodyCaptureConfig::default(),
+            body_capture_config: None,
         }
     }
 
@@ -39,7 +39,7 @@ impl ProxyServer {
     }
 
     pub fn with_body_capture_config(mut self, config: BodyCaptureConfig) -> Self {
-        self.body_capture_config = config;
+        self.body_capture_config = Some(config);
         self
     }
 
@@ -67,15 +67,17 @@ impl ProxyServer {
             ProxyError::Configuration(format!("Failed to create CA authority: {}", e))
         })?;
 
+        // Create LogHandler with body capture config if provided, otherwise use defaults
+        let log_handler = match self.body_capture_config {
+            Some(body_config) => LogHandler::new(self.metrics.clone(), self.log_sender, body_config),
+            None => LogHandler::new_with_defaults(self.metrics.clone(), self.log_sender),
+        };
+
         let proxy = ProxyBuilder::new()
             .with_addr(addr)
             .with_rustls_client()
             .with_ca(authority)
-            .with_http_handler(LogHandler::new(
-                self.metrics.clone(),
-                self.log_sender,
-                self.body_capture_config
-            ))
+            .with_http_handler(log_handler)
             .build();
 
         proxy
@@ -86,3 +88,4 @@ impl ProxyServer {
         Ok(())
     }
 }
+

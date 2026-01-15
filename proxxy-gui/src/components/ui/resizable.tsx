@@ -8,12 +8,13 @@ import { cn } from "@/lib/utils"
 
 function ResizablePanelGroup({
   className,
+  direction = "horizontal",
   ...props
-}: React.ComponentProps<typeof PanelGroup>) {
+}: React.ComponentProps<typeof PanelGroup> & { direction?: "horizontal" | "vertical" }) {
   return (
     <PanelGroup
       data-slot="resizable-panel-group"
-      data-panel-group-direction={props.orientation || "horizontal"}
+      data-panel-group-direction={direction}
       className={cn(
         "flex h-full w-full data-[panel-group-direction=vertical]:flex-col",
         className

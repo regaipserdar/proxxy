@@ -3,7 +3,7 @@ import { useQuery } from '@apollo/client';
 import { Search, Server, Plus, LayoutGrid, List, SlidersHorizontal, ArrowUpDown } from 'lucide-react';
 import { GET_AGENTS } from '@/graphql/operations';
 import { Agent } from '@/types/graphql';
-import { AgentCard } from '@/components/AgentCard';
+import { AgentCard } from '@/components/agents/AgentCard';
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -71,7 +71,7 @@ export const AgentsView = () => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pb-2">
                 <div className="space-y-1.5">
                     <div className="flex items-center gap-2">
-                        <Badge className="bg-indigo-500/10 text-indigo-400 border-indigo-500/20 px-2 py-0 text-[10px] uppercase font-black tracking-widest">Global Fleet</Badge>
+                        <Badge className="bg-indigo-500/10 text-indigo-400 border-indigo-500/20 px-2 py-0 text-[10px] uppercase font-black tracking-widest">Network Status</Badge>
                         <div className="w-1 h-1 rounded-full bg-slate-700" />
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{stats.online} Active Nodes</span>
                     </div>
@@ -79,7 +79,7 @@ export const AgentsView = () => {
                         Agents
                         <span className="text-slate-800 tabular-nums">/{stats.total}</span>
                     </h1>
-                    <p className="text-xs font-medium text-slate-500 uppercase tracking-widest opacity-70">Fleet management and telemetry orchestration</p>
+                    <p className="text-xs font-medium text-slate-500 uppercase tracking-widest opacity-70">Node management and telemetry orchestration</p>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -121,7 +121,7 @@ export const AgentsView = () => {
                 <div className="relative flex-1 group">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-indigo-400 transition-colors" size={18} />
                     <Input
-                        placeholder="Search fleet by node ID, friendly name or hostname..."
+                        placeholder="Search nodes by ID, friendly name or hostname..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="bg-[#111318] border-white/5 h-12 pl-12 rounded-2xl text-sm font-medium transition-all focus-visible:ring-indigo-500/20 focus-visible:border-indigo-500/40 placeholder:text-slate-600 placeholder:uppercase placeholder:tracking-tighter placeholder:font-black"
@@ -215,7 +215,7 @@ export const AgentsView = () => {
                         </div>
                         <div className="hidden sm:flex items-center gap-2 border-l border-white/10 pl-6 cursor-help">
                             <SlidersHorizontal size={14} className="text-slate-600" />
-                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">Fleet Config v2.4</span>
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">Network Config v2.4</span>
                         </div>
                     </div>
                 </div>

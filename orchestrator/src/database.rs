@@ -24,6 +24,14 @@ pub struct Project {
     pub is_active: bool,
 }
 
+/// Full HTTP transaction with both request and response data
+#[derive(Debug, Clone)]
+pub struct FullTransaction {
+    pub agent_id: String,
+    pub request: crate::pb::HttpRequestData,
+    pub response: Option<crate::pb::HttpResponseData>,
+}
+
 #[derive(Debug, Clone)]
 pub struct Database {
     pool: Arc<RwLock<Option<Pool<Sqlite>>>>,
@@ -315,32 +323,34 @@ impl Database {
         Ok(())
     }
 
-    pub async fn get_recent_requests(&self, agent_id: Option<&str>, limit: i64) -> Result<Vec<(String, TrafficEvent)>, sqlx::Error> {
+    pub async fn get_recent_requests(&self, agent_id: Option<&str>, limit: i64) -> Result<Vec<(String, TrafficEvent, Option<i32>)>, sqlx::Error> {
+        self.get_recent_requests_paginated(agent_id, limit, 0).await
+    }
+
+    pub async fn get_recent_requests_paginated(
+        &self, 
+        agent_id: Option<&str>, 
+        limit: i64, 
+        offset: i64
+    ) -> Result<Vec<(String, TrafficEvent, Option<i32>)>, sqlx::Error> {
         let pool = match self.get_pool().await {
              Ok(p) => p,
              Err(_) => return Ok(Vec::new()),
         };
 
-        // This query needs to adapt to http_transactions.
-        // It's tricky because we merged req/res into one row.
-        // We'll reconstruct TrafficEvents. This might return incomplete events if response is missing?
-        // Or we just return the Request part for list view?
-        // For simplicity, let's return TrafficEvents as Requests, and maybe we need a separate query/struct for full method.
-        // But the current UI expects TrafficEvent.
-
-        // Let's modify the query to return Request events.
-
         let query = if let Some(aid) = agent_id {
             sqlx::query(
-                "SELECT request_id, agent_id, req_method, req_url, req_headers, req_body, tls_info, res_status, res_headers, res_body FROM http_transactions WHERE agent_id = ? ORDER BY req_timestamp DESC LIMIT ?"
+                "SELECT request_id, agent_id, req_method, req_url, req_headers, req_body, tls_info, res_status FROM http_transactions WHERE agent_id = ? ORDER BY req_timestamp DESC LIMIT ? OFFSET ?"
             )
             .bind(aid)
             .bind(limit)
+            .bind(offset)
         } else {
             sqlx::query(
-                "SELECT request_id, agent_id, req_method, req_url, req_headers, req_body, tls_info, res_status, res_headers, res_body FROM http_transactions ORDER BY req_timestamp DESC LIMIT ?"
+                "SELECT request_id, agent_id, req_method, req_url, req_headers, req_body, tls_info, res_status FROM http_transactions ORDER BY req_timestamp DESC LIMIT ? OFFSET ?"
             )
             .bind(limit)
+            .bind(offset)
         };
 
         let rows = query.fetch_all(&pool).await?;
@@ -354,6 +364,7 @@ impl Database {
             let headers_json: String = row.get("req_headers");
             let body: Vec<u8> = row.get("req_body");
             let tls_json: String = row.get("tls_info");
+            let res_status: Option<i32> = row.get("res_status");
 
             let headers: Option<crate::pb::HttpHeaders> = serde_json::from_str(&headers_json).ok();
             let tls: Option<crate::pb::TlsDetails> = serde_json::from_str(&tls_json).ok();
@@ -367,7 +378,7 @@ impl Database {
                     body,
                     tls,
                 })),
-            }));
+            }, res_status));
         }
         Ok(results)
     }
@@ -405,6 +416,109 @@ impl Database {
                 body,
                 tls,
             })))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub async fn delete_requests_by_host(&self, host: &str) -> Result<u64, sqlx::Error> {
+        let pool = match self.get_pool().await {
+            Ok(p) => p,
+            Err(_) => return Ok(0),
+        };
+
+        // Extract hostname to match more broadly (e.g. httpbin.org:443 should also match https://httpbin.org/...)
+        let hostname = host.split(':').next().unwrap_or(host);
+        
+        // We match:
+        // 1. ://hostname/ (standard URL)
+        // 2. ://hostname:port/ (URL with explicit port)
+        // 3. hostname:port (CONNECT request host header/URL)
+        // Using LIKE with careful boundary matching
+        
+        let p1 = format!("%://{}/%", hostname);
+        let p2 = format!("%://{}:%", hostname);
+        let p3 = format!("%://{}", hostname);
+        let p4 = format!("{}:%", hostname); // CONNECT
+        
+        let result = sqlx::query("DELETE FROM http_transactions WHERE req_url LIKE ? OR req_url LIKE ? OR req_url LIKE ? OR req_url LIKE ?")
+            .bind(p1)
+            .bind(p2)
+            .bind(p3)
+            .bind(p4)
+            .execute(&pool)
+            .await?;
+            
+        Ok(result.rows_affected())
+    }
+
+    /// Get full transaction data including both request and response
+    pub async fn get_full_transaction_by_id(
+        &self,
+        request_id: &str,
+    ) -> Result<Option<FullTransaction>, sqlx::Error> {
+        let pool = match self.get_pool().await {
+             Ok(p) => p,
+             Err(_) => return Ok(None),
+        };
+        let row = sqlx::query(
+            r#"SELECT 
+                agent_id,
+                req_method, req_url, req_headers, req_body, tls_info,
+                res_status, res_headers, res_body
+            FROM http_transactions 
+            WHERE request_id = ?"#
+        )
+        .bind(request_id)
+        .fetch_optional(&pool)
+        .await?;
+
+        if let Some(row) = row {
+            let agent_id: String = row.get("agent_id");
+            
+            // Parse request data
+            let method: String = row.get("req_method");
+            let url: String = row.get("req_url");
+            let req_headers_json: String = row.get("req_headers");
+            let req_body: Vec<u8> = row.get("req_body");
+            let tls_json: String = row.get("tls_info");
+            
+            let req_headers: Option<crate::pb::HttpHeaders> = serde_json::from_str(&req_headers_json).ok();
+            let tls: Option<crate::pb::TlsDetails> = serde_json::from_str(&tls_json).ok();
+            
+            let request = crate::pb::HttpRequestData {
+                method,
+                url,
+                headers: req_headers,
+                body: req_body,
+                tls,
+            };
+            
+            // Parse response data (may be None if response hasn't arrived yet)
+            let res_status: Option<i32> = row.get("res_status");
+            let res_headers_json: Option<String> = row.get("res_headers");
+            let res_body: Option<Vec<u8>> = row.get("res_body");
+            
+            let response = if res_status.is_some() {
+                let res_headers: Option<crate::pb::HttpHeaders> = res_headers_json
+                    .as_ref()
+                    .and_then(|s| serde_json::from_str(s).ok());
+                
+                Some(crate::pb::HttpResponseData {
+                    status_code: res_status.unwrap_or(0),
+                    headers: res_headers,
+                    body: res_body.unwrap_or_default(),
+                    tls: None,
+                })
+            } else {
+                None
+            };
+
+            Ok(Some(FullTransaction {
+                agent_id,
+                request,
+                response,
+            }))
         } else {
             Ok(None)
         }

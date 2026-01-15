@@ -39,23 +39,30 @@ impl QueryRoot {
     /// Get list of Requests (LIGHTWEIGHT)
 
     /// Use this for table/list views
-    /// Use this for table/list views
     async fn requests(
         &self, 
         ctx: &Context<'_>,
         agent_id: Option<String>,
+        limit: Option<i32>,
+        offset: Option<i32>,
     ) -> async_graphql::Result<Vec<TrafficEventGql>> {
         let db = ctx.data::<Arc<Database>>()?;
+        let limit = limit.unwrap_or(50) as i64;
+        let offset = offset.unwrap_or(0) as i64;
+        
         let events = db
-            .get_recent_requests(agent_id.as_deref(), 50)
+            .get_recent_requests_paginated(agent_id.as_deref(), limit, offset)
             .await
             .map_err(|e| async_graphql::Error::new(e.to_string()))?;
 
         // OPTIMIZATION: Pre-allocate with known capacity
         let mut result = Vec::with_capacity(events.len());
-        for (aid, event) in events {
+        for (aid, event, status) in events {
             let mut gql = TrafficEventGql::from(event);
             gql.agent_id = Some(aid);
+            if let Some(s) = status {
+                gql.status = Some(s);
+            }
             result.push(gql);
         }
         Ok(result)
@@ -70,23 +77,43 @@ impl QueryRoot {
     ) -> async_graphql::Result<Option<TrafficEventGql>> {
         let db = ctx.data::<Arc<Database>>()?;
 
-        // Fetch single request from database (returns HttpRequestData)
-        let request_data = db
-            .get_request_by_id(&id)
+        // Fetch full transaction from database (includes both request and response)
+        let transaction = db
+            .get_full_transaction_by_id(&id)
             .await
             .map_err(|e| async_graphql::Error::new(e.to_string()))?;
 
-        // Convert HttpRequestData to TrafficEvent
-        if let Some((aid, req)) = request_data {
+        // Convert to TrafficEventGql with both request and response
+        if let Some(tx) = transaction {
             use crate::pb::traffic_event;
-            let traffic_event = TrafficEvent {
+            
+            // Create request event
+            let request_event = TrafficEvent {
                 request_id: id.clone(),
-                event: Some(traffic_event::Event::Request(req.clone())),
+                event: Some(traffic_event::Event::Request(tx.request.clone())),
             };
-            let mut gql = TrafficEventGql::from(traffic_event);
-            gql.agent_id = Some(aid);
-            gql.url = Some(req.url);
-            gql.method = Some(req.method);
+            
+            // Create response event if response exists
+            let response_event = tx.response.map(|res| {
+                TrafficEvent {
+                    request_id: id.clone(),
+                    event: Some(traffic_event::Event::Response(res)),
+                }
+            });
+            
+            let mut gql = TrafficEventGql::from(request_event);
+            gql.agent_id = Some(tx.agent_id);
+            gql.url = Some(tx.request.url);
+            gql.method = Some(tx.request.method);
+            gql.response_event = response_event;
+            
+            // If we have response data, set the status
+            if let Some(ref res_event) = gql.response_event {
+                if let Some(traffic_event::Event::Response(res)) = &res_event.event {
+                    gql.status = Some(res.status_code);
+                }
+            }
+            
             Ok(Some(gql))
         } else {
             Ok(None)
@@ -107,6 +134,10 @@ impl QueryRoot {
                 status: a.status,
                 version: a.version,
                 last_heartbeat: a.last_heartbeat,
+                cpu_usage: a.cpu_usage,
+                memory_usage_mb: a.memory_usage_mb,
+                uptime_seconds: a.uptime_seconds,
+                public_ip: a.public_ip,
             });
         }
         Ok(result)
@@ -185,6 +216,12 @@ impl QueryRoot {
         } else {
             Ok(None)
         }
+    }
+
+    /// Get CA certificate PEM
+    async fn ca_cert_pem(&self, ctx: &Context<'_>) -> async_graphql::Result<String> {
+        let ca = ctx.data::<Arc<proxy_core::CertificateAuthority>>()?;
+        Ok(ca.get_ca_cert_pem().unwrap_or_default())
     }
 
     /// Get execution history for a repeater tab
@@ -395,6 +432,18 @@ impl MutationRoot {
     async fn intercept(&self, _id: String, _action: String) -> bool {
         // TODO: Implement interception logic
         true
+    }
+
+    async fn delete_requests_by_host(
+        &self,
+        ctx: &Context<'_>,
+        host: String,
+    ) -> async_graphql::Result<bool> {
+        let db = ctx.data::<Arc<Database>>()?;
+        db.delete_requests_by_host(&host)
+            .await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        Ok(true)
     }
 
     async fn create_project(&self, ctx: &Context<'_>, name: String) -> async_graphql::Result<ProjectOperationResult> {
@@ -1228,6 +1277,10 @@ pub struct TrafficEventGql {
     // OPTIMIZATION: Ağır veriyi sakla ama GraphQL şemasına ekleme
     #[graphql(skip)]
     pub inner_event: TrafficEvent,
+    
+    // Response event for full transaction view (also skipped from direct access)
+    #[graphql(skip)]
+    pub response_event: Option<TrafficEvent>,
 }
 
 /// ComplexObject: Ağır veriler sadece istendiğinde hesaplanır
@@ -1258,6 +1311,15 @@ impl TrafficEventGql {
 
     /// Response body - sadece istendiğinde parse edilir
     async fn response_body(&self) -> Option<String> {
+        // First check response_event (used for full transaction view)
+        if let Some(ref response_event) = self.response_event {
+            if let Some(traffic_event::Event::Response(res)) = &response_event.event {
+                if !res.body.is_empty() {
+                    return Some(convert_body_to_string(&res.body));
+                }
+            }
+        }
+        // Fallback to inner_event for subscription events
         if let Some(traffic_event::Event::Response(res)) = &self.inner_event.event {
             if res.body.is_empty() {
                 return None;
@@ -1269,6 +1331,16 @@ impl TrafficEventGql {
 
     /// Response headers - sadece istendiğinde JSON'a çevrilir
     async fn response_headers(&self) -> Option<String> {
+        // First check response_event (used for full transaction view)
+        if let Some(ref response_event) = self.response_event {
+            if let Some(traffic_event::Event::Response(res)) = &response_event.event {
+                return res
+                    .headers
+                    .as_ref()
+                    .and_then(|h| serde_json::to_string(&h.headers).ok());
+            }
+        }
+        // Fallback to inner_event for subscription events
         if let Some(traffic_event::Event::Response(res)) = &self.inner_event.event {
             return res
                 .headers
@@ -1312,6 +1384,7 @@ impl From<TrafficEvent> for TrafficEventGql {
             agent_id: None, // TrafficEvent proto'sunda agent_id yok, database'den alınmalı
             // CRITICAL: Tüm event'i sakla, lazy loading için
             inner_event: e,
+            response_event: None, // Will be set manually for full transaction view
         }
     }
 }
@@ -1355,6 +1428,10 @@ pub struct AgentGql {
     pub status: String,
     pub version: String,
     pub last_heartbeat: String,
+    pub cpu_usage: f32,
+    pub memory_usage_mb: f64,
+    pub uptime_seconds: u64,
+    pub public_ip: String,
 }
 
 // ============================================================================

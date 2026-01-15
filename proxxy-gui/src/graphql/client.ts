@@ -203,11 +203,17 @@ const cache = new InMemoryCache({
     },
     Query: {
       fields: {
-        // OPTIMIZATION: Improved requests list handling
+        // OPTIMIZATION: Improved requests list handling with memory safety
         requests: {
-          // CRITICAL: Prevent duplicates during pagination and subscriptions
-          merge(existing = [], incoming, { readField }) {
-            // Create a Map for deduplication
+          keyArgs: false,
+          merge(existing = [], incoming, { readField, args }) {
+            // If offset is 0, this is a fresh fetch or a refetch. 
+            // We should replace the existing cache to correctly handle deletions.
+            if (!args || args.offset === 0) {
+              return incoming;
+            }
+
+            const MAX_CACHE_ITEMS = 20000;
             const merged = new Map();
 
             // Add existing items
@@ -222,8 +228,16 @@ const cache = new InMemoryCache({
               if (id) merged.set(id, item);
             });
 
-            // Convert back to array, newest first
-            return Array.from(merged.values());
+            // Convert back to array
+            let result = Array.from(merged.values());
+
+            // Memory Protection: Limit cache size
+            if (result.length > MAX_CACHE_ITEMS) {
+              console.log(`[Apollo Cache] Pruning requests cache (${result.length} -> ${MAX_CACHE_ITEMS})`);
+              result = result.slice(result.length - MAX_CACHE_ITEMS);
+            }
+
+            return result;
           },
         },
 

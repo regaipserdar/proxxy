@@ -17,6 +17,10 @@ export const GET_AGENTS = gql`
       status
       version
       lastHeartbeat
+      cpuUsage
+      memoryUsageMb
+      uptimeSeconds
+      publicIp
     }
   }
 `;
@@ -33,8 +37,8 @@ export const GET_AGENTS = gql`
  * For body/headers, use GET_REQUEST_DETAIL query
  */
 export const GET_HTTP_TRANSACTIONS = gql`
-  query GetHttpTransactions($agentId: String) {
-    requests(agentId: $agentId) {
+  query GetHttpTransactions($agentId: String, $limit: Int, $offset: Int) {
+    requests(agentId: $agentId, limit: $limit, offset: $offset) {
       requestId
       method
       url
@@ -151,6 +155,7 @@ export const GET_AGENT_DETAILS = gql`
       status
       version
       lastHeartbeat
+      publicIp
     }
     currentSystemMetrics(agentId: $agentId) {
       agentId
@@ -182,6 +187,12 @@ export const GET_PROJECTS = gql`
       lastModified
       isActive
     }
+  }
+`;
+
+export const GET_CA_CERT = gql`
+  query GetCaCert {
+    caCertPem
   }
 `;
 
@@ -264,6 +275,112 @@ export const REPLAY_REQUEST = gql`
 export const INTERCEPT_REQUEST = gql`
   mutation InterceptRequest($id: String!, $action: String!) {
     intercept(id: $id, action: $action)
+  }
+`;
+
+export const DELETE_REQUESTS_BY_HOST = gql`
+  mutation DeleteRequestsByHost($host: String!) {
+    deleteRequestsByHost(host: $host)
+  }
+`;
+
+// ============================================================================
+// REPEATER OPERATIONS
+// ============================================================================
+
+export const GET_REPEATER_TABS = gql`
+  query GetRepeaterTabs {
+    repeaterTabs {
+      id
+      name
+      targetAgentId
+      validationStatus
+      isActive
+      requestTemplate {
+        method
+        url
+        body
+        headers
+      }
+    }
+  }
+`;
+
+export const EXECUTE_REPEATER_REQUEST = gql`
+  mutation ExecuteRepeaterRequest($input: ExecuteRepeaterRequestInput!) {
+    executeRepeaterRequest(input: $input) {
+      id
+      tabId
+      agentId
+      statusCode
+      durationMs
+      executedAt
+      error
+      requestData {
+        method
+        url
+        body
+        headers
+      }
+      responseData {
+        statusCode
+        body
+        headers
+        bodyLength
+      }
+    }
+  }
+`;
+
+export const CREATE_REPEATER_TAB = gql`
+  mutation CreateRepeaterTab($input: CreateRepeaterTabInput!) {
+    createRepeaterTab(input: $input) {
+      id
+      name
+      targetAgentId
+    }
+  }
+`;
+
+export const UPDATE_REPEATER_TAB = gql`
+  mutation UpdateRepeaterTab($id: String!, $input: UpdateRepeaterTabInput!) {
+    updateRepeaterTab(id: $id, input: $input) {
+      id
+      name
+      targetAgentId
+    }
+  }
+`;
+
+export const DELETE_REPEATER_TAB = gql`
+  mutation DeleteRepeaterTab($id: String!) {
+    deleteRepeaterTab(id: $id)
+  }
+`;
+
+export const GET_REPEATER_HISTORY = gql`
+  query GetRepeaterHistory($tabId: String!, $limit: Int) {
+    repeaterHistory(tabId: $tabId, limit: $limit) {
+      id
+      tabId
+      agentId
+      statusCode
+      durationMs
+      executedAt
+      error
+      requestData {
+        method
+        url
+        body
+        headers
+      }
+      responseData {
+        statusCode
+        body
+        headers
+        bodyLength
+      }
+    }
   }
 `;
 

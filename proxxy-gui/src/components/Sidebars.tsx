@@ -3,7 +3,7 @@ import { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   Home, GitMerge, Type as TextIcon, Search, Radio, Filter,
-  Edit3, Repeat, Terminal, Settings, ShieldCheck, Activity, Target, Send, Server
+  Edit3, Repeat, Terminal, Settings, ShieldCheck, Target, Send, Server, ListTree
 } from 'lucide-react';
 import { NodeType } from '../types';
 
@@ -18,7 +18,7 @@ export const LeftSidebar = () => (
     <SideNavLink to="/agents" icon={<Server size={20} />} label="Agents" />
     <SideNavLink to="/designer" icon={<GitMerge size={20} />} label="Workflow Designer" />
     <SideNavLink to="/scope" icon={<Target size={20} />} label="Scope Manager" />
-    <SideNavLink to="/proxy" icon={<Activity size={20} />} label="Proxy History" />
+    <SideNavLink to="/traffic-tree" icon={<ListTree size={20} />} label="Traffic Tree" />
     <SideNavLink to="/repeater" icon={<Send size={20} />} label="HTTP Repeater" />
     <SideNavLink to="/intruder" icon={<ShieldCheck size={20} />} label="Intruder" />
 

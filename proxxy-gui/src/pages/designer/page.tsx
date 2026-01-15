@@ -1,18 +1,20 @@
-
 import React, { useState, useCallback, useRef } from 'react';
 import ReactFlow, {
     addEdge, Background, Connection, Edge, applyNodeChanges, applyEdgeChanges,
     NodeChange, EdgeChange, useReactFlow, BackgroundVariant
 } from 'reactflow';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Info, Copy, Trash2, Plus } from 'lucide-react';
 
 import { ProxxyNode, NodeType } from '@/types';
 import { TriggerNode, MatcherNode, ModifierNode, RepeaterNode, SinkNode } from '@/components/Nodes';
 import { RightSidebar } from '@/components/Sidebars';
-import { BottomPanel } from '@/components/Panels';
 import { PropertySidebar } from '@/components/PropertySidebar';
 import { generateWorkflowCode } from '@/services/geminiService';
+import { BottomPanel } from '@/components/Panels';
+
+// Components
+import { DesignerHeader } from '@/components/designer/DesignerHeader';
+import { DesignerContextMenu, MenuConfig } from '@/components/designer/DesignerContextMenu';
 
 const nodeTypes = {
     trigger: TriggerNode,
@@ -42,7 +44,7 @@ export const DesignerView = () => {
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [isRunning, setIsRunning] = useState(false);
     const [code, setCode] = useState<string>(`// Proxxy Flow v1.0\n// Listening on 0.0.0.0:8080...`);
-    const [menuConfig, setMenuConfig] = useState<{ x: number, y: number, type: 'pane' | 'node' } | null>(null);
+    const [menuConfig, setMenuConfig] = useState<MenuConfig | null>(null);
 
     const { project } = useReactFlow();
 
@@ -75,7 +77,58 @@ export const DesignerView = () => {
         }
     }, [project]);
 
+    // Context Menu Handlers
+    const handleInspectNode = () => {
+        if (selectedNodeId) {
+            // Already selected, just close menu
+            setMenuConfig(null);
+        }
+    };
+
+    const handleDuplicateNode = () => {
+        // Logic to duplicate logic could be here, strict duplication of selectedNodeId
+        setMenuConfig(null);
+    };
+
+    const handleDeleteNode = () => {
+        setNodes(nds => nds.filter(n => n.id !== (selectedNodeId || '')));
+        setMenuConfig(null);
+    };
+
+    const handleAddTrigger = () => {
+        // Logic to add trigger at click position could be implemented
+        setMenuConfig(null);
+    };
+
+    const handleAddMatcher = () => {
+        // Logic to add matcher at click position
+        setMenuConfig(null);
+    };
+
     const selectedNode = nodes.find(n => n.id === selectedNodeId);
+
+    // Context Menu Right Click Handler
+
+
+    const onNodeContextMenu = useCallback((event: React.MouseEvent, node: any) => {
+        event.preventDefault();
+        setSelectedNodeId(node.id); // Select it too
+        setMenuConfig({
+            x: event.clientX,
+            y: event.clientY,
+            type: 'node'
+        });
+    }, []);
+
+    const onPaneContextMenu = useCallback((event: React.MouseEvent) => {
+        event.preventDefault();
+        setSelectedNodeId(null);
+        setMenuConfig({
+            x: event.clientX,
+            y: event.clientY,
+            type: 'pane'
+        });
+    }, []);
 
     return (
         <div className="flex-1 flex overflow-hidden bg-[#17181C]">
@@ -85,19 +138,7 @@ export const DesignerView = () => {
                     animate={{ opacity: 1, scale: 1 }}
                     className="flex-1 flex flex-col relative bg-[#17181C]"
                 >
-                    <header className="absolute top-6 left-6 right-[340px] flex items-center justify-between z-40 pointer-events-none">
-                        <div className="flex items-center gap-3 bg-[#17181C]/80 backdrop-blur-xl border border-white/10 rounded-xl px-4 py-2 pointer-events-auto">
-                            <span className="text-xs font-medium text-white/40 tracking-wide uppercase">Workspace: Default</span>
-                        </div>
-                        <div className="flex items-center gap-4 pointer-events-auto">
-                            <button onClick={handleRun} className="p-3 bg-black/40 backdrop-blur-2xl border border-white/10 rounded-xl text-[#9DCDE8] hover:bg-white/5 transition-all shadow-2xl">
-                                <Play size={18} fill="currentColor" />
-                            </button>
-                            <button className="bg-[#9DCDE8] text-black px-6 py-2.5 rounded-xl font-bold text-sm shadow-[0_0_30px_rgba(157,205,232,0.4)] transition-transform active:scale-95">
-                                Export Flow
-                            </button>
-                        </div>
-                    </header>
+                    <DesignerHeader onRun={handleRun} />
 
                     <main className="flex-1 relative w-full h-full" ref={reactFlowWrapper}>
                         <ReactFlow
@@ -111,6 +152,8 @@ export const DesignerView = () => {
                             onDragOver={(e) => e.preventDefault()}
                             onNodeClick={(_, node) => setSelectedNodeId(node.id)}
                             onPaneClick={() => setSelectedNodeId(null)}
+                            onNodeContextMenu={onNodeContextMenu}
+                            onPaneContextMenu={onPaneContextMenu}
                             fitView
                             style={{ width: '100%', height: '100%' }}
                         >
@@ -123,38 +166,19 @@ export const DesignerView = () => {
                             />
                         </ReactFlow>
 
-                        <AnimatePresence>
-                            {menuConfig && (
-                                <motion.div
-                                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                                    exit={{ opacity: 0, scale: 0.95 }}
-                                    className="absolute z-[200] w-[200px] bg-[#17181C] border border-white/10 rounded-2xl p-2 shadow-2xl dotted-bg"
-                                    style={{ left: menuConfig.x, top: menuConfig.y }}
-                                    onMouseLeave={() => setMenuConfig(null)}
-                                >
-                                    {menuConfig.type === 'node' ? (
-                                        <>
-                                            <div className="px-3 py-2 border-b border-white/5 mb-1 text-[10px] font-bold uppercase tracking-widest text-white/30">Node Actions</div>
-                                            <MenuAction icon={<Info size={14} />} label="Inspect Node" onClick={() => setSelectedNodeId(selectedNodeId)} />
-                                            <MenuAction icon={<Copy size={14} />} label="Duplicate" />
-                                            <MenuAction icon={<Trash2 size={14} />} label="Delete" color="text-red-400/70" onClick={() => {
-                                                setNodes(nds => nds.filter(n => n.id !== (selectedNodeId || '')));
-                                                setMenuConfig(null);
-                                            }} />
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div className="px-3 py-2 border-b border-white/5 mb-1 text-[10px] font-bold uppercase tracking-widest text-white/30">Workspace</div>
-                                            <MenuAction icon={<Plus size={14} />} label="Add Trigger" />
-                                            <MenuAction icon={<Plus size={14} />} label="Add Matcher" />
-                                        </>
-                                    )}
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
+                        <DesignerContextMenu
+                            menuConfig={menuConfig}
+                            onClose={() => setMenuConfig(null)}
+                            onInspectNode={handleInspectNode}
+                            onDuplicateNode={handleDuplicateNode}
+                            onDeleteNode={handleDeleteNode}
+                            onAddTrigger={handleAddTrigger}
+                            onAddMatcher={handleAddMatcher}
+                        />
                     </main>
+
                     <BottomPanel code={code} isRunning={isRunning} />
+
                 </motion.div>
             </div>
 
@@ -173,12 +197,3 @@ export const DesignerView = () => {
         </div>
     );
 };
-
-const MenuAction = ({ icon, label, color, onClick }: { icon: React.ReactNode, label: string, color?: string, onClick?: () => void }) => (
-    <button
-        onClick={onClick}
-        className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl hover:bg-white/5 text-[12px] font-medium transition-all ${color || 'text-white/60 hover:text-white'}`}
-    >
-        {icon} <span>{label}</span>
-    </button>
-);

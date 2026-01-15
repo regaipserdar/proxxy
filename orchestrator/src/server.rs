@@ -1,7 +1,7 @@
 use crate::pb::proxy_service_server::ProxyService;
 use crate::pb::{
     InterceptCommand, MetricsCommand, RegisterAgentRequest, RegisterAgentResponse,
-    SystemMetricsEvent, TrafficEvent, traffic_event,
+    SystemMetricsEvent, TrafficEvent, traffic_event, HeartbeatRequest, HeartbeatResponse,
 };
 use crate::AgentRegistry;
 use crate::models::settings::{ScopeConfig, InterceptionConfig};
@@ -183,9 +183,49 @@ impl ProxyService for ProxyServiceImpl {
                     let db_bg = db.clone();
                     let event_bg = event.clone();
                     let agent_id_bg = agent_id_cl.clone();
+                    let registry_bg = registry.clone();
+                    
                     tokio::spawn(async move {
-                        if let Err(e) = db_bg.save_request(&event_bg, &agent_id_bg).await {
-                            error!("   ✗ Failed to save to DB: {}", e);
+                        // Retry loop for handling potential FK constraints (e.g. if DB was swapped)
+                        let mut retry_count = 0;
+                        const MAX_RETRIES: u32 = 1;
+                        
+                        loop {
+                            match db_bg.save_request(&event_bg, &agent_id_bg).await {
+                                Ok(_) => break, // Success
+                                Err(e) => {
+                                    // Check if it's a foreign key constraint failure (code 787)
+                                    let is_fk_error = e.to_string().contains("FOREIGN KEY constraint failed") || 
+                                                     e.to_string().contains("code: 787");
+                                    
+                                    if is_fk_error && retry_count < MAX_RETRIES {
+                                        retry_count += 1;
+                                        warn!("   ⚠️  Foreign key violation saving traffic for agent {}. Attempting to restore agent record...", agent_id_bg);
+                                        
+                                        // Attempt to restore agent record from registry
+                                        if let Some(agent_info) = registry_bg.get_agent(&agent_id_bg) {
+                                            if let Err(upsert_err) = db_bg.upsert_agent(
+                                                &agent_info.id, 
+                                                &agent_info.name, 
+                                                &agent_info.hostname, 
+                                                &agent_info.version
+                                            ).await {
+                                                error!("   ✗ Failed to restore agent record: {}", upsert_err);
+                                                break; 
+                                            } else {
+                                                info!("   ✓ Agent record restored to DB. Retrying save...");
+                                                continue;
+                                            }
+                                        } else {
+                                            warn!("   ⚠️  Agent {} not found in registry, cannot restore.", agent_id_bg);
+                                            break;
+                                        }
+                                    } else {
+                                        error!("   ✗ Failed to save to DB: {}", e);
+                                        break;
+                                    }
+                                }
+                            }
                         }
                     });
                 }
@@ -259,11 +299,47 @@ impl ProxyService for ProxyServiceImpl {
                         .unwrap_or(0)
                 );
 
-                // 1. Save to DB
-                if let Err(e) = db.save_system_metrics(&metrics_event).await {
-                    error!("   ✗ Failed to save metrics to DB: {}", e);
-                } else {
-                    debug!("   ✓ Metrics saved to database");
+                // 1. Save to DB with Retry Logic
+                let mut retry_count = 0;
+                const MAX_RETRIES: u32 = 1;
+
+                loop {
+                    match db.save_system_metrics(&metrics_event).await {
+                        Ok(_) => {
+                            debug!("   ✓ Metrics saved to database");
+                            break;
+                        }
+                        Err(e) => {
+                            let is_fk_error = e.to_string().contains("FOREIGN KEY constraint failed") || 
+                                             e.to_string().contains("code: 787");
+
+                            if is_fk_error && retry_count < MAX_RETRIES {
+                                retry_count += 1;
+                                warn!("   ⚠️  Foreign key violation saving metrics for agent {}. Attempting to restore agent record...", agent_id_cl);
+                                
+                                if let Some(agent_info) = registry.get_agent(&agent_id_cl) {
+                                    if let Err(upsert_err) = db.upsert_agent(
+                                        &agent_info.id, 
+                                        &agent_info.name, 
+                                        &agent_info.hostname, 
+                                        &agent_info.version
+                                    ).await {
+                                        error!("   ✗ Failed to restore agent record: {}", upsert_err);
+                                        break;
+                                    } else {
+                                        info!("   ✓ Agent record restored to DB. Retrying save...");
+                                        continue;
+                                    }
+                                } else {
+                                    warn!("   ⚠️  Agent {} not found in registry, cannot restore.", agent_id_cl);
+                                    break;
+                                }
+                            } else {
+                                error!("   ✗ Failed to save metrics to DB: {}", e);
+                                break;
+                            }
+                        }
+                    }
                 }
 
                 // 2. Broadcast metrics to UI/Subscribers
@@ -296,6 +372,40 @@ impl ProxyService for ProxyServiceImpl {
 
         // For now, return an empty command stream
         // In the future, this could send configuration updates
+        Ok(Response::new(ReceiverStream::new(rx)))
+    }
+
+    type HeartbeatStream = ReceiverStream<Result<HeartbeatResponse, Status>>;
+
+    async fn heartbeat(
+        &self,
+        request: Request<Streaming<HeartbeatRequest>>,
+    ) -> Result<Response<Self::HeartbeatStream>, Status> {
+        let mut inbound = request.into_inner();
+        let (tx, rx) = mpsc::channel(10);
+        let registry = self.agent_registry.clone();
+
+        tokio::spawn(async move {
+            while let Ok(Some(req)) = inbound.message().await {
+                registry.update_heartbeat(
+                    &req.agent_id,
+                    req.cpu_usage,
+                    req.memory_usage_mb,
+                    req.uptime_seconds,
+                    req.public_ip
+                );
+
+                let resp = HeartbeatResponse {
+                    success: true,
+                    timestamp: chrono::Utc::now().timestamp(),
+                };
+
+                if let Err(_) = tx.send(Ok(resp)).await {
+                    break;
+                }
+            }
+        });
+
         Ok(Response::new(ReceiverStream::new(rx)))
     }
 }
