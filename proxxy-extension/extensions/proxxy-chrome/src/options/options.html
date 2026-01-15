@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Proxxy Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+      <div class="logo">
+        <img src="../assets/icon-48.png" alt="Proxxy" class="logo-img">
+        <h1>Proxxy Settings</h1>
+      </div>
+      <div class="version">
+        <span id="extension-version">v1.0.0</span>
+      </div>
+    </header>
+
+    <main class="main">
+      <!-- Server Configuration -->
+      <section class="section">
+        <h2 class="section-title">🌐 Server Configuration</h2>
+        
+        <div class="form-group">
+          <label for="server-url" class="form-label">
+            Proxxy Server URL
+            <span class="required">*</span>
+          </label>
+          <div class="input-group">
+            <input 
+              type="url" 
+              id="server-url" 
+              class="form-input"
+              placeholder="http://localhost:8080"
+              required
+            >
+            <button id="test-connection" class="btn btn-secondary">
+              Test Connection
+            </button>
+          </div>
+          <small class="form-help">
+            The URL of your Proxxy server instance (e.g., http://localhost:8080)
+          </small>
+          <div id="connection-status" class="connection-status hidden">
+            <span id="connection-indicator" class="status-dot"></span>
+            <span id="connection-message"></span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="api-key" class="form-label">
+            API Key (Optional)
+          </label>
+          <input 
+            type="password" 
+            id="api-key" 
+            class="form-input"
+            placeholder="Enter API key if required"
+          >
+          <small class="form-help">
+            Leave empty if your Proxxy server doesn't require authentication
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label for="timeout" class="form-label">
+            Connection Timeout (seconds)
+          </label>
+          <input 
+            type="number" 
+            id="timeout" 
+            class="form-input"
+            min="5" 
+            max="60" 
+            value="30"
+          >
+          <small class="form-help">
+            How long to wait for server responses (5-60 seconds)
+          </small>
+        </div>
+      </section>
+
+      <!-- Native Host Configuration -->
+      <section class="section">
+        <h2 class="section-title">🔧 Native Host Configuration</h2>
+        
+        <div class="form-group">
+          <label for="native-host-path" class="form-label">
+            Native Host Path
+          </label>
+          <div class="input-group">
+            <input 
+              type="text" 
+              id="native-host-path" 
+              class="form-input"
+              placeholder="Auto-detected"
+              readonly
+            >
+            <button id="browse-path" class="btn btn-secondary">
+              Browse
+            </button>
+          </div>
+          <small class="form-help">
+            Path to the Proxxy native messaging host binary
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">
+            <input type="checkbox" id="auto-connect" class="form-checkbox">
+            Auto-connect on browser start
+          </label>
+          <small class="form-help">
+            Automatically connect to Proxxy when Chrome starts
+          </small>
+        </div>
+      </section>
+
+      <!-- Recording Settings -->
+      <section class="section">
+        <h2 class="section-title">📊 Recording Settings</h2>
+        
+        <div class="form-group">
+          <label for="default-har-filter" class="form-label">
+            Default HAR Filter
+          </label>
+          <select id="default-har-filter" class="form-select">
+            <option value="all">All Requests</option>
+            <option value="xhr">XHR Only</option>
+            <option value="fetch">Fetch Only</option>
+            <option value="document">Documents Only</option>
+          </select>
+          <small class="form-help">
+            Default filter applied when starting HAR recording
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">
+            <input type="checkbox" id="auto-download-har" class="form-checkbox">
+            Auto-download HAR files
+          </label>
+          <small class="form-help">
+            Automatically download HAR file when recording stops
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label for="lsr-profile-path" class="form-label">
+            LSR Profile Storage Path
+          </label>
+          <div class="input-group">
+            <input 
+              type="text" 
+              id="lsr-profile-path" 
+              class="form-input"
+              placeholder="Default location"
+              readonly
+            >
+            <button id="browse-profile-path" class="btn btn-secondary">
+              Browse
+            </button>
+          </div>
+          <small class="form-help">
+            Directory where LSR profiles are stored
+          </small>
+        </div>
+      </section>
+
+      <!-- UI Settings -->
+      <section class="section">
+        <h2 class="section-title">🎨 UI Settings</h2>
+        
+        <div class="form-group">
+          <label for="theme" class="form-label">
+            Theme
+          </label>
+          <select id="theme" class="form-select">
+            <option value="dark">Dark (Default)</option>
+            <option value="light">Light</option>
+            <option value="auto">Auto (System)</option>
+          </select>
+          <small class="form-help">
+            Choose your preferred color theme
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">
+            <input type="checkbox" id="show-notifications" class="form-checkbox">
+            Show desktop notifications
+          </label>
+          <small class="form-help">
+            Display notifications for recording start/stop and errors
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">
+            <input type="checkbox" id="compact-mode" class="form-checkbox">
+            Compact mode
+          </label>
+          <small class="form-help">
+            Use a more compact interface layout
+          </small>
+        </div>
+      </section>
+
+      <!-- Advanced Settings -->
+      <section class="section">
+        <h2 class="section-title">⚙️ Advanced Settings</h2>
+        
+        <div class="form-group">
+          <label for="log-level" class="form-label">
+            Log Level
+          </label>
+          <select id="log-level" class="form-select">
+            <option value="error">Error Only</option>
+            <option value="warn">Warnings</option>
+            <option value="info" selected>Info</option>
+            <option value="debug">Debug</option>
+          </select>
+          <small class="form-help">
+            Amount of information logged to browser console
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">
+            <input type="checkbox" id="enable-telemetry" class="form-checkbox">
+            Enable telemetry
+          </label>
+          <small class="form-help">
+            Help improve Proxxy by sending anonymous usage data
+          </small>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-actions">
+        <button id="reset-defaults" class="btn btn-danger">
+          Reset to Defaults
+        </button>
+        <div class="footer-buttons">
+          <button id="cancel" class="btn btn-secondary">
+            Cancel
+          </button>
+          <button id="save" class="btn btn-primary">
+            Save Settings
+          </button>
+        </div>
+      </div>
+      
+      <div class="footer-info">
+        <div id="save-status" class="save-status"></div>
+        <div class="links">
+          <a href="#" id="documentation-link">📚 Documentation</a>
+          <a href="#" id="support-link">💬 Support</a>
+          <a href="#" id="github-link">🐙 GitHub</a>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>

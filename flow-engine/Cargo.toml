@@ -1,0 +1,40 @@
+[package]
+name = "flow-engine"
+version.workspace = true
+edition.workspace = true
+description = "Browser Flow Recorder - Record and replay any user-defined browser flow (login, checkout, forms, etc.)"
+
+[dependencies]
+# Core dependencies from workspace
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+
+# Browser automation
+chromiumoxide = { version = "0.7", features = ["tokio-runtime"], default-features = false }
+
+# Security
+secrecy = { version = "0.10", features = ["serde"] }
+
+# Utilities
+url = "2.5"
+base64 = "0.22"
+regex = "1.10"
+async-trait = "0.1"
+lazy_static = "1.4"
+futures = "0.3"
+
+# HAR file processing
+har = "0.8"
+
+# Internal dependencies
+proxy-common = { path = "../proxy-common" }
+
+[dev-dependencies]
+tokio-test = "0.4"
+proptest.workspace = true

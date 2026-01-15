@@ -11,9 +11,11 @@ use serde::{Serialize, de::DeserializeOwned};
 // Include database modules for repeater and intruder
 pub mod repeater;
 pub mod intruder;
+pub mod flow;
 
 pub use repeater::*;
 pub use intruder::*;
+pub use flow::*;
 
 #[derive(Debug, Clone)]
 pub struct Project {

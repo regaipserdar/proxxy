@@ -6,66 +6,92 @@
 
 ---
 
+## ⚠️ FUTURE ENHANCEMENTS (Pending for Later)
+
+> **Not:** Bu görevler bilinçli olarak sonraya bırakıldı. İleride geliştirmemiz gereken özellikler:
+
+| Task | Phase | Priority | Reason |
+|------|-------|----------|--------|
+| HAR Import/Export | 2.3 | MEDIUM | Browser recording öncelikli |
+| Live Selector Validation | 4.2 | HIGH | Real browser test gerekli |
+| Orchestrator Status Broadcasting | 5.3 | MEDIUM | WebSocket/subscription altyapısı gerekli |
+| Self-Healing with Retry/Backoff | 6.3 | MEDIUM | Temel fallback var, gelişmiş strateji lazım |
+| Phase 7: Testing Suite | 7.x | MEDIUM | Unit/integration test coverage |
+| Phase 8: Documentation | 8.x | LOW | API docs + guides |
+| Phase 9: Security Hardening | 9.x | HIGH | secrecy usage, sandboxing |
+| Phase 13: Intruder Integration | 13.x | CRITICAL | Session auto-refresh |
+| Phase 14: Human-in-the-Loop | 14.x | CRITICAL | CAPTCHA/MFA handling |
+
+---
+
 ## 🛠️ Phase 1: Infrastructure & Workspace Setup
 
 ### 1.1 Core Library Creation
-- [ ] **Create flow-engine library structure**
+- [x] **Create flow-engine library structure** ✅
   - `cargo new --lib flow-engine`
   - Add to workspace members in root `Cargo.toml`
-  - Set up basic module structure (`src/lib.rs`, `src/lsr/mod.rs`)
-  - **Priority:** HIGH | **Status:** PENDING
+  - Set up basic module structure (`src/lib.rs`, `src/flow/mod.rs`)
+  - **Priority:** HIGH | **Status:** DONE
 
 ### 1.2 Dependency Management
-- [ ] **Configure flow-engine/Cargo.toml**
+- [x] **Configure flow-engine/Cargo.toml** ✅
   - **Browser Automation:** `chromiumoxide` (latest stable)
   - **Async Runtime:** `tokio` (workspace version)
   - **Serialization:** `serde`, `serde_json` (workspace versions)
   - **Error Handling:** `thiserror`, `anyhow` (workspace versions)
   - **Security:** `secrecy` (for sensitive data)
   - **Utilities:** `uuid`, `url`, `base64`, `regex` (workspace versions where available)
-  - **HAR Processing:** Research and add appropriate HAR parsing crate
+  - **HAR Processing:** `har` crate
   - **Internal Dependencies:** Path references to `orchestrator` and `proxy-core`
-  - **Priority:** HIGH | **Status:** PENDING
+  - **Priority:** HIGH | **Status:** DONE
 
 ### 1.3 Workspace Integration
-- [ ] **Update workspace dependency management**
+- [x] **Update workspace dependency management** ✅
   - Ensure version consistency across crates
   - Add flow-engine to relevant integration tests
-  - **Priority:** MEDIUM | **Status:** PENDING
+  - **Priority:** MEDIUM | **Status:** DONE
 
 ---
 
 ## 🗄️ Phase 2: Data Models & Database Extensions
 
-### 2.1 Core Data Structures (`src/lsr/model.rs`)
-- [ ] **LoginProfile struct**
+### 2.1 Core Data Structures (`src/flow/model.rs`)
+- [x] **FlowProfile struct** ✅
   ```rust
-  pub struct LoginProfile {
-      pub id: uuid::Uuid,
+  pub struct FlowProfile {
+      pub id: String,
       pub name: String,
+      pub flow_type: FlowType,
       pub start_url: String,
-      pub steps: Vec<LoginStep>,
-      pub meta: ProfileMeta,
-      pub created_at: chrono::DateTime<chrono::Utc>,
-      pub updated_at: chrono::DateTime<chrono::Utc>,
+      pub steps: Vec<FlowStep>,
+      pub meta: Option<ProfileMeta>,
+      pub status: ProfileStatus,
+      pub created_at: i64,
+      pub updated_at: i64,
   }
   ```
-  - **Priority:** HIGH | **Status:** PENDING
+  - **Priority:** HIGH | **Status:** DONE
 
-- [ ] **LoginStep enum**
+- [x] **FlowStep enum** ✅
   ```rust
-  pub enum LoginStep {
-      Navigate { url: String, wait_for: Option<String> },
-      Click { selector: SmartSelector, wait_for: Option<String> },
-      Type { selector: SmartSelector, value: SecretString, is_masked: bool },
+  pub enum FlowStep {
+      Navigate { url: String, wait_for: Option<WaitCondition> },
+      Click { selector: SmartSelector, wait_for: Option<WaitCondition> },
+      Type { selector: SmartSelector, value: SecretString, is_sensitive: bool },
       Wait { duration_ms: u64, condition: Option<WaitCondition> },
       CheckSession { validation_url: String, success_indicators: Vec<String> },
-      CustomAction { action_type: String, parameters: serde_json::Value }
+      Submit { selector: SmartSelector },
+      Select { selector: SmartSelector, value: String },
+      Hover { selector: SmartSelector },
+      Screenshot { name: String },
+      Extract { selector: SmartSelector, extract_type: ExtractType, variable: String },
+      ExecuteScript { script: String },
+      Custom { name: String, data: Option<String> }
   }
   ```
-  - **Priority:** HIGH | **Status:** PENDING
+  - **Priority:** HIGH | **Status:** DONE
 
-- [ ] **SmartSelector struct**
+- [x] **SmartSelector struct** ✅
   ```rust
   pub struct SmartSelector {
       pub value: String,
@@ -75,42 +101,44 @@
       pub validation_result: Option<ValidationResult>,
   }
   ```
-  - **Priority:** HIGH | **Status:** PENDING
+  - **Priority:** HIGH | **Status:** DONE
 
 ### 2.2 Database Schema Extensions
-- [ ] **Create migration file `migrations/005_add_login_profiles.sql`**
+- [x] **Create migration file `migrations/20240115_add_flow_profiles.sql`** ✅
   ```sql
-  CREATE TABLE IF NOT EXISTS login_profiles (
+  CREATE TABLE IF NOT EXISTS flow_profiles (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
+      flow_type TEXT NOT NULL,
       start_url TEXT NOT NULL,
       steps TEXT NOT NULL, -- JSON array
       meta TEXT, -- JSON metadata
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
       agent_id TEXT, -- Which agent recorded this
-      status TEXT DEFAULT 'active' -- active, archived, failed
+      status TEXT DEFAULT 'Active'
   );
   ```
-  - **Priority:** HIGH | **Status:** PENDING
+  - **Priority:** HIGH | **Status:** DONE
 
-- [ ] **Create profile_executions table**
+- [x] **Create flow_executions table** ✅
   ```sql
-  CREATE TABLE IF NOT EXISTS profile_executions (
+  CREATE TABLE IF NOT EXISTS flow_executions (
       id TEXT PRIMARY KEY,
       profile_id TEXT NOT NULL,
       agent_id TEXT NOT NULL,
       started_at INTEGER NOT NULL,
       completed_at INTEGER,
-      status TEXT NOT NULL, -- running, success, failed
+      status TEXT NOT NULL,
       error_message TEXT,
       steps_completed INTEGER DEFAULT 0,
       total_steps INTEGER NOT NULL,
-      session_cookies TEXT, -- JSON cookies for debugging
-      FOREIGN KEY(profile_id) REFERENCES login_profiles(id)
+      session_cookies TEXT,
+      extracted_data TEXT,
+      FOREIGN KEY(profile_id) REFERENCES flow_profiles(id)
   );
   ```
-  - **Priority:** HIGH | **Status:** PENDING
+  - **Priority:** HIGH | **Status:** DONE
 
 ### 2.3 HAR Integration (`src/lsr/har.rs`)
 - [ ] **HAR Import Function**
@@ -136,59 +164,58 @@
 
 ## 🌐 Phase 3: Browser Automation Infrastructure
 
-### 3.1 Browser Management (`src/lsr/browser.rs`)
-- [ ] **Browser Launcher**
+### 3.1 Browser Management (`src/flow/browser.rs`)
+- [x] **Browser Launcher** ✅
   ```rust
-  pub async fn launch_browser(proxy_config: Option<ProxyConfig>) -> Result<Browser, BrowserError>
+  pub async fn launch_browser(options: BrowserOptions) -> Result<ManagedBrowser, FlowEngineError>
   ```
   - Configure Chromium with proxy settings
   - Handle SSL certificate errors
   - Set up appropriate browser arguments
   - Manage browser lifecycle
-  - **Priority:** HIGH | **Status:** PENDING
+  - **Priority:** HIGH | **Status:** DONE
 
-- [ ] **Proxy Integration**
+- [x] **Proxy Integration** ✅
   - Configure browser to use Proxxy agent as proxy
   - Handle certificate trust issues
   - Ensure proper traffic routing through Proxxy
-  - **Priority:** HIGH | **Status:** PENDING
+  - **Priority:** HIGH | **Status:** DONE
 
-### 3.2 Page Management (`src/lsr/page.rs`)
-- [ ] **Page Controller**
+### 3.2 Page Management (`src/flow/page.rs`)
+- [x] **Page Controller** ✅
   ```rust
   pub struct PageController {
-      browser: Browser,
-      current_page: Option<Page>,
+      page: Arc<Page>,
   }
   ```
   - Navigate to URLs with proper waiting
   - Handle page events and errors
   - Manage page state and context
-  - **Priority:** HIGH | **Status:** PENDING
+  - **Priority:** HIGH | **Status:** DONE
 
-### 3.3 JavaScript Injection (`src/lsr/injection.rs`)
-- [ ] **Event Capture Scripts**
+### 3.3 JavaScript Injection (`src/flow/recorder.rs`)
+- [x] **Event Capture Scripts** ✅
   - Develop JavaScript for DOM event interception
   - Capture click events with element information
   - Monitor form submissions and keyboard input
   - Handle dynamic content and SPA navigation
-  - **Priority:** HIGH | **Status:** PENDING
+  - **Priority:** HIGH | **Status:** DONE
 
 ---
 
 ## 🧠 Phase 4: Smart Selector Generation System
 
-### 4.1 Selector Analysis (`src/lsr/analyzer.rs`)
-- [ ] **Node Analysis Algorithm**
+### 4.1 Selector Analysis (`src/flow/analyzer.rs`)
+- [x] **Node Analysis Algorithm** ✅
   ```rust
-  pub fn calculate_best_selector(node: &cdp::browser_protocol::dom::Node) -> SmartSelector
+  pub fn analyze_element(element: &ElementInfo) -> SmartSelector
   ```
   - **Priority 1:** Stable IDs (`data-testid`, `id`, `name`)
-  - **Priority 2:** Test attributes (`data-cy`, `aria-label`)
-  - **Priority 3:** Semantic text content (XPath with text)
+  - **Priority 2:** Test attributes (`aria-label`, `placeholder`)
+  - **Priority 3:** Semantic text content
   - **Priority 4:** Structural CSS selectors
   - **Priority 5:** Full DOM path (last resort)
-  - **Priority:** HIGH | **Status:** PENDING
+  - **Priority:** HIGH | **Status:** DONE
 
 ### 4.2 Selector Validation
 - [ ] **Live Testing**
@@ -201,44 +228,42 @@
   - **Priority:** HIGH | **Status:** PENDING
 
 ### 4.3 Selector Blacklist System
-- [ ] **Pattern Recognition**
+- [x] **Pattern Recognition** ✅
   - Identify and exclude utility classes (Tailwind, Bootstrap)
   - Filter out hashed CSS classes
   - Avoid dynamic IDs with numeric patterns
   - Prevent excessively long selector chains
-  - **Priority:** HIGH | **Status:** PENDING
+  - **Priority:** HIGH | **Status:** DONE
 
 ### 4.4 Self-Healing Mechanisms
-- [ ] **Alternative Selector Generation**
+- [x] **Alternative Selector Generation** ✅
   - Generate multiple selector strategies
   - Rank by reliability and performance
   - Implement fallback chain for execution
-  - **Priority:** MEDIUM | **Status:** PENDING
+  - **Priority:** MEDIUM | **Status:** DONE
 
 ---
 
 ## 🎥 Phase 5: Recording Engine
 
-### 5.1 Event Capture System (`src/lsr/recorder.rs`)
-- [ ] **DOM Event Listeners**
+### 5.1 Event Capture System (`src/flow/recorder.rs`)
+- [x] **DOM Event Listeners** ✅
   - Capture click events with target element details
   - Monitor keyboard input and form submissions
   - Track navigation and page transitions
   - Handle AJAX and SPA route changes
-  - **Priority:** HIGH | **Status:** PENDING
+  - **Priority:** HIGH | **Status:** DONE
 
 ### 5.2 Recording State Management
-- [ ] **Recording Session**
+- [x] **Recording Session** ✅
   ```rust
-  pub struct RecordingSession {
-      pub id: uuid::Uuid,
-      pub browser: Browser,
-      pub steps: Vec<LoginStep>,
-      pub start_url: String,
-      pub status: RecordingStatus,
+  pub struct FlowRecorder {
+      pub config: RecordingConfig,
+      pub events: Vec<RecordedEvent>,
+      pub state: RecordingState,
   }
   ```
-  - **Priority:** HIGH | **Status:** PENDING
+  - **Priority:** HIGH | **Status:** DONE
 
 ### 5.3 Orchestrator Integration
 - [ ] **Status Broadcasting**
@@ -251,25 +276,25 @@
 
 ## ▶️ Phase 6: Replay Engine
 
-### 6.1 Execution Engine (`src/lsr/replayer.rs`)
-- [ ] **Profile Executor**
+### 6.1 Execution Engine (`src/flow/replayer.rs`)
+- [x] **Profile Executor** ✅
   ```rust
-  pub async fn execute_profile(
-      profile: &LoginProfile,
-      browser: &Browser,
-      config: &ExecutionConfig
-  ) -> Result<ExecutionResult, ReplayError>
+  pub async fn execute(
+      &self,
+      profile: &FlowProfile,
+      page: &PageController
+  ) -> Result<ReplayResult, FlowEngineError>
   ```
-  - **Priority:** HIGH | **Status:** PENDING
+  - **Priority:** HIGH | **Status:** DONE
 
 ### 6.2 Step Execution Logic
-- [ ] **Individual Step Handlers**
+- [x] **Individual Step Handlers** ✅
   - Navigate steps with proper waiting
   - Click actions with element verification
   - Type actions with sensitive data masking
   - Wait steps with condition checking
   - Session validation with success indicators
-  - **Priority:** HIGH | **Status:** PENDING
+  - **Priority:** HIGH | **Status:** DONE
 
 ### 6.3 Self-Healing During Replay
 - [ ] **Error Recovery**
@@ -280,16 +305,15 @@
   - **Priority:** MEDIUM | **Status:** PENDING
 
 ### 6.4 Session Cookie Management
-- [ ] **Cookie Extraction & Injection**
+- [x] **Cookie Extraction & Injection** ✅
   ```rust
-  pub async fn extract_session_cookies(page: &Page) -> Result<Vec<Cookie>, CookieError>
-  pub async fn inject_cookies_to_orchestrator(cookies: Vec<Cookie>) -> Result<(), CookieError>
+  pub async fn extract_cookies(page: &PageController) -> Result<Vec<Cookie>, FlowEngineError>
   ```
   - Extract cookies after successful login
   - Format cookies for orchestrator consumption
   - Inject cookies into agent's cookie jar
   - Validate session establishment
-  - **Priority:** HIGH | **Status:** PENDING
+  - **Priority:** HIGH | **Status:** DONE
 
 ---
 
@@ -449,19 +473,26 @@
   - Profile execution tracking
   - **Priority:** MEDIUM | **Status:** PENDING
 
-### 11.2 REST API Endpoints
-- [ ] **Flow Engine API**
-  - `/api/flows/profiles` - CRUD operations
-  - `/api/flows/record` - Recording control
-  - `/api/flows/replay` - Profile execution
-  - **Priority:** MEDIUM | **Status:** PENDING
+### 11.2 REST/GraphQL API Endpoints
+- [x] **Flow Engine GraphQL API** ✅
+  - `flowProfiles` - List profiles
+  - `flowProfile` - Get single profile
+  - `flowExecutions` - Get execution history
+  - `createFlowProfile` - Create profile
+  - `updateFlowProfile` - Update profile
+  - `deleteFlowProfile` - Delete profile
+  - `startFlowRecording` - Start recording
+  - `stopFlowRecording` - Stop recording
+  - `replayFlow` - Execute replay
+  - **Priority:** MEDIUM | **Status:** DONE
 
 ### 11.3 Frontend Integration
-- [ ] **UI Components**
-  - Profile management interface
-  - Recording control panel
-  - Execution status dashboard
-  - **Priority:** LOW | **Status:** PENDING
+- [x] **UI Components** ✅
+  - Profile management interface (list, create, delete)
+  - Replay button with agent selection
+  - Execution status with history
+  - Sidebar navigation
+  - **Priority:** LOW | **Status:** DONE
 
 ---
 

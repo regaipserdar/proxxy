@@ -3,7 +3,7 @@ import { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   Home, GitMerge, Type as TextIcon, Search, Radio, Filter,
-  Edit3, Repeat, Terminal, Settings, ShieldCheck, Target, Send, Server, ListTree
+  Edit3, Repeat, Terminal, Settings, ShieldCheck, Target, Send, Server, ListTree, Video
 } from 'lucide-react';
 import { NodeType } from '../types';
 
@@ -21,6 +21,7 @@ export const LeftSidebar = () => (
     <SideNavLink to="/traffic-tree" icon={<ListTree size={20} />} label="Traffic Tree" />
     <SideNavLink to="/repeater" icon={<Send size={20} />} label="HTTP Repeater" />
     <SideNavLink to="/intruder" icon={<ShieldCheck size={20} />} label="Intruder" />
+    <SideNavLink to="/flow-recorder" icon={<Video size={20} />} label="Flow Recorder" />
 
     <div className="mt-auto flex flex-col gap-6">
       <SideNavLink to="/settings" icon={<Settings size={18} />} label="Settings" />

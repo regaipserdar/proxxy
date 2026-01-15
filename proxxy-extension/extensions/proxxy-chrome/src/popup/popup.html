@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Proxxy</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app">
+    <div class="header">
+      <div class="logo">
+        <img src="../assets/icon-48.png" alt="Proxxy" class="logo-img">
+        <h1>Proxxy</h1>
+      </div>
+      <div class="connection-status">
+        <span id="status-dot" class="status-dot disconnected"></span>
+        <span id="status-text">Disconnected</span>
+      </div>
+    </div>
+    
+    <div class="content">
+      <div class="status-overview">
+        <div class="module-status">
+          <div class="module">
+            <h3>HAR Recorder</h3>
+            <div class="status-info">
+              <span id="har-status" class="module-status-text">Idle</span>
+              <span id="har-requests" class="module-stats">0 requests</span>
+            </div>
+            <div class="quick-actions">
+              <button id="har-quick-start" class="btn btn-small btn-primary">Start</button>
+              <button id="har-quick-stop" class="btn btn-small btn-secondary">Stop</button>
+            </div>
+          </div>
+          
+          <div class="module">
+            <h3>LSR Recorder</h3>
+            <div class="status-info">
+              <span id="lsr-status" class="module-status-text">Idle</span>
+              <span id="lsr-profiles" class="module-stats">0 profiles</span>
+            </div>
+            <div class="quick-actions">
+              <button id="lsr-quick-record" class="btn btn-small btn-primary">Record</button>
+              <button id="lsr-quick-stop" class="btn btn-small btn-secondary">Stop</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="actions">
+        <button id="open-devtools" class="btn btn-block">
+          🛠️ Open DevTools Panel
+        </button>
+        <button id="settings" class="btn btn-block btn-secondary">
+          ⚙️ Settings
+        </button>
+      </div>
+      
+      <!-- Local Configuration Section -->
+      <div class="local-config">
+        <h3>⚡ Quick Config</h3>
+        
+        <div class="config-group">
+          <label for="local-server-url" class="config-label">
+            Server URL
+          </label>
+          <div class="input-group">
+            <input 
+              type="url" 
+              id="local-server-url" 
+              class="form-input"
+              placeholder="http://localhost:8080"
+            >
+            <button id="save-local-config" class="btn btn-small btn-primary">
+              Save
+            </button>
+          </div>
+        </div>
+        
+        <div class="config-group">
+          <label class="config-label">
+            <input type="checkbox" id="local-auto-connect" class="config-checkbox">
+            Auto-connect
+          </label>
+          <small class="config-help">Connect to server on browser start</small>
+        </div>
+        
+        <div class="config-group">
+          <label for="local-native-path" class="config-label">
+            Native Host Path
+          </label>
+          <div class="input-group">
+            <input 
+              type="text" 
+              id="local-native-path" 
+              class="form-input"
+              placeholder="Auto-detected"
+            >
+            <button id="test-local-config" class="btn btn-small btn-secondary">
+              Test
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div id="local-config-status" class="config-status hidden">
+        <span id="local-config-message"></span>
+      </div>
+      
+      <div class="troubleshooting" id="troubleshooting" style="display: none;">
+        <h3>Connection Issues</h3>
+        <p>Unable to connect to Proxxy native host.</p>
+        <div class="troubleshoot-actions">
+          <button id="check-connection" class="btn btn-small">Check Connection</button>
+          <button id="install-guide" class="btn btn-small btn-link">Installation Guide</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

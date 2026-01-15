@@ -1,0 +1,26 @@
+{
+  "name": "proxxy-chrome-extension",
+  "version": "1.0.0",
+  "description": "Browser controls for Proxxy HAR & LSR features",
+  "type": "module",
+  "scripts": {
+    "dev": "vite build --watch --mode development",
+    "build": "vite build",
+    "build:dev": "vite build --mode development",
+    "preview": "vite preview",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "webextension-polyfill": "^0.10.0"
+  },
+  "devDependencies": {
+    "@types/webextension-polyfill": "^0.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "@crxjs/vite-plugin": "^2.0.0",
+    "eslint": "^8.45.0",
+    "typescript": "^5.0.2",
+    "vite": "^4.4.5"
+  }
+}

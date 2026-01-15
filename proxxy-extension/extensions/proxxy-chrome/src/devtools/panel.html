@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Proxxy DevTools</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <div id="app">
+    <div class="tabs">
+      <button class="tab-button active" data-tab="har">HAR Recorder</button>
+      <button class="tab-button" data-tab="lsr">LSR Recorder</button>
+    </div>
+    
+    <div class="tab-content">
+      <div id="har-tab" class="tab-panel active">
+        <div class="panel-header">
+          <h2>HAR Recording</h2>
+          <div class="status-indicator">
+            <span id="har-status" class="status-dot idle"></span>
+            <span id="har-status-text">Idle</span>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button id="har-start" class="btn btn-primary">Start Recording</button>
+          <button id="har-stop" class="btn btn-secondary" disabled>Stop</button>
+          <button id="har-clear" class="btn btn-danger">Clear</button>
+          <button id="har-download" class="btn btn-success" disabled>Download HAR</button>
+        </div>
+        
+        <div class="stats">
+          <div class="stat-item">
+            <span class="stat-label">Requests:</span>
+            <span id="har-request-count" class="stat-value">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Size:</span>
+            <span id="har-total-size" class="stat-value">0 KB</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Duration:</span>
+            <span id="har-duration" class="stat-value">0s</span>
+          </div>
+        </div>
+        
+        <div class="filters">
+          <h3>Filters</h3>
+          <div class="filter-group">
+            <label>
+              <input type="text" id="domain-filter" placeholder="Filter by domain...">
+            </label>
+            <label>
+              <select id="type-filter">
+                <option value="">All Types</option>
+                <option value="xhr">XHR</option>
+                <option value="document">Document</option>
+                <option value="stylesheet">Stylesheet</option>
+                <option value="image">Image</option>
+                <option value="script">Script</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </div>
+      
+      <div id="lsr-tab" class="tab-panel">
+        <div class="panel-header">
+          <h2>LSR Recording</h2>
+          <div class="status-indicator">
+            <span id="lsr-status" class="status-dot idle"></span>
+            <span id="lsr-status-text">Idle</span>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button id="lsr-record" class="btn btn-primary">Start Recording</button>
+          <button id="lsr-stop" class="btn btn-secondary" disabled>Stop Recording</button>
+          <button id="lsr-replay" class="btn btn-success" disabled>Replay</button>
+        </div>
+        
+        <div class="profile-section">
+          <h3>Profile Name</h3>
+          <input type="text" id="profile-name" placeholder="Enter profile name..." class="profile-input">
+        </div>
+        
+        <div class="steps-section">
+          <h3>Recorded Steps</h3>
+          <div id="steps-list" class="steps-list">
+            <div class="empty-state">No steps recorded yet</div>
+          </div>
+        </div>
+        
+        <div class="profiles-section">
+          <h3>Saved Profiles</h3>
+          <div id="profiles-list" class="profiles-list">
+            <div class="empty-state">No saved profiles</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script type="module" src="panel.js"></script>
+</body>
+</html>

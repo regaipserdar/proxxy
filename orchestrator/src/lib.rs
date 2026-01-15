@@ -30,11 +30,13 @@ pub mod scope;
 pub mod server;
 pub mod session_manager;
 pub mod session_integration;
+pub mod recording_service;
 pub mod result_streaming;
 pub mod performance_monitoring;
 pub mod error_handling;
 pub use database::Database;
 pub use session_manager::AgentRegistry;
+pub use recording_service::RecordingService;
 
 #[derive(Debug, Clone)]
 pub struct OrchestratorConfig {
@@ -232,6 +234,9 @@ impl Orchestrator {
         // Initialize SessionManager
         let session_manager = Arc::new(crate::session_integration::SessionManager::new());
 
+        // Initialize RecordingService
+        let recording_service = Arc::new(crate::recording_service::RecordingService::new(ca.clone()));
+
         // Create broadcast channel for repeater executions
         let (repeater_broadcast_tx, _repeater_broadcast_rx) = tokio::sync::broadcast::channel::<RepeaterExecutionGql>(100);
 
@@ -252,6 +257,7 @@ impl Orchestrator {
             .data(intruder_progress_tx.clone())
             .data(intruder_results_tx.clone())
             .data(session_manager.clone())
+            .data(recording_service.clone())
             .data(scope.clone())
             .data(interception.clone())
             .finish();

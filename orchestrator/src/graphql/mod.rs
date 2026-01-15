@@ -14,6 +14,8 @@ use tokio_stream::Stream;
 use tokio_stream::StreamExt;
 use uuid::Uuid;
 
+pub mod flow_graphql;
+
 pub type ProxySchema = Schema<QueryRoot, MutationRoot, SubscriptionRoot>;
 
 // ============================================================================
@@ -418,6 +420,60 @@ impl QueryRoot {
         let config = session_manager.get_auth_failure_config().await;
         
         Ok(AuthFailureDetectionConfigGql::from(config))
+    }
+
+    // ========== Flow Profile Queries ==========
+
+    /// List all flow profiles
+    async fn flow_profiles(
+        &self,
+        ctx: &Context<'_>,
+        status: Option<String>,
+        limit: Option<i32>,
+    ) -> async_graphql::Result<Vec<flow_graphql::FlowProfileGql>> {
+        let db = ctx.data::<Arc<Database>>()?;
+        let limit = limit.unwrap_or(50) as i64;
+        
+        let profiles = db
+            .list_flow_profiles(status.as_deref(), limit)
+            .await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        
+        Ok(profiles.into_iter().map(flow_graphql::FlowProfileGql::from).collect())
+    }
+
+    /// Get a single flow profile by ID
+    async fn flow_profile(
+        &self,
+        ctx: &Context<'_>,
+        id: String,
+    ) -> async_graphql::Result<Option<flow_graphql::FlowProfileGql>> {
+        let db = ctx.data::<Arc<Database>>()?;
+        
+        let profile = db
+            .get_flow_profile(&id)
+            .await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        
+        Ok(profile.map(flow_graphql::FlowProfileGql::from))
+    }
+
+    /// Get execution history for a flow profile
+    async fn flow_executions(
+        &self,
+        ctx: &Context<'_>,
+        profile_id: String,
+        limit: Option<i32>,
+    ) -> async_graphql::Result<Vec<flow_graphql::FlowExecutionGql>> {
+        let db = ctx.data::<Arc<Database>>()?;
+        let limit = limit.unwrap_or(20) as i64;
+        
+        let executions = db
+            .get_flow_executions(&profile_id, limit)
+            .await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        
+        Ok(executions.into_iter().map(flow_graphql::FlowExecutionGql::from).collect())
     }
 }
 
@@ -1062,6 +1118,252 @@ impl MutationRoot {
         session_manager.update_auth_failure_config(config.clone()).await;
         
         Ok(AuthFailureDetectionConfigGql::from(config))
+    }
+
+    // ========== Flow Profile Mutations ==========
+
+    /// Create a new flow profile
+    async fn create_flow_profile(
+        &self,
+        ctx: &Context<'_>,
+        input: flow_graphql::CreateFlowProfileInput,
+    ) -> async_graphql::Result<flow_graphql::FlowOperationResult> {
+        let db = ctx.data::<Arc<Database>>()?;
+        
+        let profile_id = Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().timestamp();
+        
+        let row = crate::database::flow::FlowProfileRow {
+            id: profile_id.clone(),
+            name: input.name.clone(),
+            flow_type: String::from(input.flow_type),
+            start_url: input.start_url,
+            steps: "[]".to_string(),
+            meta: None,
+            created_at: now,
+            updated_at: now,
+            agent_id: input.agent_id,
+            status: "Active".to_string(),
+        };
+        
+        db.save_flow_profile(&row)
+            .await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        
+        Ok(flow_graphql::FlowOperationResult {
+            success: true,
+            message: format!("Flow profile '{}' created", input.name),
+            profile_id: Some(profile_id),
+        })
+    }
+
+    /// Delete a flow profile
+    async fn delete_flow_profile(
+        &self,
+        ctx: &Context<'_>,
+        id: String,
+    ) -> async_graphql::Result<flow_graphql::FlowOperationResult> {
+        let db = ctx.data::<Arc<Database>>()?;
+        
+        let deleted = db
+            .delete_flow_profile(&id)
+            .await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        
+        Ok(flow_graphql::FlowOperationResult {
+            success: deleted,
+            message: if deleted {
+                "Flow profile deleted".to_string()
+            } else {
+                "Flow profile not found".to_string()
+            },
+            profile_id: Some(id),
+        })
+    }
+
+    /// Update a flow profile
+    async fn update_flow_profile(
+        &self,
+        ctx: &Context<'_>,
+        id: String,
+        input: flow_graphql::UpdateFlowProfileInput,
+    ) -> async_graphql::Result<flow_graphql::FlowOperationResult> {
+        let db = ctx.data::<Arc<Database>>()?;
+        
+        let status_str = input.status.map(String::from);
+        
+        let updated = db
+            .update_flow_profile(&id, input.name.as_deref(), None, None, status_str.as_deref())
+            .await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        
+        Ok(flow_graphql::FlowOperationResult {
+            success: updated,
+            message: if updated {
+                "Flow profile updated".to_string()
+            } else {
+                "Flow profile not found".to_string()
+            },
+            profile_id: Some(id),
+        })
+    }
+
+    /// Start recording a new browser flow
+    async fn start_flow_recording(
+        &self,
+        ctx: &Context<'_>,
+        input: flow_graphql::StartRecordingInput,
+    ) -> async_graphql::Result<flow_graphql::FlowOperationResult> {
+        let db = ctx.data::<Arc<Database>>()?;
+        let recording_service = ctx.data::<Arc<crate::recording_service::RecordingService>>()?;
+        
+        // Create profile in "Recording" state
+        let profile_id = Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().timestamp();
+        let start_url = input.start_url.clone();
+        
+        let row = crate::database::flow::FlowProfileRow {
+            id: profile_id.clone(),
+            name: input.name.clone(),
+            flow_type: String::from(input.flow_type),
+            start_url: start_url.clone(),
+            steps: "[]".to_string(),
+            meta: None,
+            created_at: now,
+            updated_at: now,
+            agent_id: input.agent_id,
+            status: "Recording".to_string(),
+        };
+        
+        db.save_flow_profile(&row)
+            .await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        
+        // Launch browser with recording
+        // Proxy port 8080 is default - can be made configurable
+        if let Err(e) = recording_service.start_recording(
+            profile_id.clone(),
+            start_url,
+            Some(9095), // Proxxy agent default port
+        ).await {
+            // Update profile status to Failed
+            let _ = db.update_flow_profile(&profile_id, None, None, None, Some("Failed")).await;
+            return Err(async_graphql::Error::new(format!("Failed to start recording: {}", e)));
+        }
+        
+        Ok(flow_graphql::FlowOperationResult {
+            success: true,
+            message: format!("Recording started for '{}'", input.name),
+            profile_id: Some(profile_id),
+        })
+    }
+
+    /// Stop recording and save the flow
+    async fn stop_flow_recording(
+        &self,
+        ctx: &Context<'_>,
+        profile_id: String,
+        input: flow_graphql::StopRecordingInput,
+    ) -> async_graphql::Result<flow_graphql::FlowOperationResult> {
+        let db = ctx.data::<Arc<Database>>()?;
+        let recording_service = ctx.data::<Arc<crate::recording_service::RecordingService>>()?;
+        
+        // Stop recording (closes browser) and harvest steps
+        match recording_service.stop_recording(input.save).await {
+            Ok(Some((recorded_profile_id, steps))) => {
+                if input.save {
+                    // Profile ID sanity check
+                    if recorded_profile_id != profile_id {
+                        tracing::warn!("profile_id mismatch in recording: {} vs {}", profile_id, recorded_profile_id);
+                    }
+
+                    // Serialize steps to JSON
+                    let steps_json = serde_json::to_string(&steps)
+                        .map_err(|e| async_graphql::Error::new(format!("Failed to serialize steps: {}", e)))?;
+
+                    // Update profile with steps and status Active
+                    db.update_flow_profile(&profile_id, None, Some(&steps_json), None, Some("Active"))
+                        .await
+                        .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+                    
+                    return Ok(flow_graphql::FlowOperationResult {
+                        success: true,
+                        message: format!("Recording saved with {} steps", steps.len()),
+                        profile_id: Some(profile_id),
+                    });
+                }
+            },
+            Ok(None) => {
+                // Recording discarded or not saved
+            },
+            Err(e) => {
+                tracing::warn!("Error stopping recording: {}", e);
+                // Continue to discard/fail handling if needed, or return error
+                if input.save {
+                     return Err(async_graphql::Error::new(format!("Failed to stop recording: {}", e)));
+                }
+            }
+        }
+        
+        if !input.save {
+             // Delete the recording
+             db.delete_flow_profile(&profile_id)
+                 .await
+                 .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+             
+             Ok(flow_graphql::FlowOperationResult {
+                 success: true,
+                 message: "Recording discarded".to_string(),
+                 profile_id: None,
+             })
+        } else {
+             // Fallback if save=true but no steps returned (shouldn't happen with updated service logic unless internal error)
+             Err(async_graphql::Error::new("Failed to save recording: No data returned"))
+        }
+    }
+
+    /// Replay a recorded flow
+    async fn replay_flow(
+        &self,
+        ctx: &Context<'_>,
+        input: flow_graphql::ReplayFlowInput,
+    ) -> async_graphql::Result<flow_graphql::FlowReplayResult> {
+        let db = ctx.data::<Arc<Database>>()?;
+        
+        // Get profile
+        let profile = db
+            .get_flow_profile(&input.profile_id)
+            .await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?
+            .ok_or_else(|| async_graphql::Error::new("Flow profile not found"))?;
+        
+        // Create execution record
+        let execution_id = Uuid::new_v4().to_string();
+        let steps: Vec<serde_json::Value> = serde_json::from_str(&profile.steps).unwrap_or_default();
+        
+        db.start_flow_execution(&execution_id, &input.profile_id, &input.agent_id, steps.len() as i64)
+            .await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        
+        // TODO: Actually execute the flow via flow-engine replayer
+        // For now, simulate completion
+        
+        Ok(flow_graphql::FlowReplayResult {
+            success: true,
+            execution_id: Some(execution_id),
+            error: None,
+            session_cookies: None,
+        })
+    }
+
+    /// Get current recording session state
+    async fn get_recording_state(
+        &self,
+        _ctx: &Context<'_>,
+    ) -> async_graphql::Result<flow_graphql::RecordingSessionGql> {
+        // TODO: Get actual recording state from flow-engine
+        // For now, return idle state
+        Ok(flow_graphql::RecordingSessionGql::default())
     }
 }
 

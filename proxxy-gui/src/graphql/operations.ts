@@ -388,6 +388,135 @@ export const GET_REPEATER_HISTORY = gql`
 // SUBSCRIPTIONS - LIGHTWEIGHT (Real-time Updates)
 // ============================================================================
 
+// ============================================================================
+// FLOW RECORDER OPERATIONS
+// ============================================================================
+
+export const GET_FLOW_PROFILES = gql`
+  query GetFlowProfiles($status: String, $limit: Int) {
+    flowProfiles(status: $status, limit: $limit) {
+      id
+      name
+      flowType
+      startUrl
+      status
+      stepCount
+      createdAt
+      updatedAt
+      agentId
+    }
+  }
+`;
+
+export const GET_FLOW_PROFILE = gql`
+  query GetFlowProfile($id: String!) {
+    flowProfile(id: $id) {
+      id
+      name
+      flowType
+      startUrl
+      steps
+      meta
+      status
+      stepCount
+      createdAt
+      updatedAt
+      agentId
+    }
+  }
+`;
+
+export const GET_FLOW_EXECUTIONS = gql`
+  query GetFlowExecutions($profileId: String!, $limit: Int) {
+    flowExecutions(profileId: $profileId, limit: $limit) {
+      id
+      profileId
+      agentId
+      startedAt
+      completedAt
+      status
+      errorMessage
+      stepsCompleted
+      totalSteps
+      durationMs
+    }
+  }
+`;
+
+export const CREATE_FLOW_PROFILE = gql`
+  mutation CreateFlowProfile($input: CreateFlowProfileInput!) {
+    createFlowProfile(input: $input) {
+      success
+      message
+      profileId
+    }
+  }
+`;
+
+export const UPDATE_FLOW_PROFILE = gql`
+  mutation UpdateFlowProfile($id: String!, $input: UpdateFlowProfileInput!) {
+    updateFlowProfile(id: $id, input: $input) {
+      success
+      message
+      profileId
+    }
+  }
+`;
+
+export const DELETE_FLOW_PROFILE = gql`
+  mutation DeleteFlowProfile($id: String!) {
+    deleteFlowProfile(id: $id) {
+      success
+      message
+      profileId
+    }
+  }
+`;
+
+export const START_FLOW_RECORDING = gql`
+  mutation StartFlowRecording($input: StartRecordingInput!) {
+    startFlowRecording(input: $input) {
+      success
+      message
+      profileId
+    }
+  }
+`;
+
+export const STOP_FLOW_RECORDING = gql`
+  mutation StopFlowRecording($profileId: String!, $input: StopRecordingInput!) {
+    stopFlowRecording(profileId: $profileId, input: $input) {
+      success
+      message
+      profileId
+    }
+  }
+`;
+
+export const REPLAY_FLOW = gql`
+  mutation ReplayFlow($input: ReplayFlowInput!) {
+    replayFlow(input: $input) {
+      success
+      executionId
+      error
+      sessionCookies
+    }
+  }
+`;
+
+export const GET_RECORDING_STATE = gql`
+  query GetRecordingState {
+    getRecordingState {
+      profileId
+      state
+      eventCount
+      currentUrl
+      startedAt
+      error
+    }
+  }
+`;
+
 /**
  * LIGHTWEIGHT: Real-time traffic updates (NO body/headers)
  * Use for: Live traffic feed, real-time table updates

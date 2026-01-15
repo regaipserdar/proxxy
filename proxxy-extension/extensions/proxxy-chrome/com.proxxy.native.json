@@ -1,0 +1,9 @@
+{
+  "name": "com.proxxy.native",
+  "description": "Proxxy Native Messaging Host",
+  "path": "",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://YOUR_EXTENSION_ID/"
+  ]
+}
