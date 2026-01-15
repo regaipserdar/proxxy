@@ -1316,10 +1316,50 @@ impl MutationRoot {
                  message: "Recording discarded".to_string(),
                  profile_id: None,
              })
-        } else {
+         } else {
              // Fallback if save=true but no steps returned (shouldn't happen with updated service logic unless internal error)
              Err(async_graphql::Error::new("Failed to save recording: No data returned"))
         }
+    }
+
+    /// DEBUG: Launch browser with proxy for manual testing
+    async fn debug_launch_browser(
+        &self,
+        ctx: &Context<'_>,
+        start_url: String,
+    ) -> async_graphql::Result<flow_graphql::FlowOperationResult> {
+        let recording_service = ctx.data::<Arc<crate::recording_service::RecordingService>>()?;
+        
+        if let Err(e) = recording_service.debug_launch_browser(
+            start_url,
+            Some(9095),
+        ).await {
+            return Err(async_graphql::Error::new(format!("Failed to launch browser: {}", e)));
+        }
+        
+        Ok(flow_graphql::FlowOperationResult {
+            success: true,
+            message: "Debug browser launched. Check terminal for proxy logs.".to_string(),
+            profile_id: None,
+        })
+    }
+
+    /// DEBUG: Close the debug browser
+    async fn debug_close_browser(
+        &self,
+        ctx: &Context<'_>,
+    ) -> async_graphql::Result<flow_graphql::FlowOperationResult> {
+        let recording_service = ctx.data::<Arc<crate::recording_service::RecordingService>>()?;
+        
+        if let Err(e) = recording_service.debug_close_browser().await {
+            return Err(async_graphql::Error::new(format!("Failed to close browser: {}", e)));
+        }
+        
+        Ok(flow_graphql::FlowOperationResult {
+            success: true,
+            message: "Debug browser closed.".to_string(),
+            profile_id: None,
+        })
     }
 
     /// Replay a recorded flow

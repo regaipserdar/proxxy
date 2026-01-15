@@ -110,27 +110,31 @@ impl RecordingService {
             Ok(browser_arc) => {
                 info!("   ✅ Browser launched successfully");
 
-                // Navigate to start URL
+                // Navigate to start URL using existing page (avoids extra empty tab)
                 if let Some(browser_guard) = browser_arc.read().await.as_ref() {
-                    match browser_guard.browser().new_page(&start_url).await {
-                        Ok(page) => {
-                            info!("   🌐 Navigated to: {}", start_url);
-                            
-                            // Inject recording script
-                            let recording_script = self.get_recording_script();
-                            if let Err(e) = page.evaluate(recording_script).await {
-                                warn!("   ⚠️ Failed to inject recording script: {:?}", e);
-                            } else {
-                                info!("   💉 Recording script injected");
-                            }
-                        }
-                        Err(e) => {
-                            error!("   ❌ Failed to navigate: {:?}", e);
-                            *self.state.write().await = RecordingState::Failed { 
-                                error: format!("Navigation failed: {:?}", e) 
-                            };
-                            return Err(format!("Failed to navigate: {:?}", e));
-                        }
+                    // Get existing page or create one
+                    let pages = browser_guard.browser().pages().await
+                        .map_err(|e| format!("Failed to get pages: {:?}", e))?;
+                    
+                    let page = if let Some(existing_page) = pages.into_iter().next() {
+                        // Use existing blank page
+                        existing_page.goto(&start_url).await
+                            .map_err(|e| format!("Failed to navigate: {:?}", e))?;
+                        existing_page
+                    } else {
+                        // No existing page, create new one
+                        browser_guard.browser().new_page(&start_url).await
+                            .map_err(|e| format!("Failed to create page: {:?}", e))?
+                    };
+                    
+                    info!("   🌐 Navigated to: {}", start_url);
+                    
+                    // Inject recording script
+                    let recording_script = self.get_recording_script();
+                    if let Err(e) = page.evaluate(recording_script).await {
+                        warn!("   ⚠️ Failed to inject recording script: {:?}", e);
+                    } else {
+                        info!("   💉 Recording script injected");
                     }
                 }
 
@@ -262,6 +266,78 @@ impl RecordingService {
             }),
             _ => None,
         }
+    }
+
+    /// Debug: Launch browser with proxy for manual testing
+    /// Does NOT start recording, just opens browser window
+    pub async fn debug_launch_browser(
+        &self,
+        start_url: String,
+        proxy_port: Option<u16>,
+    ) -> Result<(), String> {
+        info!("🔧 DEBUG: Launching browser for manual testing");
+        
+        // Write CA cert to temp file
+        let ca_cert_pem = self.ca.get_ca_cert_pem()
+            .map_err(|e| format!("CA certificate not available: {:?}", e))?;
+        
+        let ca_cert_path = self.write_ca_cert_to_temp(&ca_cert_pem)?;
+        info!("   📜 CA cert: {}", ca_cert_path);
+
+        // Configure browser options
+        let mut options = BrowserOptions::headed()
+            .headless(false);
+        
+        options.ignore_ssl_errors = true;
+        options.ca_cert_path = Some(ca_cert_path);
+
+        // Add proxy if port specified
+        if let Some(port) = proxy_port {
+            options.proxy = Some(ProxyConfig::new("127.0.0.1", port));
+            info!("   🔗 Proxy: 127.0.0.1:{}", port);
+        }
+
+        // Launch browser
+        match self.browser_manager.launch(options).await {
+            Ok(browser_arc) => {
+                info!("   ✅ Browser launched");
+
+                // Navigate to start URL using existing page
+                if let Some(browser_guard) = browser_arc.read().await.as_ref() {
+                    let pages = browser_guard.browser().pages().await
+                        .map_err(|e| format!("Failed to get pages: {:?}", e))?;
+                    
+                    if let Some(page) = pages.into_iter().next() {
+                        page.goto(&start_url).await
+                            .map_err(|e| format!("Failed to navigate: {:?}", e))?;
+                        info!("   🌐 Navigated to: {}", start_url);
+                    } else {
+                        browser_guard.browser().new_page(&start_url).await
+                            .map_err(|e| format!("Failed to create page: {:?}", e))?;
+                        info!("   🌐 Navigated to: {}", start_url);
+                    }
+                }
+
+                Ok(())
+            }
+            Err(e) => {
+                Err(format!("Browser launch failed: {:?}", e))
+            }
+        }
+    }
+
+    /// Close debug browser
+    pub async fn debug_close_browser(&self) -> Result<(), String> {
+        info!("🔧 DEBUG: Closing browser");
+        self.browser_manager.close().await
+            .map_err(|e| format!("Failed to close browser: {:?}", e))?;
+        
+        // Cleanup temp CA cert
+        if let Some(path) = self.ca_cert_path.write().await.take() {
+            let _ = std::fs::remove_file(&path);
+        }
+        
+        Ok(())
     }
 
     /// Write CA certificate to a temporary file

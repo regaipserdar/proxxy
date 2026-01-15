@@ -517,6 +517,25 @@ export const GET_RECORDING_STATE = gql`
   }
 `;
 
+// Debug mutations for browser testing
+export const DEBUG_LAUNCH_BROWSER = gql`
+  mutation DebugLaunchBrowser($startUrl: String!) {
+    debugLaunchBrowser(startUrl: $startUrl) {
+      success
+      message
+    }
+  }
+`;
+
+export const DEBUG_CLOSE_BROWSER = gql`
+  mutation DebugCloseBrowser {
+    debugCloseBrowser {
+      success
+      message
+    }
+  }
+`;
+
 /**
  * LIGHTWEIGHT: Real-time traffic updates (NO body/headers)
  * Use for: Live traffic feed, real-time table updates

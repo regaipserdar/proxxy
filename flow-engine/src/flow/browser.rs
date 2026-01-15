@@ -195,7 +195,16 @@ impl BrowserManager {
             .arg("--disable-blink-features=AutomationControlled")
             .arg("--disable-infobars")
             .arg("--no-first-run")
-            .arg("--no-default-browser-check");
+            .arg("--no-default-browser-check")
+            // Window 
+            .arg("--start-maximized")
+            // Prevent extra tabs
+            .arg("--disable-popup-blocking")
+            .arg("--disable-session-crashed-bubble")
+            .arg("--disable-restore-session-state")
+            .arg("--homepage=about:blank")
+            // CRITICAL: Disable viewport emulation (chromiumoxide defaults to 800x600!)
+            .viewport(None);
 
         // Build config
         let config = config_builder

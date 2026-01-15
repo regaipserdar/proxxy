@@ -11,6 +11,7 @@ import {
     Video,
     Circle,
     Square,
+    Bug,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,7 +33,9 @@ import {
     REPLAY_FLOW,
     GET_AGENTS,
     START_FLOW_RECORDING,
-    STOP_FLOW_RECORDING
+    STOP_FLOW_RECORDING,
+    DEBUG_LAUNCH_BROWSER,
+    DEBUG_CLOSE_BROWSER
 } from '@/graphql/operations';
 
 interface FlowProfile {
@@ -88,6 +91,8 @@ export const FlowRecorderView = () => {
     const [newProfileType, setNewProfileType] = useState('Login');
     const [recordName, setRecordName] = useState('');
     const [recordUrl, setRecordUrl] = useState('https://');
+    const [isDebugBrowserOpen, setIsDebugBrowserOpen] = useState(false);
+    const [debugUrl, setDebugUrl] = useState('https://example.com');
 
     // GraphQL Queries
     const { data: profilesData, loading: profilesLoading, refetch: refetchProfiles } = useQuery(GET_FLOW_PROFILES, {
@@ -105,6 +110,8 @@ export const FlowRecorderView = () => {
     const [replayFlowMutation] = useMutation(REPLAY_FLOW);
     const [startRecordingMutation] = useMutation(START_FLOW_RECORDING);
     const [stopRecordingMutation] = useMutation(STOP_FLOW_RECORDING);
+    const [debugLaunchBrowserMutation] = useMutation(DEBUG_LAUNCH_BROWSER);
+    const [debugCloseBrowserMutation] = useMutation(DEBUG_CLOSE_BROWSER);
 
     // Get available agents for replay
     const { data: agentsData } = useQuery(GET_AGENTS);
@@ -168,6 +175,34 @@ export const FlowRecorderView = () => {
             refetchProfiles();
         } catch (error) {
             console.error('Failed to stop recording:', error);
+        }
+    };
+
+    // Debug Browser Handlers
+    const handleDebugLaunchBrowser = async () => {
+        try {
+            const result = await debugLaunchBrowserMutation({
+                variables: { startUrl: debugUrl }
+            });
+            if (result.data?.debugLaunchBrowser?.success) {
+                setIsDebugBrowserOpen(true);
+                alert('Debug browser launched! Check orchestrator terminal for proxy logs.');
+            } else {
+                alert(`Failed: ${result.data?.debugLaunchBrowser?.message}`);
+            }
+        } catch (error) {
+            console.error('Failed to launch debug browser:', error);
+            alert(`Error: ${error}`);
+        }
+    };
+
+    const handleDebugCloseBrowser = async () => {
+        try {
+            await debugCloseBrowserMutation();
+            setIsDebugBrowserOpen(false);
+            alert('Debug browser closed.');
+        } catch (error) {
+            console.error('Failed to close debug browser:', error);
         }
     };
 
@@ -297,6 +332,35 @@ export const FlowRecorderView = () => {
                     >
                         <RefreshCw size={14} />
                     </Button>
+                    {/* Debug Browser Section */}
+                    <div className="flex items-center gap-1 px-2 py-1 bg-yellow-500/10 border border-yellow-500/30 rounded-md">
+                        <Bug size={14} className="text-yellow-400" />
+                        <Input
+                            value={debugUrl}
+                            onChange={(e) => setDebugUrl(e.target.value)}
+                            className="w-48 h-6 text-xs bg-transparent border-none text-white/80"
+                            placeholder="https://..."
+                        />
+                        {!isDebugBrowserOpen ? (
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={handleDebugLaunchBrowser}
+                                className="text-yellow-400 hover:bg-yellow-500/10 px-2 h-6 text-xs"
+                            >
+                                Launch
+                            </Button>
+                        ) : (
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={handleDebugCloseBrowser}
+                                className="text-red-400 hover:bg-red-500/10 px-2 h-6 text-xs"
+                            >
+                                Close
+                            </Button>
+                        )}
+                    </div>
                     {/* Start Recording Dialog */}
                     <Dialog open={isRecordOpen} onOpenChange={setIsRecordOpen}>
                         <DialogTrigger asChild>
