@@ -1,7 +1,7 @@
 
 import { memo, ReactNode } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
-import { ProxxyNodeData, NodeType } from '../types';
+import { ProxxyNodeData, NodeType } from '@/types';
 import { Filter, Edit3, Repeat, Terminal, Radio } from 'lucide-react';
 
 const NodeWrapper = ({ selected, children, label, subLabel, type }: { selected: boolean, children?: ReactNode, label: string, subLabel?: string, type: NodeType }) => {

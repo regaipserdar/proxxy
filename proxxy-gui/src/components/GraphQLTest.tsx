@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { useQuery } from '@apollo/client';
 import { TEST_CONNECTION, GET_HTTP_TRANSACTIONS } from '../graphql/operations';
 
@@ -11,7 +11,7 @@ export function GraphQLTest() {
   return (
     <div className="p-4 bg-gray-900 text-white">
       <h2 className="text-xl font-bold mb-4">GraphQL Connection Test</h2>
-      
+
       <div className="mb-4">
         <h3 className="text-lg font-semibold">Test Connection:</h3>
         {testLoading && <p>Loading...</p>}

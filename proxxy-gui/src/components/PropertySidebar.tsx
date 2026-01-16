@@ -1,5 +1,5 @@
 
-import { ProxxyNode, NodeType } from '../types';
+import { ProxxyNode, NodeType } from '@/types';
 import { Settings, X, Globe, Tag, Terminal } from 'lucide-react';
 
 export const PropertySidebar = ({ node, onUpdate, onClose }: { node: ProxxyNode, onUpdate: (id: string, updates: any) => void, onClose: () => void, key?: string }) => {

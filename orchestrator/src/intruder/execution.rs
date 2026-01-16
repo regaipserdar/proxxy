@@ -10,7 +10,7 @@ use crate::performance_monitoring::{PerformanceMonitor, PerformanceConfig};
 use crate::Database;
 use attack_engine::{
     AttackError, AttackResult, HttpRequestData, HttpResponseData, 
-    AttackMode, AttackModeExecutor, AttackModeFactory, AgentInfo, AgentStatus,
+    AttackMode, AttackModeFactory, AgentInfo, AgentStatus,
     PayloadPositionParser
 };
 use serde::{Deserialize, Serialize};
@@ -121,10 +121,10 @@ pub struct AttackExecutionCoordinator {
 
 /// Internal attack execution state
 struct AttackExecution {
-    config: AttackExecutionConfig,
+    _config: AttackExecutionConfig,
     progress: AttackProgress,
     cancel_token: tokio_util::sync::CancellationToken,
-    result_sender: mpsc::UnboundedSender<IntruderResult>,
+    _result_sender: mpsc::UnboundedSender<IntruderResult>,
     agent_tasks: HashMap<String, tokio::task::JoinHandle<()>>,
 }
 
@@ -227,10 +227,10 @@ impl AttackExecutionCoordinator {
 
         // Create attack execution state
         let mut attack_execution = AttackExecution {
-            config: config.clone(),
+            _config: config.clone(),
             progress: progress.clone(),
             cancel_token: cancel_token.clone(),
-            result_sender: result_sender.clone(),
+            _result_sender: result_sender.clone(),
             agent_tasks: HashMap::new(),
         };
 
@@ -301,13 +301,12 @@ impl AttackExecutionCoordinator {
         let attack_mode_executor = AttackModeFactory::create(&config.attack_mode);
 
         // Parse request template
-        let base_request = self.parse_request_template(&config.request_template)?;
+        let _base_request = self.parse_request_template(&config.request_template)?;
 
         let task = tokio::spawn(async move {
             let start_time = Instant::now();
             let mut completed_count = 0;
             let mut successful_count = 0;
-            let mut failed_count = 0;
             let mut total_response_time = 0u64;
 
             // Generate requests for this agent's payloads
@@ -336,7 +335,7 @@ impl AttackExecutionCoordinator {
             // Execute requests with performance monitoring and concurrency control
             let mut tasks = Vec::new();
 
-            for (index, attack_request) in requests.into_iter().enumerate() {
+            for (_index, attack_request) in requests.into_iter().enumerate() {
                 if cancel_token.is_cancelled() {
                     break;
                 }
@@ -423,8 +422,6 @@ impl AttackExecutionCoordinator {
                     completed_count += 1;
                     if success {
                         successful_count += 1;
-                    } else {
-                        failed_count += 1;
                     }
                     total_response_time += duration;
                 }
@@ -562,7 +559,7 @@ impl AttackExecutionCoordinator {
     }
 
     /// Parse request string into HttpRequestData (simple implementation)
-    fn parse_request_string(request_string: &str) -> AttackResult<HttpRequestData> {
+    fn parse_request_string(_request_string: &str) -> AttackResult<HttpRequestData> {
         // TODO: Implement proper HTTP request parsing from string
         // For now, create a basic request
         Ok(HttpRequestData::new("GET".to_string(), "http://example.com".to_string()))

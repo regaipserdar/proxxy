@@ -1,6 +1,6 @@
 import React from 'react';
 import { Terminal, X, Plus } from 'lucide-react';
-import { RepeaterTask } from './types';
+import { RepeaterTask } from '@/types';
 
 interface RepeaterTabsProps {
     tasks: RepeaterTask[];

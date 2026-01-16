@@ -8,6 +8,7 @@ use crate::flow::page::PageController;
 use crate::flow::browser::{BrowserManager, BrowserOptions};
 use secrecy::ExposeSecret;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, info, warn};
 
@@ -59,10 +60,14 @@ impl Default for ReplayOptions {
     }
 }
 
+/// Progress callback type
+pub type ProgressCallback = Arc<dyn Fn(usize, usize) + Send + Sync>;
+
 /// Flow Replayer - executes recorded flows
 pub struct FlowReplayer {
     browser_manager: BrowserManager,
     options: ReplayOptions,
+    progress_callback: Option<ProgressCallback>,
 }
 
 impl FlowReplayer {
@@ -71,6 +76,7 @@ impl FlowReplayer {
         Self {
             browser_manager: BrowserManager::new(),
             options: ReplayOptions::default(),
+            progress_callback: None,
         }
     }
 
@@ -79,6 +85,18 @@ impl FlowReplayer {
         Self {
             browser_manager: BrowserManager::new(),
             options,
+            progress_callback: None,
+        }
+    }
+
+    /// Set progress callback
+    pub fn set_progress_callback(&mut self, callback: ProgressCallback) {
+        self.progress_callback = Some(callback);
+    }
+    
+    fn report_progress(&self, current: usize, total: usize) {
+        if let Some(ref cb) = self.progress_callback {
+            cb(current, total);
         }
     }
 
@@ -106,8 +124,24 @@ impl FlowReplayer {
             .map_err(|e| FlowEngineError::BrowserLaunch(format!("Failed to create page: {}", e)))?;
 
         let controller = PageController::new(page);
+        
+        // Navigate to start URL first
+        debug!("Navigating to start URL: {}", profile.start_url);
+        controller.navigate(&profile.start_url).await
+            .map_err(|e| FlowEngineError::Navigation(format!("Failed to navigate to start URL {}: {}", profile.start_url, e)))?;
+        
+        // Wait for page to be fully loaded before executing steps
+        debug!("Waiting for page to load...");
+        controller.wait_for_condition(&WaitCondition::PageLoaded).await
+            .map_err(|e| FlowEngineError::Navigation(format!("Page load wait failed: {}", e)))?;
+        
+        // Additional settle time for dynamic content
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        
         let mut extracted_data = HashMap::new();
+
         let mut steps_completed = 0;
+        self.report_progress(0, total_steps);
 
         // Execute each step
         for (i, step) in profile.steps.iter().enumerate() {
@@ -136,6 +170,7 @@ impl FlowReplayer {
             }
 
             steps_completed += 1;
+            self.report_progress(steps_completed, total_steps);
 
             // Delay between steps if configured
             if self.options.step_by_step {

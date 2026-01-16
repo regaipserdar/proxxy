@@ -2,7 +2,7 @@
 //!
 //! CRUD operations for storing and retrieving browser flow recordings and executions.
 
-use sqlx::{Pool, Row, Sqlite};
+use sqlx::Row;
 use tracing::info;
 
 /// Flow profile data as stored in database
@@ -305,6 +305,7 @@ impl super::Database {
         id: &str,
         success: bool,
         error_message: Option<&str>,
+        steps_completed: i64,
         session_cookies: Option<&str>,
         extracted_data: Option<&str>,
     ) -> Result<(), sqlx::Error> {
@@ -321,6 +322,7 @@ impl super::Database {
                 completed_at = ?,
                 status = ?,
                 error_message = ?,
+                steps_completed = ?,
                 session_cookies = ?,
                 extracted_data = ?
             WHERE id = ?
@@ -329,6 +331,7 @@ impl super::Database {
         .bind(completed_at)
         .bind(status)
         .bind(error_message)
+        .bind(steps_completed)
         .bind(session_cookies)
         .bind(extracted_data)
         .bind(id)
@@ -422,5 +425,24 @@ impl super::Database {
             session_cookies: r.get("session_cookies"),
             extracted_data: r.get("extracted_data"),
         }))
+    }
+
+    /// Cleanup orphaned executions (executions that are stuck in 'running' state after a crash/restart)
+    pub async fn cleanup_orphaned_executions(&self) -> Result<u64, sqlx::Error> {
+        let pool = self.get_pool().await.map_err(|e| {
+            sqlx::Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+        })?;
+
+        let result = sqlx::query(
+            "UPDATE flow_executions SET status = 'failed', error_message = 'Orphaned (Orchestrator restarted)' WHERE status = 'running'"
+        )
+        .execute(&pool)
+        .await?;
+
+        let count = result.rows_affected();
+        if count > 0 {
+            info!("✓ Cleaned up {} orphaned flow executions", count);
+        }
+        Ok(count)
     }
 }

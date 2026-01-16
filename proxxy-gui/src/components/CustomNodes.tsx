@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
-import { ProxxyNodeData } from '../types';
+import { ProxxyNodeData } from '@/types';
 import { FileText, Layers, Cpu, BrainCircuit } from 'lucide-react';
 
 export const AgentNode = memo(({ data }: NodeProps<ProxxyNodeData>) => {

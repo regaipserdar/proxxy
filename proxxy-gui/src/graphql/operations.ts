@@ -251,6 +251,48 @@ export const UNLOAD_PROJECT = gql`
 `;
 
 // ============================================================================
+// TARGET SCOPE OPERATIONS
+// ============================================================================
+
+export const GET_SCOPE_RULES = gql`
+  query GetScopeRules {
+    scopeRules {
+      id
+      ruleType
+      pattern
+      isRegex
+      enabled
+      createdAt
+    }
+  }
+`;
+
+export const ADD_SCOPE_RULE = gql`
+  mutation AddScopeRule($ruleType: String!, $pattern: String!, $isRegex: Boolean!) {
+    addScopeRule(ruleType: $ruleType, pattern: $pattern, isRegex: $isRegex) {
+      id
+      ruleType
+      pattern
+      isRegex
+      enabled
+      createdAt
+    }
+  }
+`;
+
+export const DELETE_SCOPE_RULE = gql`
+  mutation DeleteScopeRule($id: String!) {
+    deleteScopeRule(id: $id)
+  }
+`;
+
+export const TOGGLE_SCOPE_RULE = gql`
+  mutation ToggleScopeRule($id: String!, $enabled: Boolean!) {
+    toggleScopeRule(id: $id, enabled: $enabled)
+  }
+`;
+
+// ============================================================================
 // MUTATIONS
 // ============================================================================
 
@@ -422,6 +464,35 @@ export const GET_FLOW_PROFILE = gql`
       createdAt
       updatedAt
       agentId
+    }
+  }
+`;
+
+export const GET_FLOW_PROFILE_WITH_TRAFFIC = gql`
+  query GetFlowProfileWithTraffic($id: String!) {
+    flowProfileWithTraffic(id: $id) {
+      profile {
+        id
+        name
+        flowType
+        startUrl
+        steps
+        meta
+        status
+        stepCount
+        createdAt
+        updatedAt
+        agentId
+      }
+      traffic {
+        id
+        requestId
+        method
+        path
+        host
+        statusCode
+        timestamp
+      }
     }
   }
 `;

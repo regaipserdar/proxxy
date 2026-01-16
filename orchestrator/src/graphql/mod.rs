@@ -2,9 +2,9 @@ use crate::pb::{traffic_event, SystemMetricsEvent, TrafficEvent};
 use crate::Database;
 use crate::models::settings::{ScopeConfig, InterceptionConfig, InterceptionRule, RuleCondition, RuleAction};
 use crate::repeater::{RepeaterManager, CreateRepeaterTabRequest, RepeaterExecutionRequest, RepeaterTabConfig, RepeaterExecutionResponse};
-use crate::intruder::{IntruderManager, IntruderAttackConfig, AttackValidationResult, AttackStatistics, PayloadSetConfig};
+use crate::intruder::{IntruderManager, IntruderAttackConfig, PayloadSetConfig};
 use crate::database::intruder::{IntruderAttack, IntruderResult, PayloadSet};
-use crate::session_integration::{SessionManager, SessionSelectionCriteria, SessionApplicationResult, SessionRefreshRequest, SessionRefreshResult, ExpirationHandling, AuthFailureDetectionConfig, SessionStatistics};
+use crate::session_integration::{SessionManager, SessionSelectionCriteria, SessionApplicationResult, SessionRefreshResult, ExpirationHandling, AuthFailureDetectionConfig, SessionStatistics};
 use attack_engine::{HttpRequestData, HttpResponseData, AttackMode, DistributionStrategy, PayloadConfig};
 use proxy_common::session::{Session, SessionStatus, Cookie, SameSite, SessionEvent};
 use async_graphql::{ComplexObject, Context, Object, Schema, SimpleObject, Subscription, InputObject};
@@ -195,6 +195,15 @@ impl QueryRoot {
             scope: ScopeConfigGql::from(scope),
             interception: InterceptionConfigGql::from(interception),
         })
+    }
+
+    /// Get target scope rules
+    async fn scope_rules(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<ScopeRuleGql>> {
+        let db = ctx.data::<Arc<Database>>()?;
+        let rules = db.get_scope_rules().await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        
+        Ok(rules.into_iter().map(ScopeRuleGql::from).collect())
     }
 
     /// Get all repeater tabs
@@ -458,6 +467,55 @@ impl QueryRoot {
         Ok(profile.map(flow_graphql::FlowProfileGql::from))
     }
 
+    /// Get flow profile with correlated HTTP traffic from recording time window
+    async fn flow_profile_with_traffic(
+        &self,
+        ctx: &Context<'_>,
+        id: String,
+    ) -> async_graphql::Result<Option<flow_graphql::FlowProfileWithTrafficGql>> {
+        let db = ctx.data::<Arc<Database>>()?;
+        
+        // Get the profile
+        let profile = db
+            .get_flow_profile(&id)
+            .await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        
+        if profile.is_none() {
+            return Ok(None);
+        }
+        
+        let profile = profile.unwrap();
+        let profile_gql = flow_graphql::FlowProfileGql::from(profile.clone());
+        
+        // Get HTTP traffic within the recording time window (created_at to updated_at)
+        let traffic_rows = db
+            .get_requests_by_time_range(profile.created_at, profile.updated_at)
+            .await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        
+        // Convert to GraphQL type
+        let traffic: Vec<flow_graphql::TrafficItemGql> = traffic_rows
+            .into_iter()
+            .map(|(request_id, method, path, host, status_code, timestamp)| {
+                flow_graphql::TrafficItemGql {
+                    id: request_id.clone(),
+                    request_id,
+                    method,
+                    path,
+                    host,
+                    status_code,
+                    timestamp,
+                }
+            })
+            .collect();
+        
+        Ok(Some(flow_graphql::FlowProfileWithTrafficGql {
+            profile: profile_gql,
+            traffic,
+        }))
+    }
+
     /// Get execution history for a flow profile
     async fn flow_executions(
         &self,
@@ -536,6 +594,46 @@ impl MutationRoot {
         let db = ctx.data::<Arc<Database>>()?;
         db.delete_project(&name).await.map_err(|e| async_graphql::Error::new(e.to_string()))?;
         Ok(ProjectOperationResult { success: true, message: format!("Project '{}' deleted", name) })
+    }
+
+    async fn add_scope_rule(
+        &self,
+        ctx: &Context<'_>,
+        rule_type: String,
+        pattern: String,
+        is_regex: bool,
+    ) -> async_graphql::Result<ScopeRuleGql> {
+        let db = ctx.data::<Arc<Database>>()?;
+        let rule = db.add_scope_rule(&rule_type, &pattern, is_regex)
+            .await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        
+        Ok(ScopeRuleGql::from(rule))
+    }
+
+    async fn delete_scope_rule(
+        &self,
+        ctx: &Context<'_>,
+        id: String,
+    ) -> async_graphql::Result<bool> {
+        let db = ctx.data::<Arc<Database>>()?;
+        db.delete_scope_rule(&id)
+            .await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        Ok(true)
+    }
+
+    async fn toggle_scope_rule(
+        &self,
+        ctx: &Context<'_>,
+        id: String,
+        enabled: bool,
+    ) -> async_graphql::Result<bool> {
+        let db = ctx.data::<Arc<Database>>()?;
+        db.toggle_scope_rule(&id, enabled)
+            .await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        Ok(true)
     }
 
     async fn unload_project(&self, ctx: &Context<'_>) -> async_graphql::Result<ProjectOperationResult> {
@@ -1368,6 +1466,10 @@ impl MutationRoot {
         ctx: &Context<'_>,
         input: flow_graphql::ReplayFlowInput,
     ) -> async_graphql::Result<flow_graphql::FlowReplayResult> {
+        use flow_engine::{FlowReplayer, ReplayOptions, FlowProfile as FEProfile, FlowStep as FEStep, FlowType as FEFlowType};
+        use flow_engine::flow::model::ProfileStatus as FEProfileStatus;
+        use uuid::Uuid as FEUuid;
+        
         let db = ctx.data::<Arc<Database>>()?;
         
         // Get profile
@@ -1377,16 +1479,137 @@ impl MutationRoot {
             .map_err(|e| async_graphql::Error::new(e.to_string()))?
             .ok_or_else(|| async_graphql::Error::new("Flow profile not found"))?;
         
+        // Parse steps from JSON
+        tracing::debug!("Raw steps from DB: {}", profile.steps);
+        let steps: Vec<FEStep> = serde_json::from_str(&profile.steps)
+            .map_err(|e| {
+                tracing::error!("Failed to parse steps JSON: {}. JSON: {}", e, profile.steps);
+                async_graphql::Error::new(format!("Failed to parse steps: {}", e))
+            })?;
+        
+        tracing::info!("Parsed {} steps for replay", steps.len());
+        
         // Create execution record
         let execution_id = Uuid::new_v4().to_string();
-        let steps: Vec<serde_json::Value> = serde_json::from_str(&profile.steps).unwrap_or_default();
-        
         db.start_flow_execution(&execution_id, &input.profile_id, &input.agent_id, steps.len() as i64)
             .await
             .map_err(|e| async_graphql::Error::new(e.to_string()))?;
         
-        // TODO: Actually execute the flow via flow-engine replayer
-        // For now, simulate completion
+        // Convert flow_type string to FlowType enum
+        let flow_type = match profile.flow_type.as_str() {
+            "Login" => FEFlowType::Login,
+            "Checkout" => FEFlowType::Checkout,
+            "FormSubmission" => FEFlowType::FormSubmission,
+            "Navigation" => FEFlowType::Navigation,
+            _ => FEFlowType::Custom(profile.flow_type.clone()),
+        };
+        
+        // Build FlowProfile for replayer
+        let mut fe_profile = FEProfile::new(&profile.name, &profile.start_url);
+        fe_profile.id = FEUuid::parse_str(&profile.id).unwrap_or_else(|_| FEUuid::new_v4());
+        fe_profile.flow_type = flow_type;
+        fe_profile.steps = steps;
+        fe_profile.status = FEProfileStatus::Active;
+        
+        // Clone for async move
+        let db_clone = Arc::clone(&*db);
+        let execution_id_clone = execution_id.clone();
+        let profile_id_clone = input.profile_id.clone();
+        let step_count = fe_profile.steps.len();
+        
+        // Spawn background task to execute replay
+        tokio::spawn(async move {
+            tracing::info!("🎬 Starting flow replay: {} (execution: {}) with {} steps", profile_id_clone, execution_id_clone, step_count);
+            
+            // Create replayer with headed browser for visibility
+            let options = ReplayOptions {
+                headed: true, // Show browser window
+                step_by_step: true,
+                step_delay_ms: 300,
+                ..Default::default()
+            };
+            
+            let mut replayer = FlowReplayer::with_options(options);
+            
+            // Set progress callback
+            let db_progress = Arc::clone(&db_clone);
+            let execution_id_progress = execution_id_clone.clone();
+            replayer.set_progress_callback(Arc::new(move |current, _total| {
+                let db = Arc::clone(&db_progress);
+                let eid = execution_id_progress.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = db.update_flow_execution_progress(&eid, current as i64).await {
+                        tracing::error!("Failed to update execution progress: {:?}", e);
+                    }
+                });
+            }));
+            
+            // Execute the flow with a timeout (5 minutes)
+            let timeout_duration = std::time::Duration::from_secs(300);
+            let execution_future = replayer.execute(&fe_profile);
+            
+            match tokio::time::timeout(timeout_duration, execution_future).await {
+                Ok(Ok(result)) => {
+                    if result.success {
+                        tracing::info!(
+                            "✅ Flow replay completed: {}/{} steps in {}ms",
+                            result.steps_completed,
+                            result.total_steps,
+                            result.duration_ms
+                        );
+                    } else {
+                        tracing::warn!(
+                            "⚠️ Flow replay finished with errors: {}/{} steps completed. Error: {:?}",
+                            result.steps_completed,
+                            result.total_steps,
+                            result.error
+                        );
+                    }
+                    
+                    // Update execution record
+                    if let Err(e) = db_clone.complete_flow_execution(
+                        &execution_id_clone,
+                        result.success,
+                        result.error.as_deref(),
+                        result.steps_completed as i64,
+                        result.session_cookies.as_deref(),
+                        None, // extracted_data
+                    ).await {
+                        tracing::error!("Failed to update execution record: {:?}", e);
+                    }
+                }
+                Ok(Err(e)) => {
+                    tracing::error!("❌ Flow replay engine error: {:?}", e);
+                    
+                    // Mark execution as failed
+                    if let Err(e2) = db_clone.complete_flow_execution(
+                        &execution_id_clone,
+                        false,
+                        Some(&e.to_string()),
+                        0, // Unknown precisely here, but result was Err
+                        None,
+                        None,
+                    ).await {
+                        tracing::error!("Failed to update execution record: {:?}", e2);
+                    }
+                }
+                Err(_) => {
+                    tracing::error!("⏱️ Flow replay timed out after {}s", timeout_duration.as_secs());
+                    
+                    // Mark execution as failed due to timeout
+                    if let Err(e2) = db_clone.complete_flow_execution(
+                        &execution_id_clone,
+                        false,
+                        Some("Execution timed out"),
+                        0, // Timeout usually means it hung
+                        None,
+                        None,
+                    ).await {
+                        tracing::error!("Failed to update execution record: {:?}", e2);
+                    }
+                }
+            }
+        });
         
         Ok(flow_graphql::FlowReplayResult {
             success: true,
@@ -1920,6 +2143,29 @@ impl From<ScopeConfig> for ScopeConfigGql {
             include_patterns: c.include_patterns,
             exclude_patterns: c.exclude_patterns,
             use_regex: c.use_regex,
+        }
+    }
+}
+
+#[derive(SimpleObject)]
+pub struct ScopeRuleGql {
+    pub id: String,
+    pub rule_type: String,
+    pub pattern: String,
+    pub is_regex: bool,
+    pub enabled: bool,
+    pub created_at: i64,
+}
+
+impl From<crate::database::ScopeRule> for ScopeRuleGql {
+    fn from(r: crate::database::ScopeRule) -> Self {
+        Self {
+            id: r.id,
+            rule_type: r.rule_type,
+            pattern: r.pattern,
+            is_regex: r.is_regex,
+            enabled: r.enabled,
+            created_at: r.created_at,
         }
     }
 }

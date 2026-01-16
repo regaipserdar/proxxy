@@ -4,7 +4,7 @@ use crate::pb::{
     SystemMetricsEvent, TrafficEvent, traffic_event, HeartbeatRequest, HeartbeatResponse,
 };
 use crate::AgentRegistry;
-use crate::models::settings::{ScopeConfig, InterceptionConfig};
+use crate::models::settings::InterceptionConfig;
 use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc, RwLock};
 use tokio_stream::wrappers::ReceiverStream;
@@ -21,7 +21,6 @@ pub struct ProxyServiceImpl {
     metrics_broadcast_tx: broadcast::Sender<SystemMetricsEvent>,
     db: Arc<Database>,
     ca: Arc<CertificateAuthority>,
-    scope: Arc<RwLock<ScopeConfig>>,
     #[allow(dead_code)] // Reserved for future interception implementation
     interception: Arc<RwLock<InterceptionConfig>>,
 }
@@ -33,7 +32,6 @@ impl ProxyServiceImpl {
         metrics_broadcast_tx: broadcast::Sender<SystemMetricsEvent>,
         db: Arc<Database>,
         ca: Arc<CertificateAuthority>,
-        scope: Arc<RwLock<ScopeConfig>>,
         interception: Arc<RwLock<InterceptionConfig>>,
     ) -> Self {
         Self {
@@ -42,7 +40,6 @@ impl ProxyServiceImpl {
             metrics_broadcast_tx,
             db,
             ca,
-            scope,
             interception,
         }
     }
@@ -137,8 +134,6 @@ impl ProxyService for ProxyServiceImpl {
         let db = self.db.clone();
         let agent_id_cl = agent_id.clone();
         let registry = self.agent_registry.clone();
-        let scope = self.scope.clone();
-
         // Spawn task to handle inbound traffic events
         tokio::spawn(async move {
             let mut event_count = 0;
@@ -149,9 +144,9 @@ impl ProxyService for ProxyServiceImpl {
                     event_count, agent_id_cl, event.request_id
                 );
 
-                // SCOPE CHECK - Determine if we should record this event
-                let scope_config = scope.read().await;
-                let should_record = if scope_config.enabled {
+                // SCOPE CHECK - Determine if we should record and broadcast this event
+                let rules = db.scope_rules_cache.read().await;
+                let should_record = if !rules.is_empty() {
                     // Extract URL from event
                     let url = match &event.event {
                         Some(traffic_event::Event::Request(req)) => Some(req.url.as_str()),
@@ -159,18 +154,18 @@ impl ProxyService for ProxyServiceImpl {
                     };
 
                     if let Some(url) = url {
-                        let in_scope = crate::scope::is_in_scope(&scope_config, url);
+                        let in_scope = crate::scope::is_in_scope(&rules, url);
                         if !in_scope {
-                            debug!("⏭️ Out-of-scope (not recording): {}", url);
+                            debug!("⏭️ Out-of-scope (ignoring): {}", url);
                         }
                         in_scope
                     } else {
                         true // No URL = record by default
                     }
                 } else {
-                    true // Scope disabled = record everything
+                    true // No rules = record everything
                 };
-                drop(scope_config); // Release lock
+                drop(rules); // Release lock
 
                 // Only broadcast and save if in scope
                 if should_record {

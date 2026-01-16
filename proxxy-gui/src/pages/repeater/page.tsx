@@ -10,7 +10,7 @@ import { RepeaterToolbar } from '@/components/repeater/RepeaterToolbar';
 import { RepeaterInspector } from '@/components/repeater/RepeaterInspector';
 import { EmptyRepeater } from '@/components/repeater/EmptyRepeater';
 import { RepeaterHistory } from '@/components/repeater/RepeaterHistory';
-import { RepeaterAgent } from '@/components/repeater/types';
+import { RepeaterAgent } from '@/types';
 
 export const RepeaterView = () => {
   const { tasks, activeTaskId, addTask, updateTask, removeTask, setActiveTaskId, loadTabs, isLoading } = useRepeaterStore();

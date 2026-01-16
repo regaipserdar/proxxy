@@ -3,15 +3,14 @@
 //! This module implements concurrency limiting, backpressure mechanisms,
 //! dynamic load balancing, and memory management for high-volume attacks.
 
-use crate::result_streaming::{ResultStreamingManager, ResultSource, AgentPerformanceStats};
+use crate::result_streaming::ResultStreamingManager;
 use attack_engine::{AttackError, AttackResult, AgentInfo, AgentStatus};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{RwLock, Semaphore, mpsc};
 use tokio::time::{Duration, Instant};
-use tracing::{info, warn, error, debug};
-use uuid::Uuid;
+use tracing::{info, warn, debug};
 
 /// Performance monitoring configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

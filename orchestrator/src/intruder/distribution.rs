@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, warn, debug};
+use tracing::{info, warn};
 
 /// Payload distribution assignment for an agent
 #[derive(Debug, Clone, Serialize, Deserialize)]

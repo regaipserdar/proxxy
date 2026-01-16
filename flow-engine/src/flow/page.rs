@@ -133,7 +133,7 @@ impl PageController {
 
     /// Click an element using smart selector
     pub async fn click(&self, selector: &SmartSelector) -> FlowResult<()> {
-        let css = self.selector_to_css(selector)?;
+        let css = self.selector_to_css(selector).await?;
         debug!("Clicking: {}", css);
 
         let element = self.find_element_with_fallback(selector).await?;
@@ -221,9 +221,10 @@ impl PageController {
             .await
             .map_err(|e| FlowEngineError::Replay(format!("Script execution failed: {}", e)))?;
 
-        result
+        // If the script returns undefined/void, return null instead of error
+        Ok(result
             .into_value::<serde_json::Value>()
-            .map_err(|e| FlowEngineError::Replay(format!("Script result parse failed: {}", e)))
+            .unwrap_or(serde_json::Value::Null))
     }
 
     /// Take a screenshot
@@ -245,26 +246,58 @@ impl PageController {
             .ok_or_else(|| FlowEngineError::Replay("No text content".to_string()))
     }
 
-    /// Find element with fallback to alternatives
+    /// Find element with fallback to alternatives and retry logic
     async fn find_element_with_fallback(&self, selector: &SmartSelector) -> FlowResult<chromiumoxide::Element> {
-        let css = self.selector_to_css(selector)?;
+        let css = self.selector_to_css(selector).await?;
         
-        if let Ok(element) = self.page.find_element(&css).await {
-            return Ok(element);
-        }
-
-        for alt in &selector.alternatives {
-            let alt_css = match alt.selector_type {
-                SelectorType::Css => alt.value.clone(),
-                SelectorType::XPath => continue,
-                SelectorType::Text => format!(":contains('{}')", alt.value),
-                SelectorType::AriaLabel => format!("[aria-label='{}']", alt.value),
-                SelectorType::Placeholder => format!("[placeholder='{}']", alt.value),
-            };
-
-            if let Ok(element) = self.page.find_element(&alt_css).await {
-                info!("Found element using alternative selector: {}", alt.value);
+        // Retry with exponential backoff - wait up to 10 seconds for element
+        let max_attempts = 10;
+        let mut delay = Duration::from_millis(200);
+        
+        for attempt in 1..=max_attempts {
+            // Try primary selector
+            if let Ok(element) = self.page.find_element(&css).await {
+                if attempt > 1 {
+                    debug!("Found element after {} attempts: {}", attempt, css);
+                }
                 return Ok(element);
+            }
+
+            // Try alternatives
+            for alt in &selector.alternatives {
+                let alt_css = match alt.selector_type {
+                    SelectorType::Css => alt.value.clone(),
+                    SelectorType::XPath => {
+                        // Try to convert XPath alternative to CSS
+                        let alt_selector = SmartSelector {
+                            value: alt.value.clone(),
+                            selector_type: SelectorType::XPath,
+                            priority: alt.priority,
+                            alternatives: Vec::new(),
+                            validation_result: None,
+                        };
+                        match self.selector_to_css(&alt_selector).await {
+                            Ok(css) => css,
+                            Err(_) => continue,
+                        }
+                    },
+                    SelectorType::Text => format!(":contains('{}')", alt.value),
+                    SelectorType::AriaLabel => format!("[aria-label='{}']", alt.value),
+                    SelectorType::Placeholder => format!("[placeholder='{}']", alt.value),
+                };
+
+                if let Ok(element) = self.page.find_element(&alt_css).await {
+                    info!("Found element using alternative selector: {}", alt.value);
+                    return Ok(element);
+                }
+            }
+
+            // Wait before retry if not last attempt
+            if attempt < max_attempts {
+                debug!("Element not found (attempt {}/{}), waiting {:?}...", attempt, max_attempts, delay);
+                tokio::time::sleep(delay).await;
+                // Increase delay for next attempt (exponential backoff with cap)
+                delay = std::cmp::min(delay * 2, Duration::from_secs(2));
             }
         }
 
@@ -272,13 +305,56 @@ impl PageController {
     }
 
     /// Convert SmartSelector to CSS selector string
-    fn selector_to_css(&self, selector: &SmartSelector) -> FlowResult<String> {
+    pub async fn selector_to_css(&self, selector: &SmartSelector) -> FlowResult<String> {
         match selector.selector_type {
             SelectorType::Css => Ok(selector.value.clone()),
             SelectorType::XPath => {
-                Err(FlowEngineError::SelectorGeneration(
-                    "XPath selectors not yet supported in CSS mode".to_string(),
-                ))
+                // Runtime conversion from XPath to CSS via JS
+                debug!("Converting XPath to CSS at runtime: {}", selector.value);
+                // Escape backslashes and double quotes for JS string
+                let escaped_xpath = selector.value.replace("\\", "\\\\").replace("\"", "\\\"");
+                
+                let script = format!(
+                    r#"(function() {{
+                        try {{
+                            const el = document.evaluate("{}", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                            if (!el) return null;
+                            
+                            if (el.id) return '#' + el.id;
+                            let path = [];
+                            let current = el;
+                            while (current && current.nodeType === Node.ELEMENT_NODE) {{
+                                let selector = current.nodeName.toLowerCase();
+                                if (current.id) {{
+                                    path.unshift('#' + current.id);
+                                    break;
+                                }}
+                                let sib = current;
+                                let nth = 1;
+                                while (sib = sib.previousElementSibling) {{
+                                    if (sib.nodeName.toLowerCase() == selector) nth++;
+                                }}
+                                if (nth != 1) selector += ':nth-of-type(' + nth + ')';
+                                path.unshift(selector);
+                                current = current.parentNode;
+                            }}
+                            return path.join(' > ') || null;
+                        }} catch (e) {{
+                            console.error('XPath to CSS conversion failed:', e);
+                            return null;
+                        }}
+                    }})()"#,
+                    escaped_xpath
+                );
+                
+                let result = self.execute_script(&script).await?;
+                if let Some(css) = result.as_str() {
+                    Ok(css.to_string())
+                } else {
+                    Err(FlowEngineError::ElementNotFound { 
+                        selector: format!("XPath: {}", selector.value) 
+                    })
+                }
             }
             SelectorType::Text => Ok(format!(":contains('{}')", selector.value)),
             SelectorType::AriaLabel => Ok(format!("[aria-label='{}']", selector.value)),

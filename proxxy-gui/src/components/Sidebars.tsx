@@ -5,7 +5,7 @@ import {
   Home, GitMerge, Type as TextIcon, Search, Radio, Filter,
   Edit3, Repeat, Terminal, Settings, ShieldCheck, Target, Send, Server, ListTree, Video
 } from 'lucide-react';
-import { NodeType } from '../types';
+import { NodeType } from '@/types';
 
 export const LeftSidebar = () => (
   <aside data-tauri-drag-region className="w-[72px] h-full glass-panel border-r border-white/10 flex flex-col items-center py-8 gap-6 z-50">

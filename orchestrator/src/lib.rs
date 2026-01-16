@@ -66,7 +66,6 @@ struct AppState {
     schema: ProxySchema,
     agents: Arc<AgentRegistry>,
     db: Arc<Database>,
-    ca: Arc<proxy_core::CertificateAuthority>,
     start_time: std::time::Instant,
     #[allow(dead_code)] // Used via GraphQL context
     scope: Arc<RwLock<ScopeConfig>>,
@@ -156,6 +155,11 @@ impl Orchestrator {
         
         let db = std::sync::Arc::new(crate::Database::new(projects_dir).await?);
 
+        // Cleanup orphaned flow executions from previous run
+        if let Err(e) = db.cleanup_orphaned_executions().await {
+            warn!("Failed to cleanup orphaned flow executions: {}", e);
+        }
+
         // Initialize CA (load from ./certs or generate)
         let ca_path = std::path::Path::new("certs");
         let ca = std::sync::Arc::new(proxy_core::CertificateAuthority::new(ca_path)?);
@@ -208,7 +212,6 @@ impl Orchestrator {
             metrics_broadcast_tx.clone(),
             db.clone(),
             ca.clone(),
-            scope.clone(),
             interception.clone(),
         );
 
@@ -266,7 +269,6 @@ impl Orchestrator {
             schema,
             agents: agent_registry.clone(),
             db: db.clone(),
-            ca: ca.clone(),
             start_time: std::time::Instant::now(),
             scope,
             interception,

@@ -11,11 +11,11 @@ use crate::Database;
 use crate::session_integration::{SessionManager, SessionApplicationResult, ExpirationHandling, SessionSelectionCriteria, SessionRefreshResult};
 use attack_engine::{
     AttackError, AttackResult, PayloadConfig, PayloadGeneratorFactory,
-    PayloadPosition, PayloadPositionParser, AttackMode, AttackModeFactory,
+    PayloadPosition, PayloadPositionParser, AttackMode,
     DistributionStrategy, ExecutionConfig, AgentInfo, AgentStatus
 };
-use distribution::{IntruderPayloadDistributor, PayloadAssignment, DistributionStats};
-use execution::{AttackExecutionCoordinator, AttackProgress, AttackExecutionConfig, AttackExecutionStatus};
+use distribution::{IntruderPayloadDistributor, DistributionStats};
+use execution::{AttackExecutionCoordinator, AttackProgress, AttackExecutionConfig};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;

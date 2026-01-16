@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { Edit2, Server, Globe, ChevronDown, Check, Wifi, History, Send } from 'lucide-react';
-import { RepeaterAgent, RepeaterTask } from './types';
+import { RepeaterAgent, RepeaterTask } from '@/types';
 
 interface RepeaterToolbarProps {
     activeTask: RepeaterTask | undefined;

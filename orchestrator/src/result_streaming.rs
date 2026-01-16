@@ -9,9 +9,9 @@ use attack_engine::{AttackError, AttackResult, HttpResponseData};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{broadcast, RwLock, mpsc};
+use tokio::sync::{broadcast, RwLock};
 use tokio::time::{Duration, Instant};
-use tracing::{info, warn, error, debug};
+use tracing::info;
 use uuid::Uuid;
 
 /// Real-time result update for streaming to clients

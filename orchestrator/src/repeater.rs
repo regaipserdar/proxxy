@@ -126,8 +126,6 @@ pub struct RepeaterManager {
     agent_registry: Arc<AgentRegistry>,
     session_manager: Arc<SessionManager>,
     active_tabs: Arc<RwLock<HashMap<String, RepeaterTabConfig>>>,
-    /// Pending request -> response oneshot channel mapping
-    pending_requests: Arc<RwLock<HashMap<String, tokio::sync::oneshot::Sender<HttpResponseData>>>>,
     /// Broadcast receiver for traffic events (to correlate responses)
     broadcast_tx: tokio::sync::broadcast::Sender<(String, crate::pb::TrafficEvent)>,
 }
@@ -144,7 +142,6 @@ impl RepeaterManager {
             agent_registry,
             session_manager: Arc::new(SessionManager::new()),
             active_tabs: Arc::new(RwLock::new(HashMap::new())),
-            pending_requests: Arc::new(RwLock::new(HashMap::new())),
             broadcast_tx,
         }
     }

@@ -3,14 +3,12 @@
 //! Captures user interactions in the browser and generates flow steps.
 
 use crate::error::{FlowEngineError, FlowResult};
-use crate::flow::model::{FlowProfile, FlowStep, FlowType, SmartSelector, ProfileStatus};
+use crate::flow::model::{FlowProfile, FlowStep, FlowType, ProfileStatus};
 use crate::flow::analyzer::{SelectorAnalyzer, ElementInfo};
 use crate::flow::page::PageController;
-use chromiumoxide::Page;
-use chrono::Utc;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 use uuid::Uuid;
 
 /// Recording session state

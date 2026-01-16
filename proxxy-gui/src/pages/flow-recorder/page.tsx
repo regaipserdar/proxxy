@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import {
     Play,
@@ -12,6 +12,13 @@ import {
     Circle,
     Square,
     Bug,
+    ChevronRight,
+    MousePointer,
+    Type,
+    Send,
+    List,
+    Activity,
+    Globe,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +34,7 @@ import {
 } from '@/components/ui/dialog';
 import {
     GET_FLOW_PROFILES,
+    GET_FLOW_PROFILE_WITH_TRAFFIC,
     GET_FLOW_EXECUTIONS,
     CREATE_FLOW_PROFILE,
     DELETE_FLOW_PROFILE,
@@ -61,6 +69,43 @@ interface FlowExecution {
     stepsCompleted: number;
     totalSteps: number;
     durationMs?: number;
+}
+
+// Represents a recorded step from the database
+interface FlowStep {
+    Click?: {
+        selector: { value: string; selector_type: string };
+        wait_for?: string;
+    };
+    Type?: {
+        selector: { value: string; selector_type: string };
+        value: string;
+        is_masked: boolean;
+        clear_first: boolean;
+    };
+    Submit?: {
+        selector: { value: string; selector_type: string };
+        wait_for_navigation: boolean;
+    };
+    Navigate?: {
+        url: string;
+        wait_for?: string;
+    };
+    Wait?: {
+        duration_ms: number;
+        condition?: string;
+    };
+}
+
+// HTTP traffic item for correlation with steps
+interface TrafficItem {
+    id: string;
+    requestId: string;
+    method: string;
+    path: string;
+    host: string;
+    statusCode: number | null;
+    timestamp: number;
 }
 
 const FlowTypeColors: Record<string, string> = {
@@ -99,10 +144,59 @@ export const FlowRecorderView = () => {
         pollInterval: 10000,
     });
 
-    const { data: executionsData, loading: executionsLoading } = useQuery(GET_FLOW_EXECUTIONS, {
+    const { data: executionsData, loading: executionsLoading, refetch: refetchExecutions } = useQuery(GET_FLOW_EXECUTIONS, {
         variables: { profileId: selectedProfileId, limit: 10 },
         skip: !selectedProfileId,
+        pollInterval: 3000,
     });
+
+    // Fetch profile details with steps and correlated traffic when selected
+    const { data: profileDetailsData } = useQuery(GET_FLOW_PROFILE_WITH_TRAFFIC, {
+        variables: { id: selectedProfileId },
+        skip: !selectedProfileId,
+    });
+
+    const flowData = profileDetailsData?.flowProfileWith_traffic || profileDetailsData?.flowProfileWithTraffic;
+    const profile = flowData?.profile;
+    const trafficItems: TrafficItem[] = flowData?.traffic || [];
+
+    // Parse steps from JSON string
+    const profileSteps: FlowStep[] = useMemo(() => {
+        if (!profile?.steps) return [];
+        try {
+            return JSON.parse(profile.steps);
+        } catch {
+            return [];
+        }
+    }, [profile?.steps]);
+
+    // Create a chronological list of mixed items (steps and traffic)
+    const chronologicalItems = useMemo(() => {
+        const items: { type: 'step' | 'traffic'; data: any; timestamp: number }[] = [];
+
+        // Add steps (if they have timestamps, otherwise we'll treat them specially)
+        profileSteps.forEach((step, index) => {
+            // Note: Older steps might not have timestamps yet
+            // For now, we'll try to estimate or handle them
+            items.push({
+                type: 'step',
+                data: { ...step, originalIndex: index + 1 },
+                timestamp: (step as any).timestamp || (profile?.createdAt || 0) + (index * 10)
+            });
+        });
+
+        // Add traffic items
+        trafficItems.forEach(item => {
+            items.push({
+                type: 'traffic',
+                data: item,
+                timestamp: item.timestamp * 1000 // Convert to ms if it was in seconds
+            });
+        });
+
+        // Sort by timestamp
+        return items.sort((a, b) => a.timestamp - b.timestamp);
+    }, [profileSteps, trafficItems, profile?.createdAt]);
 
     // GraphQL Mutations
     const [createProfile] = useMutation(CREATE_FLOW_PROFILE);
@@ -269,6 +363,7 @@ export const FlowRecorderView = () => {
             if (result.data?.replayFlow?.success) {
                 alert(`Replay started! Execution ID: ${result.data.replayFlow.executionId}`);
                 // Refetch executions to show new one
+                refetchExecutions();
                 refetchProfiles();
             } else {
                 alert(`Replay failed: ${result.data?.replayFlow?.error || 'Unknown error'}`);
@@ -296,6 +391,7 @@ export const FlowRecorderView = () => {
                 <div className="flex items-center gap-3">
                     <Video className="text-cyan-400" size={20} />
                     <h1 className="text-lg font-semibold text-white/90">Flow Recorder</h1>
+                    <p className="text-xs text-white/60 ">v1.12 beta</p>
                     <Badge variant="outline" className="text-xs border-cyan-500/30 text-cyan-400">
                         {profiles.length} profiles
                     </Badge>
@@ -559,6 +655,111 @@ export const FlowRecorderView = () => {
                                 </div>
                             </div>
 
+                            {/* Recorded Steps & Traffic Correlation */}
+                            <div className="flex-1 overflow-y-auto p-4 bg-[#0D1117]/50">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-sm font-medium text-white/70 flex items-center gap-2">
+                                        <Activity size={14} className="text-cyan-400" />
+                                        Flow Timeline
+                                    </h3>
+                                    <div className="flex gap-4 text-[10px] text-slate-500 uppercase tracking-wider">
+                                        <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500/50" /> Traffic</span>
+                                        <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-slate-500/50" /> Step</span>
+                                    </div>
+                                </div>
+
+                                {chronologicalItems.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center p-12 text-slate-500 bg-white/2 rounded-lg border border-dashed border-white/5">
+                                        <List size={24} className="mb-2 opacity-20" />
+                                        <p className="text-xs">No recording data available</p>
+                                    </div>
+                                ) : (
+                                    <div className="relative space-y-3 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[1px] before:bg-white/5">
+                                        {chronologicalItems.map((item, idx) => {
+                                            if (item.type === 'traffic') {
+                                                const traffic = item.data;
+                                                const statusColor = traffic.statusCode && traffic.statusCode >= 200 && traffic.statusCode < 300
+                                                    ? 'text-emerald-400'
+                                                    : traffic.statusCode && traffic.statusCode >= 300 && traffic.statusCode < 400
+                                                        ? 'text-amber-400'
+                                                        : 'text-red-400';
+
+                                                return (
+                                                    <div key={`traffic-${idx}`} className="relative pl-8 group">
+                                                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#161B22] border border-blue-500/30 flex items-center justify-center z-10">
+                                                            <Globe size={10} className="text-blue-400" />
+                                                        </div>
+                                                        <div
+                                                            className="flex items-center justify-between p-2.5 bg-blue-500/5 hover:bg-blue-500/10 rounded border border-blue-500/10 cursor-pointer transition-all"
+                                                            onClick={() => {
+                                                                // Future: Open request details
+                                                                console.log('Open request:', traffic.requestId);
+                                                            }}
+                                                        >
+                                                            <div className="flex items-center gap-3 min-w-0">
+                                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 uppercase tracking-tight">
+                                                                    {traffic.method}
+                                                                </span>
+                                                                <span className="text-xs font-mono text-white/80 truncate">
+                                                                    {traffic.path}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center gap-3 shrink-0 ml-4">
+                                                                <span className="text-[10px] text-slate-500 font-mono">
+                                                                    {traffic.host}
+                                                                </span>
+                                                                {traffic.statusCode && (
+                                                                    <span className={`text-xs font-bold ${statusColor}`}>
+                                                                        {traffic.statusCode}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            } else {
+                                                const step = item.data;
+                                                const stepType = Object.keys(step).find(k => k !== 'originalIndex' && k !== 'timestamp') as keyof FlowStep;
+                                                const stepData = step[stepType];
+                                                const selector = (stepData as any)?.selector?.value || (stepData as any)?.url || '';
+                                                const isPassword = (stepData as any)?.is_masked;
+                                                const value = (stepData as any)?.value || '';
+
+                                                return (
+                                                    <div key={`step-${idx}`} className="relative pl-8 group">
+                                                        <div className="absolute left-[8px] top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-[#30363D] border border-white/20 z-10 group-hover:bg-cyan-500/50 transition-colors" />
+                                                        <div className="flex items-center gap-3 p-2 bg-[#161B22]/40 rounded border border-white/5 group-hover:border-white/10 transition-colors">
+                                                            <span className="text-[10px] text-slate-500 font-mono w-4">
+                                                                {step.originalIndex}
+                                                            </span>
+                                                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                                {stepType === 'Click' && <MousePointer size={11} className="text-cyan-400 shrink-0" />}
+                                                                {stepType === 'Type' && <Type size={11} className={isPassword ? "text-amber-400 shrink-0" : "text-emerald-400 shrink-0"} />}
+                                                                {stepType === 'Submit' && <Send size={11} className="text-purple-400 shrink-0" />}
+                                                                {stepType === 'Navigate' && <ChevronRight size={11} className="text-blue-400 shrink-0" />}
+                                                                {stepType === 'Wait' && <Clock size={11} className="text-slate-400 shrink-0" />}
+
+                                                                <span className="text-[11px] font-semibold text-white/60 uppercase">{stepType}</span>
+
+                                                                {stepType === 'Type' && value && (
+                                                                    <span className={`text-[11px] font-mono px-1.5 py-0.5 rounded ${isPassword ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                                                                        {value}
+                                                                    </span>
+                                                                )}
+
+                                                                <span className="text-[11px] text-slate-500 truncate font-mono" title={selector}>
+                                                                    {selector.length > 50 ? selector.substring(0, 50) + '...' : selector}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+
                             {/* Executions */}
                             <div className="flex-1 overflow-y-auto p-4">
                                 <h3 className="text-sm font-medium text-white/70 mb-3">Execution History</h3>
@@ -581,15 +782,15 @@ export const FlowRecorderView = () => {
                                             >
                                                 <div className="flex items-center justify-between mb-2">
                                                     <div className="flex items-center gap-2">
-                                                        {exec.status === 'success' ? (
+                                                        {exec.status === 'Success' ? (
                                                             <CheckCircle size={14} className="text-emerald-400" />
-                                                        ) : exec.status === 'failed' ? (
+                                                        ) : exec.status === 'Failed' ? (
                                                             <XCircle size={14} className="text-red-400" />
                                                         ) : (
                                                             <RefreshCw size={14} className="text-cyan-400 animate-spin" />
                                                         )}
                                                         <span className="text-sm text-white/80">
-                                                            {exec.status === 'success' ? 'Completed' : exec.status === 'failed' ? 'Failed' : 'Running'}
+                                                            {exec.status === 'Success' ? 'Completed' : exec.status === 'Failed' ? 'Failed' : 'Running'}
                                                         </span>
                                                     </div>
                                                     <span className="text-xs text-slate-500">

@@ -2,7 +2,7 @@
 //!
 //! GraphQL types for browser flow recording and replay.
 
-use async_graphql::{Object, SimpleObject, InputObject, Enum};
+use async_graphql::{SimpleObject, InputObject, Enum};
 use crate::database::flow::{FlowProfileRow, FlowExecutionRow};
 
 // ============================================================================
@@ -44,6 +44,7 @@ impl From<FlowTypeGql> for String {
 }
 
 #[derive(Enum, Copy, Clone, Eq, PartialEq, Debug)]
+#[graphql(rename_items = "PascalCase")]
 pub enum ProfileStatusGql {
     Active,
     Archived,
@@ -75,6 +76,7 @@ impl From<ProfileStatusGql> for String {
 }
 
 #[derive(Enum, Copy, Clone, Eq, PartialEq, Debug)]
+#[graphql(rename_items = "PascalCase")]
 pub enum ExecutionStatusGql {
     Running,
     Success,
@@ -274,4 +276,27 @@ pub struct FlowReplayResult {
 #[derive(InputObject)]
 pub struct StopRecordingInput {
     pub save: bool, // Whether to save the recording
+}
+
+// ============================================================================
+// TRAFFIC CORRELATION TYPES
+// ============================================================================
+
+/// A simplified traffic event for correlation with steps
+#[derive(SimpleObject, Debug, Clone)]
+pub struct TrafficItemGql {
+    pub id: String,
+    pub method: String,
+    pub path: String,
+    pub host: String,
+    pub status_code: Option<i32>,
+    pub timestamp: i64,
+    pub request_id: String,
+}
+
+/// Flow profile with correlated HTTP traffic
+#[derive(SimpleObject, Debug, Clone)]
+pub struct FlowProfileWithTrafficGql {
+    pub profile: FlowProfileGql,
+    pub traffic: Vec<TrafficItemGql>,
 }

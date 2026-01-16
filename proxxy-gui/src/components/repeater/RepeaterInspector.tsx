@@ -2,7 +2,7 @@ import React, { useCallback, useMemo } from 'react';
 import { Search, Terminal, ChevronRight } from 'lucide-react';
 import Editor from '@monaco-editor/react';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
-import { RepeaterTask } from './types';
+import { RepeaterTask } from '@/types';
 
 interface RepeaterInspectorProps {
     activeTask: RepeaterTask | undefined;

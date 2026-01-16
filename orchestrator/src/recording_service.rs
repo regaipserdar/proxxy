@@ -129,12 +129,17 @@ impl RecordingService {
                     
                     info!("   🌐 Navigated to: {}", start_url);
                     
-                    // Inject recording script
+                    // Inject recording script ON EVERY NEW DOCUMENT (persists through navigation)
                     let recording_script = self.get_recording_script();
-                    if let Err(e) = page.evaluate(recording_script).await {
-                        warn!("   ⚠️ Failed to inject recording script: {:?}", e);
+                    if let Err(e) = page.evaluate_on_new_document(recording_script).await {
+                        warn!("   ⚠️ Failed to register recording script: {:?}", e);
                     } else {
-                        info!("   💉 Recording script injected");
+                        info!("   💉 Recording script registered (will persist through navigation)");
+                    }
+                    
+                    // Also inject immediately for current page
+                    if let Err(e) = page.evaluate(recording_script).await {
+                        warn!("   ⚠️ Failed to inject initial recording script: {:?}", e);
                     }
                 }
 
@@ -179,23 +184,33 @@ impl RecordingService {
 
         if save {
             // Harvest events before closing
+            info!("   🔍 Attempting to harvest events...");
             if let Some(browser_arc) = self.browser_manager.get_browser().await {
+                info!("   🔍 Got browser_arc");
                 let guard = browser_arc.read().await;
                 if let Some(managed_browser) = guard.as_ref() {
+                    info!("   🔍 Got managed_browser");
                     match managed_browser.browser().pages().await {
                         Ok(pages) => {
-                            for page in pages {
+                            info!("   🔍 Got {} pages", pages.len());
+                            for (page_idx, page) in pages.iter().enumerate() {
+                                info!("   🔍 Processing page {}", page_idx);
                                 // Extract events as JSON string
                                 match page.evaluate("JSON.stringify(window.__proxxy_events || [])").await {
                                     Ok(val) => {
                                         match val.into_value::<String>() {
                                             Ok(json_str) => {
+                                                info!("   🔍 Got JSON: {} chars", json_str.len());
                                                 match serde_json::from_str::<Vec<RawEvent>>(&json_str) {
                                                     Ok(events) => {
-                                                        info!("   📥 Harvested {} events from page", events.len());
-                                                        for event in events {
+                                                        info!("   📥 Harvested {} raw events from page {}", events.len(), page_idx);
+                                                        for (i, event) in events.into_iter().enumerate() {
+                                                            info!("      📋 Event {}: type={}, xpath={:?}", i, event.event_type, event.xpath);
                                                             if let Some(step) = self.convert_event_to_step(event) {
+                                                                info!("      ✅ Converted to step: {:?}", step);
                                                                 recorded_steps.push(step);
+                                                            } else {
+                                                                info!("      ❌ Could not convert (missing xpath or unknown type)");
                                                             }
                                                         }
                                                     },
@@ -205,13 +220,17 @@ impl RecordingService {
                                             Err(e) => warn!("   ⚠️ Failed to get event string: {:?}", e),
                                         }
                                     },
-                                    Err(e) => warn!("   ⚠️ Failed to evaluate event script: {:?}", e),
+                                    Err(e) => warn!("   ⚠️ Failed to evaluate event script on page {}: {:?}", page_idx, e),
                                 }
                             }
                         },
                         Err(e) => warn!("   ⚠️ Failed to get pages: {:?}", e),
                     }
+                } else {
+                    warn!("   ⚠️ managed_browser is None!");
                 }
+            } else {
+                warn!("   ⚠️ browser_arc is None!");
             }
         }
 
@@ -243,28 +262,54 @@ impl RecordingService {
     }
 
     fn convert_event_to_step(&self, event: RawEvent) -> Option<FlowStep> {
-        let xpath = event.xpath?;
-        let selector = SmartSelector::xpath(xpath);
+        let xpath = event.xpath.clone();
+        let selector_val = event.selector.clone().or(xpath);
+        
+        let selector = match selector_val {
+            Some(s) => {
+                // Determine if it's XPath or CSS
+                if s.starts_with('/') || s.starts_with('(') {
+                    SmartSelector::xpath(s)
+                } else {
+                    SmartSelector::css(s)
+                }
+            },
+            None => {
+                warn!("⚠️ RawEvent missing selector and xpath: {:?}", event);
+                return None;
+            }
+        };
 
         match event.event_type.as_str() {
-            "click" => Some(FlowStep::Click {
-                selector,
-                wait_for: None,
-            }),
+            "click" => {
+                info!("   👉 Converting 'click' event at {}", selector.value);
+                Some(FlowStep::Click {
+                    selector,
+                    wait_for: None,
+                })
+            },
             "input" => {
                 let is_masked = event.is_password.unwrap_or(false);
+                let actual_value = event.value.unwrap_or_default();
+                info!("   ⌨️  Converting 'input' event (value len: {}) at {}", actual_value.len(), selector.value);
                 Some(FlowStep::Type {
                     selector,
-                    value: SecretString::new(Box::from("".to_string())), // Do not record actual input for security
+                    value: SecretString::new(Box::from(actual_value)),
                     is_masked,
                     clear_first: false,
                 })
             },
-            "submit" => Some(FlowStep::Submit {
-                selector, // Submit event usually bubbles from form, but target is form. XPath handles this.
-                wait_for_navigation: true,
-            }),
-            _ => None,
+            "submit" => {
+                info!("   📤 Converting 'submit' event at {}", selector.value);
+                Some(FlowStep::Submit {
+                    selector,
+                    wait_for_navigation: true,
+                })
+            },
+            _ => {
+                warn!("   ❓ Unknown event type: {}", event.event_type);
+                None
+            },
         }
     }
 
@@ -371,26 +416,113 @@ impl RecordingService {
                     className: target.className || null,
                     name: target.name || null,
                     textContent: target.textContent?.substring(0, 100) || null,
-                    xpath: getXPath(target)
+                    xpath: getXPath(target),
+                    selector: getSelector(target)
                 };
                 window.__proxxy_events.push(event);
                 console.log('[Proxxy Recording] Click:', event);
             }, true);
 
-            // Input listener
-            document.addEventListener('input', function(e) {
-                const target = e.target;
-                // Only capture that input happened, not the value
-                const event = {
-                    type: 'input',
-                    timestamp: Date.now(),
+            function getSelector(el) {
+                if (!el) return null;
+                if (el.id) return '#' + el.id;
+                
+                let path = [];
+                let current = el;
+                while (current && current.nodeType === Node.ELEMENT_NODE) {
+                    let selector = current.nodeName.toLowerCase();
+                    if (current.id) {
+                        path.unshift('#' + current.id);
+                        break;
+                    }
+                    
+                    let sib = current;
+                    let nth = 1;
+                    while (sib = sib.previousElementSibling) {
+                        if (sib.nodeName.toLowerCase() == selector) nth++;
+                    }
+                    if (nth != 1) selector += ':nth-of-type(' + nth + ')';
+                    
+                    path.unshift(selector);
+                    current = current.parentNode;
+                }
+                return path.join(' > ');
+            }
+
+            // Debounced input capture - captures FINAL value instead of per-keystroke
+            const inputTimers = new Map();
+            const capturedInputs = new Map();
+            
+            function captureInputValue(target) {
+                const xpath = getXPath(target);
+                const inputId = xpath;
+                const currentValue = target.value || '';
+                
+                // Store current value state
+                capturedInputs.set(inputId, {
+                    value: currentValue,
+                    xpath: xpath,
+                    selector: getSelector(target),
+                    isPassword: target.type === 'password',
                     tagName: target.tagName,
                     id: target.id || null,
                     name: target.name || null,
-                    inputType: target.type || null,
-                    isPassword: target.type === 'password'
-                };
-                window.__proxxy_events.push(event);
+                });
+            }
+            
+            function flushInputEvent(target) {
+                const xpath = getXPath(target);
+                const inputId = xpath;
+                const state = capturedInputs.get(inputId);
+                
+                if (state && state.value) {
+                    const event = {
+                        type: 'input',
+                        timestamp: Date.now(),
+                        tagName: state.tagName,
+                        id: state.id,
+                        name: state.name,
+                        value: state.value, // Actual value captured!
+                        isPassword: state.isPassword,
+                        xpath: state.xpath,
+                        selector: state.selector
+                    };
+                    window.__proxxy_events.push(event);
+                    console.log('[Proxxy Recording] Input (debounced):', event.xpath, 'value:', state.isPassword ? '***' : state.value);
+                    capturedInputs.delete(inputId);
+                }
+            }
+            
+            // On each input, capture value but debounce the event
+            document.addEventListener('input', function(e) {
+                const target = e.target;
+                const xpath = getXPath(target);
+                
+                captureInputValue(target);
+                
+                // Clear existing timer
+                if (inputTimers.has(xpath)) {
+                    clearTimeout(inputTimers.get(xpath));
+                }
+                
+                // Set new debounce timer (500ms)
+                inputTimers.set(xpath, setTimeout(() => {
+                    flushInputEvent(target);
+                    inputTimers.delete(xpath);
+                }, 500));
+            }, true);
+            
+            // On blur, immediately flush the input
+            document.addEventListener('blur', function(e) {
+                const target = e.target;
+                if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+                    const xpath = getXPath(target);
+                    if (inputTimers.has(xpath)) {
+                        clearTimeout(inputTimers.get(xpath));
+                        inputTimers.delete(xpath);
+                    }
+                    flushInputEvent(target);
+                }
             }, true);
 
             // Form submit listener
@@ -400,7 +532,9 @@ impl RecordingService {
                     type: 'submit',
                     timestamp: Date.now(),
                     formId: form.id || null,
-                    action: form.action || null
+                    action: form.action || null,
+                    xpath: getXPath(form),
+                    selector: getSelector(form)
                 };
                 window.__proxxy_events.push(event);
                 console.log('[Proxxy Recording] Form submit:', event);
@@ -448,11 +582,15 @@ struct RawEvent {
     #[serde(rename = "type")]
     event_type: String,
     #[serde(default)]
+    timestamp: Option<i64>, // Milliseconds since epoch from Date.now()
+    #[serde(default)]
     xpath: Option<String>,
+    #[serde(default)]
+    selector: Option<String>,
     #[serde(rename = "isPassword", default)]
     is_password: Option<bool>,
-    // Other fields available in JS but not strictly needed for basic replay yet:
-    // timestamp, tagName, id, className, name, inputType, formId, action
+    #[serde(default)]
+    value: Option<String>, // Captured input value for Type events
 }
 
 #[cfg(test)]

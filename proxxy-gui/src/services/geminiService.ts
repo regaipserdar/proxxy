@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { ProxxyNode } from "../types";
+import { ProxxyNode } from '@/types';
 import { Edge } from "reactflow";
 
 // Ensure we have a string even if env is missing

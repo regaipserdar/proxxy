@@ -1,6 +1,6 @@
 use crate::Database;
 use serde::{Deserialize, Serialize};
-use sqlx::{Pool, Sqlite, Row};
+use sqlx::{Sqlite, Row};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

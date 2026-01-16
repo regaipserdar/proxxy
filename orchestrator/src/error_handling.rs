@@ -4,14 +4,14 @@
 //! mechanisms for all orchestrator operations including repeater and intruder.
 
 use attack_engine::{
-    AttackError, AttackResult, ErrorRecoveryStrategy, BackoffStrategy, 
+    AttackError, ErrorRecoveryStrategy, 
     ErrorSeverity, ErrorCategory, CircuitBreaker, ErrorContext, SecurityManager
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{RwLock, broadcast};
-use tracing::{error, warn, info, debug};
+use tracing::{error, warn, info};
 use uuid::Uuid;
 
 /// Centralized error handler for the orchestrator
@@ -85,8 +85,8 @@ struct AgentFailureTracker {
 struct ResourceExhaustionMonitor {
     memory_usage_mb: f64,
     cpu_usage_percent: f64,
-    disk_usage_percent: f64,
-    network_connections: u32,
+    _disk_usage_percent: f64,
+    _network_connections: u32,
     concurrent_requests: u32,
     last_check: chrono::DateTime<chrono::Utc>,
 }
@@ -290,7 +290,7 @@ impl ErrorHandler {
     }
     
     /// Detect agent failures quickly
-    pub async fn detect_agent_failure(&self, agent_id: &str, error: &AttackError) -> bool {
+    pub async fn detect_agent_failure(&self, agent_id: &str, _error: &AttackError) -> bool {
         let mut agent_failures = self.agent_failures.write().await;
         let tracker = agent_failures.entry(agent_id.to_string()).or_insert_with(|| {
             AgentFailureTracker {
@@ -577,8 +577,8 @@ impl Default for ResourceExhaustionMonitor {
         Self {
             memory_usage_mb: 0.0,
             cpu_usage_percent: 0.0,
-            disk_usage_percent: 0.0,
-            network_connections: 0,
+            _disk_usage_percent: 0.0,
+            _network_connections: 0,
             concurrent_requests: 0,
             last_check: chrono::Utc::now(),
         }

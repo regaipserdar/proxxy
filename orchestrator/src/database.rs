@@ -39,6 +39,7 @@ pub struct Database {
     pool: Arc<RwLock<Option<Pool<Sqlite>>>>,
     projects_dir: PathBuf,
     active_project: Arc<RwLock<Option<String>>>,
+    pub scope_rules_cache: Arc<RwLock<Vec<ScopeRule>>>,
 }
 
 impl Database {
@@ -52,6 +53,7 @@ impl Database {
             pool: Arc::new(RwLock::new(None)),
             projects_dir: path,
             active_project: Arc::new(RwLock::new(None)),
+            scope_rules_cache: Arc::new(RwLock::new(Vec::new())),
         })
     }
 
@@ -144,6 +146,12 @@ impl Database {
          sqlx::query("PRAGMA journal_mode=WAL").execute(&pool).await?;
          sqlx::query("PRAGMA synchronous=NORMAL").execute(&pool).await?;
          sqlx::migrate!("./migrations").run(&pool).await?;
+
+         // Refresh scope rules cache
+         let rules = sqlx::query_as::<_, ScopeRule>("SELECT * FROM scope_rules ORDER BY created_at DESC")
+             .fetch_all(&pool)
+             .await?;
+         *self.scope_rules_cache.write().await = rules;
 
          // Update state
          let mut pool_guard = self.pool.write().await;
@@ -276,6 +284,19 @@ impl Database {
                 let headers_json = serde_json::to_string(&req.headers).unwrap_or_default();
                 let tls_json = serde_json::to_string(&req.tls).unwrap_or_default();
                 let timestamp = chrono::Utc::now().timestamp();
+                
+                // Filter: Skip CONNECT requests to port 443 (standard TLS tunnels)
+                if req.method.to_uppercase() == "CONNECT" && req.url.ends_with(":443") {
+                    tracing::debug!("Skipping scope check for CONNECT :443 request: {}", req.url);
+                    return Ok(());
+                }
+
+                // Filter: Target Scope check
+                let rules = self.scope_rules_cache.read().await.clone();
+                if !crate::scope::is_in_scope(&rules, &req.url) {
+                    tracing::debug!("Skipping out-of-scope request: {}", req.url);
+                    return Ok(());
+                }
 
                 sqlx::query(
                     r#"
@@ -454,6 +475,60 @@ impl Database {
         Ok(result.rows_affected())
     }
 
+    /// Get HTTP requests within a time range (for correlating with flow recording)
+    pub async fn get_requests_by_time_range(
+        &self,
+        start_timestamp: i64,
+        end_timestamp: i64,
+    ) -> Result<Vec<(String, String, String, String, Option<i32>, i64)>, sqlx::Error> {
+        // Returns: (request_id, method, url, host, status_code, timestamp)
+        let pool = match self.get_pool().await {
+            Ok(p) => p,
+            Err(_) => return Ok(Vec::new()),
+        };
+
+        let rows = sqlx::query(
+            r#"
+            SELECT request_id, req_method, req_url, res_status, req_timestamp
+            FROM http_transactions
+            WHERE req_timestamp BETWEEN ? AND ?
+            ORDER BY req_timestamp ASC
+            "#
+        )
+        .bind(start_timestamp)
+        .bind(end_timestamp)
+        .fetch_all(&pool)
+        .await?;
+
+        let mut results = Vec::new();
+        for row in rows {
+            let request_id: String = row.get("request_id");
+            let method: String = row.get("req_method");
+            let url: String = row.get("req_url");
+            let status: Option<i32> = row.get("res_status");
+            let timestamp: i64 = row.get("req_timestamp");
+            
+            // Extract host and path from URL using simple string parsing
+            // URL format: https://example.com/path or http://example.com:8080/path
+            let (host, path) = if let Some(stripped) = url.strip_prefix("https://").or_else(|| url.strip_prefix("http://")) {
+                if let Some(slash_pos) = stripped.find('/') {
+                    let host = stripped[..slash_pos].split(':').next().unwrap_or("").to_string();
+                    let path = stripped[slash_pos..].to_string();
+                    (host, path)
+                } else {
+                    (stripped.split(':').next().unwrap_or("").to_string(), "/".to_string())
+                }
+            } else {
+                // Fallback for CONNECT or other formats
+                (url.split(':').next().unwrap_or("").to_string(), url.clone())
+            };
+
+            results.push((request_id, method, path, host, status, timestamp));
+        }
+        
+        Ok(results)
+    }
+
     /// Get full transaction data including both request and response
     pub async fn get_full_transaction_by_id(
         &self,
@@ -601,6 +676,16 @@ impl Database {
             .bind(process_fds)
             .execute(&pool)
             .await?;
+
+            // Retention policy: Keep only metrics from last 1 hour
+            // Run cleanup periodically (every ~100 inserts based on timestamp randomness)
+            if metrics_event.timestamp % 100 == 0 {
+                let cutoff_timestamp = metrics_event.timestamp - 3600; // 1 hour ago
+                let _ = sqlx::query("DELETE FROM orchestrator_metrics WHERE timestamp < ?")
+                    .bind(cutoff_timestamp)
+                    .execute(&pool)
+                    .await;
+            }
         }
         Ok(())
     }
@@ -664,9 +749,20 @@ impl Database {
             .bind(process_fds)
             .execute(&pool)
             .await?;
+            
+            // Retention policy: Keep only metrics from last 1 hour
+            // Run cleanup periodically (every ~100 inserts based on timestamp randomness)
+            if metrics_event.timestamp % 100 == 0 {
+                let cutoff_timestamp = metrics_event.timestamp - 3600; // 1 hour ago
+                let _ = sqlx::query("DELETE FROM system_metrics WHERE timestamp < ?")
+                    .bind(cutoff_timestamp)
+                    .execute(&pool)
+                    .await;
+            }
         }
         Ok(())
     }
+
 
     pub async fn get_recent_system_metrics(
         &self,
@@ -966,6 +1062,95 @@ impl Database {
 
         info!("✓ Imported project '{}' from {}", final_name, proxxy_path);
         Ok(final_name.to_string())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, serde::Deserialize, sqlx::FromRow)]
+pub struct ScopeRule {
+    pub id: String,
+    pub rule_type: String, // 'Include' or 'Exclude'
+    pub pattern: String,
+    pub is_regex: bool,
+    pub enabled: bool,
+    pub created_at: i64,
+}
+
+impl Database {
+    pub async fn get_scope_rules(&self) -> Result<Vec<ScopeRule>, sqlx::Error> {
+        let pool = self.get_pool().await.map_err(|e| sqlx::Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+        
+        sqlx::query_as::<_, ScopeRule>("SELECT * FROM scope_rules ORDER BY created_at DESC")
+            .fetch_all(&pool)
+            .await
+    }
+
+    pub async fn add_scope_rule(
+        &self,
+        rule_type: &str,
+        pattern: &str,
+        is_regex: bool,
+    ) -> Result<ScopeRule, sqlx::Error> {
+        let pool = self.get_pool().await.map_err(|e| sqlx::Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+        let id = uuid::Uuid::new_v4().to_string();
+        let created_at = chrono::Utc::now().timestamp();
+
+        sqlx::query(
+            "INSERT INTO scope_rules (id, rule_type, pattern, is_regex, enabled, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+        )
+        .bind(&id)
+        .bind(rule_type)
+        .bind(pattern)
+        .bind(is_regex)
+        .bind(true)
+        .bind(created_at)
+        .execute(&pool)
+        .await?;
+
+        let rule = ScopeRule {
+            id,
+            rule_type: rule_type.to_string(),
+            pattern: pattern.to_string(),
+            is_regex,
+            enabled: true,
+            created_at,
+        };
+
+        // Refresh cache
+        let rules = self.get_scope_rules().await?;
+        *self.scope_rules_cache.write().await = rules;
+
+        Ok(rule)
+    }
+
+    pub async fn delete_scope_rule(&self, id: &str) -> Result<(), sqlx::Error> {
+        let pool = self.get_pool().await.map_err(|e| sqlx::Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+
+        sqlx::query("DELETE FROM scope_rules WHERE id = ?")
+            .bind(id)
+            .execute(&pool)
+            .await?;
+
+        // Refresh cache
+        let rules = self.get_scope_rules().await?;
+        *self.scope_rules_cache.write().await = rules;
+
+        Ok(())
+    }
+
+    pub async fn toggle_scope_rule(&self, id: &str, enabled: bool) -> Result<(), sqlx::Error> {
+        let pool = self.get_pool().await.map_err(|e| sqlx::Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+
+        sqlx::query("UPDATE scope_rules SET enabled = ? WHERE id = ?")
+            .bind(enabled)
+            .bind(id)
+            .execute(&pool)
+            .await?;
+
+        // Refresh cache
+        let rules = self.get_scope_rules().await?;
+        *self.scope_rules_cache.write().await = rules;
+
+        Ok(())
     }
 }
 

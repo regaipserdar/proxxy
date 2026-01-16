@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { TrafficResponse } from '../types';
+import { TrafficResponse } from '@/types';
 import { Clock, Globe, Terminal, ShieldCheck } from 'lucide-react';
 
 export function TrafficTable() {
