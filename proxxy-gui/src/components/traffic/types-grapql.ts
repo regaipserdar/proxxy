@@ -9,6 +9,7 @@ export interface TrafficRequest {
     responseHeaders?: string;
     requestBody?: string;
     responseBody?: string;
+    responseTime?: number;
 }
 
 export const getMethodColor = (method: string) => {

@@ -45,8 +45,9 @@ export const TrafficToolbar = ({
                     <h1 className="text-[11px] font-black uppercase tracking-[0.3em] text-cyan-50 hidden sm:block bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
                         Traffic Tree
                     </h1>
-                    <p>v 1.0.0 </p>
+
                 </div>
+                <p>v1.1 </p>
                 <div className="h-6 w-[1px] bg-white/10 mx-2" />
 
                 <div className="flex gap-1.5">

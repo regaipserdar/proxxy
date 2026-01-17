@@ -41,6 +41,29 @@ export const TrafficSidebar = ({
     const [expandedHosts, setExpandedHosts] = useState<Record<string, boolean>>({});
     const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
 
+    // Request'leri sıralı numeric ID'lerle eşleştir
+    const requestIdMap = useMemo(() => {
+        const allRequests: TrafficRequest[] = [];
+        Object.values(groupedRequests).forEach(reqs => {
+            allRequests.push(...reqs);
+        });
+
+        // Timestamp'e göre sırala (en eski → en yeni)
+        allRequests.sort((a, b) => {
+            const tsA = typeof a.timestamp === 'number' ? a.timestamp : new Date(a.timestamp).getTime();
+            const tsB = typeof b.timestamp === 'number' ? b.timestamp : new Date(b.timestamp).getTime();
+            return tsA - tsB; // Eskiden yeniye
+        });
+
+        // requestId → numeric sequence mapping
+        const map = new Map<string, number>();
+        allRequests.forEach((req, index) => {
+            map.set(req.requestId, index + 1); // 1'den başlasın
+        });
+
+        return map;
+    }, [groupedRequests]);
+
     const toggleHost = (host: string) => {
         setExpandedHosts(prev => ({ ...prev, [host]: !prev[host] }));
         onHostSelect?.(host);
@@ -158,13 +181,13 @@ export const TrafficSidebar = ({
                             const tsA = typeof a.timestamp === 'number' ? a.timestamp : new Date(a.timestamp).getTime();
                             const tsB = typeof b.timestamp === 'number' ? b.timestamp : new Date(b.timestamp).getTime();
                             if (tsB !== tsA) return tsB - tsA;
-                            const idA = (a as any).id || a.requestId;
-                            const idB = (b as any).id || b.requestId;
-                            return idB > idA ? 1 : -1;
+                            const idA = requestIdMap.get(a.requestId) || 0;
+                            const idB = requestIdMap.get(b.requestId) || 0;
+                            return idB - idA; // Büyük ID (yeni) üstte
                         });
 
                         sortedReqs.forEach(req => {
-                            const displayId = (req as any).id || req.requestId;
+                            const displayId = requestIdMap.get(req.requestId) || 0;
                             const methodColor = getMethodColor(req.method).split(' ')[1];
                             const statusColor = getStatusColor(req.status);
                             const { query, fileName } = parsePathSegments(req.url);
@@ -199,7 +222,7 @@ export const TrafficSidebar = ({
         });
 
         return items;
-    }, [groupedRequests, expandedHosts, expandedFolders, getHostScopeStatus]);
+    }, [groupedRequests, expandedHosts, expandedFolders, getHostScopeStatus, requestIdMap]);
 
     return (
         <div className="h-full bg-[#0E1015]/60 flex flex-col overflow-hidden">
