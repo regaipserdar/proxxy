@@ -10,11 +10,13 @@ interface TrafficSidebarProps {
     handleContextMenu: (e: React.MouseEvent, host: string) => void;
     handleRequestContextMenu: (e: React.MouseEvent, request: TrafficRequest) => void;
     loadingDomain: string | null;
+    getHostScopeStatus?: (host: string) => 'in-scope' | 'out-of-scope' | 'neutral';
+    onHostSelect?: (host: string | null) => void;
 }
 
 type FlatItem =
     | { type: 'host'; host: string; count: number; isOpen: boolean }
-    | { type: 'request'; request: TrafficRequest; host: string };
+    | { type: 'request'; request: TrafficRequest; host: string; id: number };
 
 export const TrafficSidebar = ({
     groupedRequests,
@@ -22,29 +24,64 @@ export const TrafficSidebar = ({
     setSelectedId,
     handleContextMenu,
     handleRequestContextMenu,
-    loadingDomain
+    loadingDomain,
+    getHostScopeStatus,
+    onHostSelect
 }: TrafficSidebarProps) => {
     // State for which hosts are expanded
     const [expandedHosts, setExpandedHosts] = React.useState<Record<string, boolean>>({});
 
     const toggleHost = (host: string) => {
         setExpandedHosts(prev => ({ ...prev, [host]: !prev[host] }));
+        onHostSelect?.(host); // Track selected host for keyboard shortcuts
     };
 
     const flatData = useMemo(() => {
         console.log('[Sidebar] Recalculating flat data...');
         const items: FlatItem[] = [];
-        Object.entries(groupedRequests).forEach(([host, reqs]) => {
+
+        // Convert to array and sort
+        const entries = Object.entries(groupedRequests);
+
+        // Sort Hosts: In-Scope/Neutral at top, Out-of-Scope at bottom. Alphabetical tie-break.
+        entries.sort(([hostA], [hostB]) => {
+            const statusA = getHostScopeStatus?.(hostA) || 'neutral';
+            const statusB = getHostScopeStatus?.(hostB) || 'neutral';
+
+            // 0 = Top (In-Scope/Neutral), 1 = Bottom (Out-of-Scope)
+            const getWeight = (s: string) => s === 'out-of-scope' ? 1 : 0;
+
+            const weightA = getWeight(statusA);
+            const weightB = getWeight(statusB);
+
+            if (weightA !== weightB) {
+                return weightA - weightB;
+            }
+            return hostA.localeCompare(hostB);
+        });
+
+        entries.forEach(([host, reqs]) => {
             const isOpen = expandedHosts[host] || false;
             items.push({ type: 'host', host, count: reqs.length, isOpen });
+
             if (isOpen) {
-                reqs.forEach(req => {
-                    items.push({ type: 'request', request: req, host });
+                // Sort Requests: Newest first (descending timestamp)
+                const sortedReqs = [...reqs].sort((a, b) => {
+                    const tsA = typeof a.timestamp === 'number' ? a.timestamp : new Date(a.timestamp).getTime();
+                    const tsB = typeof b.timestamp === 'number' ? b.timestamp : new Date(b.timestamp).getTime();
+                    return tsB - tsA; // Descending
+                });
+
+                // Assign IDs based on total count (newest = highest number)
+                // Since sortedReqs[0] is the newest, it should get ID = total count
+                const total = sortedReqs.length;
+                sortedReqs.forEach((req, index) => {
+                    items.push({ type: 'request', request: req, host, id: total - index });
                 });
             }
         });
         return items;
-    }, [groupedRequests, expandedHosts]);
+    }, [groupedRequests, expandedHosts, getHostScopeStatus]);
 
     return (
         <div className="h-full bg-[#0E1015]/60 flex flex-col overflow-hidden">
@@ -63,8 +100,18 @@ export const TrafficSidebar = ({
                                     size={12}
                                     className={`text-slate-600 transition-transform ${item.isOpen ? 'rotate-90' : ''}`}
                                 />
-                                <Globe size={14} className="text-cyan-500/70" />
-                                <span className="text-[11px] font-bold uppercase tracking-wider truncate flex-1 text-slate-400">
+                                <Globe size={14} className={(() => {
+                                    const status = getHostScopeStatus?.(item.host) || 'neutral';
+                                    if (status === 'out-of-scope') return 'text-red-500/70';
+                                    if (status === 'in-scope') return 'text-emerald-500/70';
+                                    return 'text-cyan-500/70';
+                                })()} />
+                                <span className={`text-[11px] font-bold uppercase tracking-wider truncate flex-1 ${(() => {
+                                    const status = getHostScopeStatus?.(item.host) || 'neutral';
+                                    if (status === 'out-of-scope') return 'text-red-400/50 line-through';
+                                    if (status === 'in-scope') return 'text-emerald-400';
+                                    return 'text-slate-400';
+                                })()}`}>
                                     {item.host}
                                 </span>
                                 {loadingDomain === item.host ? (
@@ -86,6 +133,9 @@ export const TrafficSidebar = ({
                                     : 'border-transparent hover:bg-white/5 text-slate-500 hover:text-slate-300'
                                     }`}
                             >
+                                <span className="text-[9px] font-mono text-slate-600 w-6 text-right shrink-0">
+                                    #{item.id}
+                                </span>
                                 <span className={`text-[9px] font-black w-8 shrink-0 tracking-tighter ${getMethodColor(req.method).split(' ')[1]}`}>
                                     {req.method}
                                 </span>

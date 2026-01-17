@@ -105,3 +105,12 @@ export interface Project {
     status: 'active' | 'idle';
     ruleCount: number;
 }
+
+// --- Repeater Types ---
+export interface RepeaterAgent {
+    id: string;
+    name: string;
+    status: 'Online' | 'Offline';
+    type: 'local' | 'cloud';
+    version: string;
+}

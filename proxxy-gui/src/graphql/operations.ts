@@ -607,6 +607,15 @@ export const DEBUG_CLOSE_BROWSER = gql`
   }
 `;
 
+export const OPEN_RESPONSE_IN_BROWSER = gql`
+  mutation OpenResponseInBrowser($content: String!, $contentType: String!, $baseUrl: String) {
+    openResponseInBrowser(content: $content, contentType: $contentType, baseUrl: $baseUrl) {
+      success
+      message
+    }
+  }
+`;
+
 /**
  * LIGHTWEIGHT: Real-time traffic updates (NO body/headers)
  * Use for: Live traffic feed, real-time table updates

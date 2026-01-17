@@ -26,8 +26,7 @@ export const RepeaterView = () => {
 
   // UI State
   const [isSending, setIsSending] = useState(false);
-  const [reqSearch, setReqSearch] = useState('');
-  const [resSearch, setResSearch] = useState('');
+
   const [isEditingName, setIsEditingName] = useState(false);
   const [editingNameValue, setEditingNameValue] = useState('');
   const [isAgentMenuOpen, setIsAgentMenuOpen] = useState(false);
@@ -225,10 +224,6 @@ export const RepeaterView = () => {
         <RepeaterInspector
           activeTask={activeTask}
           updateTask={updateTask}
-          reqSearch={reqSearch}
-          setReqSearch={setReqSearch}
-          resSearch={resSearch}
-          setResSearch={setResSearch}
         />
 
         {activeTask && isHistoryOpen && (

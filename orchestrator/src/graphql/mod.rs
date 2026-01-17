@@ -1460,6 +1460,32 @@ impl MutationRoot {
         })
     }
 
+    /// Open response content in the managed browser (new tab if already open)
+    async fn open_response_in_browser(
+        &self,
+        ctx: &Context<'_>,
+        content: String,
+        content_type: String,
+        base_url: Option<String>,
+    ) -> async_graphql::Result<flow_graphql::FlowOperationResult> {
+        let recording_service = ctx.data::<Arc<crate::recording_service::RecordingService>>()?;
+        
+        if let Err(e) = recording_service.open_in_browser(
+            content,
+            content_type,
+            base_url,
+            Some(9095),
+        ).await {
+            return Err(async_graphql::Error::new(format!("Failed to open in browser: {}", e)));
+        }
+        
+        Ok(flow_graphql::FlowOperationResult {
+            success: true,
+            message: "Response opened in browser.".to_string(),
+            profile_id: None,
+        })
+    }
+
     /// Replay a recorded flow
     async fn replay_flow(
         &self,

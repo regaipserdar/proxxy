@@ -14,7 +14,7 @@ prost = { workspace = true }
 tokio-stream = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
 hostname = { workspace = true }
-reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls", "gzip", "deflate", "brotli"] }
 sysinfo = "0.30"
 serde_json = { workspace = true }
 

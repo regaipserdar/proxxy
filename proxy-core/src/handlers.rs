@@ -511,6 +511,87 @@ async fn capture_and_reconstruct_response_with_memory_management(
     (reconstructed_response, captured_body)
 }
 
+/// Captures the request body and reconstructs an identical request for forwarding
+/// with memory management and backpressure control.
+///
+/// # Arguments
+/// * `request` - The original HTTP request with body stream
+/// * `config` - Configuration for body capture behavior
+/// * `memory_manager` - Memory manager for tracking and limiting memory usage
+/// * `metrics` - Metrics for tracking performance and success/failure rates
+///
+/// # Returns
+/// * `(Request<Body>, Vec<u8>)` - Tuple containing:
+///   - Reconstructed request identical to original for forwarding
+///   - Captured raw body data for logging/storage
+async fn capture_and_reconstruct_request_with_memory_management(
+    request: Request<Body>,
+    config: &BodyCaptureConfig,
+    memory_manager: &MemoryManager,
+    metrics: &Arc<crate::admin::Metrics>,
+) -> (Request<Body>, Vec<u8>) {
+    use std::sync::atomic::Ordering;
+
+    debug!("Starting request capture and reconstruction with memory management");
+
+    // Decompose the request into parts and body
+    let (parts, body) = request.into_parts();
+
+    // Check content-type filtering if enabled
+    let should_capture = if let Some(content_type_header) = parts.headers.get("content-type") {
+        if let Ok(content_type) = content_type_header.to_str() {
+            config.should_capture_content_type(content_type)
+        } else {
+            true
+        }
+    } else {
+        true
+    };
+
+    // If capture is disabled or content-type filtered, pass through without reading body
+    if !should_capture || !config.enabled {
+        debug!("Body capture disabled or filtered, passing through original body");
+        return (Request::from_parts(parts, body), Vec::new());
+    }
+
+    // Record capture attempt
+    metrics.body_capture_attempts.fetch_add(1, Ordering::Relaxed);
+
+    // Try to acquire a permit for body capture (implements backpressure)
+    let permit = match memory_manager.try_acquire_permit() {
+        Some(p) => p,
+        None => {
+            // No permits available - forward original body but don't capture
+            metrics.body_capture_failures.fetch_add(1, Ordering::Relaxed);
+            metrics.body_capture_memory_errors.fetch_add(1, Ordering::Relaxed);
+            warn!("Backpressure: forwarding request without capturing body.");
+            return (Request::from_parts(parts, body), Vec::new());
+        }
+    };
+
+    debug!("Acquired memory permit for request body capture");
+
+    // Attempt to read the request body with memory management
+    match read_response_body_with_memory_management(body, config, &permit).await {
+        Ok((body_data, _allocation)) => {
+            // Record successful capture
+            metrics.body_capture_successes.fetch_add(1, Ordering::Relaxed);
+            metrics.body_capture_total_bytes.fetch_add(body_data.len() as u64, Ordering::Relaxed);
+            debug!("Successfully captured {} bytes of request body", body_data.len());
+            
+            let new_body = Body::from(body_data.clone());
+            (Request::from_parts(parts, new_body), body_data)
+        }
+        Err(e) => {
+            // Record failure - stream is dead, return empty body
+            metrics.body_capture_failures.fetch_add(1, Ordering::Relaxed);
+            warn!("Request capture failed: {}. Returning empty body.", e);
+            (Request::from_parts(parts, Body::empty()), Vec::new())
+        }
+    }
+}
+
+
 #[async_trait::async_trait]
 impl HttpHandler for LogHandler {
     async fn handle_request(
@@ -518,6 +599,14 @@ impl HttpHandler for LogHandler {
         _ctx: &HttpContext,
         req: Request<Body>,
     ) -> RequestOrResponse {
+        // Shadow req as mutable to modify headers
+        let mut req = req;
+        
+        // Strip Sec-WebSocket-Extensions to disable compression (permessage-deflate)
+        // This avoids "Reserved bits are non-zero" errors when the proxy logic
+        // doesn't support compressed frames but the client/server negotiated it.
+        req.headers_mut().remove("sec-websocket-extensions");
+
         self.metrics.total_requests.fetch_add(1, Ordering::Relaxed);
 
         // Check Scope
@@ -540,6 +629,18 @@ impl HttpHandler for LogHandler {
         *self.current_request_id.write().await = Some(req_id.clone());
         *self.current_request_method.write().await = Some(req.method().to_string());
 
+        // Capture request body if logging is enabled
+        let (req, captured_body) = if self.log_sender.is_some() {
+            capture_and_reconstruct_request_with_memory_management(
+                req,
+                &self.body_capture_config,
+                &self.memory_manager,
+                &self.metrics
+            ).await
+        } else {
+            (req, Vec::new())
+        };
+
         if let Some(sender) = &self.log_sender {
             use crate::pb::{traffic_event, HttpHeaders, HttpRequestData, TrafficEvent};
 
@@ -558,7 +659,7 @@ impl HttpHandler for LogHandler {
                     headers: Some(HttpHeaders {
                         headers: header_map,
                     }),
-                    body: vec![],
+                    body: captured_body,
                     tls: None,
                 })),
             };

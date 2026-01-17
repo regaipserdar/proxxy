@@ -6,6 +6,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ApolloProvider } from '@apollo/client/react';
 import { apolloClient } from './graphql';
 import { Toaster } from 'sonner';
+import { loader } from '@monaco-editor/react';
+import * as monaco from 'monaco-editor';
+
+// Configure Monaco to use local files instead of CDN
+loader.config({ monaco });
 
 const queryClient = new QueryClient();
 

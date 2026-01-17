@@ -24,10 +24,80 @@ interface RepeaterState {
     isSynced: boolean;
     loadTabs: () => Promise<void>;
     addTask: (task: Omit<RepeaterTask, 'id' | 'timestamp'>) => Promise<string>;
-    updateTask: (id: string, updates: Partial<RepeaterTask>) => Promise<void>;
+    updateTask: (id: string, updates: Partial<RepeaterTask>) => void;
     removeTask: (id: string) => Promise<void>;
     setActiveTaskId: (id: string | null) => void;
 }
+
+// Debounce timers for server sync - prevents sending mutation on every keystroke
+const syncTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+const SYNC_DEBOUNCE_MS = 800;
+
+// Pending updates waiting to be synced
+const pendingUpdates: Map<string, Partial<RepeaterTask>> = new Map();
+
+// Sync function to send updates to server
+const syncTaskToServer = async (id: string) => {
+    const updates = pendingUpdates.get(id);
+    if (!updates) return;
+
+    pendingUpdates.delete(id);
+
+    try {
+        const input: any = {};
+        if (updates.name) input.name = updates.name;
+        if (updates.agentId !== undefined) input.targetAgentId = updates.agentId;
+        if (updates.request) {
+            // Parse request to template
+            const lines = updates.request.split('\n');
+            const firstLine = lines[0] || 'GET /';
+            const parts = firstLine.split(' ');
+            const method = parts[0] || 'GET';
+            const path = parts[1] || '/';
+
+            const hostLine = lines.find(l => l.toLowerCase().startsWith('host:'));
+            const host = hostLine?.split(':').slice(1).join(':').trim() || 'example.com';
+
+            // Determine protocol from targetUrl if available, otherwise default to https
+            let protocol = 'https';
+            if (updates.targetUrl) {
+                try {
+                    const targetUrlObj = new URL(updates.targetUrl);
+                    protocol = targetUrlObj.protocol.replace(':', '');
+                } catch {
+                    // Invalid URL, keep https default
+                }
+            }
+            const url = path?.startsWith('/') ? `${protocol}://${host}${path}` : (path || '/');
+
+            const headers: Record<string, string> = {};
+            let bodyStart = lines.findIndex(l => l === '');
+            for (let i = 1; i < (bodyStart === -1 ? lines.length : bodyStart); i++) {
+                const colonIdx = lines[i].indexOf(':');
+                if (colonIdx !== -1) {
+                    headers[lines[i].slice(0, colonIdx).trim()] = lines[i].slice(colonIdx + 1).trim();
+                }
+            }
+            const body = bodyStart !== -1 ? lines.slice(bodyStart + 1).join('\n') : '';
+
+            input.requestTemplate = {
+                method,
+                url,
+                headers: JSON.stringify(headers),
+                body
+            };
+        }
+
+        if (Object.keys(input).length > 0) {
+            await apolloClient.mutate({
+                mutation: UPDATE_REPEATER_TAB,
+                variables: { id, input }
+            });
+        }
+    } catch (e) {
+        console.error('[RepeaterStore] Failed to sync tab to server:', e);
+    }
+};
 
 // Helper to convert backend tab to local format
 const backendToLocal = (tab: any): RepeaterTask => {
@@ -98,7 +168,18 @@ export const useRepeaterStore = create<RepeaterState>()((set, get) => ({
             const [method, path] = (lines[0] || 'GET /').split(' ');
             const hostLine = lines.find(l => l.toLowerCase().startsWith('host:'));
             const host = hostLine?.split(':').slice(1).join(':').trim() || 'example.com';
-            const url = path?.startsWith('/') ? `http://${host}${path}` : (path || '/');
+
+            // Determine protocol from targetUrl if provided, otherwise default to https
+            let protocol = 'https';
+            if (task.targetUrl) {
+                try {
+                    const targetUrlObj = new URL(task.targetUrl);
+                    protocol = targetUrlObj.protocol.replace(':', ''); // 'https:' -> 'https'
+                } catch {
+                    // Invalid URL, keep https default
+                }
+            }
+            const url = path?.startsWith('/') ? `${protocol}://${host}${path}` : (path || '/');
 
             const headers: Record<string, string> = {};
             let bodyStart = lines.findIndex(l => l === '');
@@ -147,54 +228,32 @@ export const useRepeaterStore = create<RepeaterState>()((set, get) => ({
         return tempId;
     },
 
-    updateTask: async (id, updates) => {
-        // Optimistic update
+    updateTask: (id, updates) => {
+        // Optimistic update - always update local state immediately
         set((state) => ({
             tasks: state.tasks.map(t => t.id === id ? { ...t, ...updates } : t)
         }));
 
-        // Skip temp tasks
+        // Skip temp tasks - don't sync to server
         if (id.startsWith('temp-')) return;
 
-        try {
-            const input: any = {};
-            if (updates.name) input.name = updates.name;
-            if (updates.agentId !== undefined) input.targetAgentId = updates.agentId;
-            if (updates.request) {
-                // Parse request to template
-                const lines = updates.request.split('\n');
-                const [method, path] = (lines[0] || 'GET /').split(' ');
-                const hostLine = lines.find(l => l.toLowerCase().startsWith('host:'));
-                const host = hostLine?.split(':').slice(1).join(':').trim() || 'example.com';
-                const url = path?.startsWith('/') ? `http://${host}${path}` : (path || '/');
+        // Merge updates into pending
+        const existing = pendingUpdates.get(id) || {};
+        pendingUpdates.set(id, { ...existing, ...updates });
 
-                const headers: Record<string, string> = {};
-                let bodyStart = lines.findIndex(l => l === '');
-                for (let i = 1; i < (bodyStart === -1 ? lines.length : bodyStart); i++) {
-                    const colonIdx = lines[i].indexOf(':');
-                    if (colonIdx !== -1) {
-                        headers[lines[i].slice(0, colonIdx).trim()] = lines[i].slice(colonIdx + 1).trim();
-                    }
-                }
-                const body = bodyStart !== -1 ? lines.slice(bodyStart + 1).join('\n') : '';
-
-                input.requestTemplate = {
-                    method: method || 'GET',
-                    url,
-                    headers: JSON.stringify(headers),
-                    body
-                };
-            }
-
-            if (Object.keys(input).length > 0) {
-                await apolloClient.mutate({
-                    mutation: UPDATE_REPEATER_TAB,
-                    variables: { id, input }
-                });
-            }
-        } catch (e) {
-            console.error('[RepeaterStore] Failed to update tab:', e);
+        // Clear existing timer for this task
+        const existingTimer = syncTimers.get(id);
+        if (existingTimer) {
+            clearTimeout(existingTimer);
         }
+
+        // Set new debounced timer
+        const timer = setTimeout(() => {
+            syncTaskToServer(id);
+            syncTimers.delete(id);
+        }, SYNC_DEBOUNCE_MS);
+
+        syncTimers.set(id, timer);
     },
 
     removeTask: async (id) => {

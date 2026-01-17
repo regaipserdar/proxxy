@@ -1,16 +1,21 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useQuery, useSubscription, useLazyQuery, useApolloClient, useMutation } from '@apollo/client';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, Send, Copy, Layers, Trash2 } from 'lucide-react';
+import { RefreshCw, Send, Copy, Layers, Trash2, Target, ShieldOff } from 'lucide-react';
+import { toast } from 'sonner';
 
 import {
     GET_HTTP_TRANSACTIONS,
     GET_TRANSACTION_DETAILS,
     TRAFFIC_UPDATES,
-    DELETE_REQUESTS_BY_HOST
+    DELETE_REQUESTS_BY_HOST,
+    GET_SCOPE_RULES,
+    ADD_SCOPE_RULE,
+    DELETE_SCOPE_RULE
 } from '@/graphql/operations';
 
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { ScopeRule } from '@/types';
 
 // Sub-components
 import { TrafficRequest } from '@/components/traffic/types-grapql';
@@ -26,6 +31,7 @@ export const TrafficTreePage = () => {
 
     // States
     const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [selectedHost, setSelectedHost] = useState<string | null>(null);
     const [filterQuery, setFilterQuery] = useState('');
     const [activeMethodFilter, setActiveMethodFilter] = useState<string | null>(null);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, host?: string, request?: TrafficRequest } | null>(null);
@@ -36,6 +42,97 @@ export const TrafficTreePage = () => {
     const [deleteByHost] = useMutation(DELETE_REQUESTS_BY_HOST, {
         onCompleted: () => refetch()
     });
+
+    // Scope Management
+    const { data: scopeData, refetch: refetchScope } = useQuery(GET_SCOPE_RULES);
+    const [addScopeRule] = useMutation(ADD_SCOPE_RULE);
+    const scopeRules: ScopeRule[] = scopeData?.scopeRules || [];
+
+    // Check if host is in scope (Include rules) or out of scope (Exclude rules)
+    const getHostScopeStatus = useCallback((host: string): 'in-scope' | 'out-of-scope' | 'neutral' => {
+        const excludeRules = scopeRules.filter(r => r.ruleType === 'Exclude' && r.enabled);
+        const includeRules = scopeRules.filter(r => r.ruleType === 'Include' && r.enabled);
+
+        // Check exclude first (takes precedence)
+        for (const rule of excludeRules) {
+            if (rule.isRegex) {
+                try {
+                    if (new RegExp(rule.pattern).test(host)) return 'out-of-scope';
+                } catch { /* invalid regex */ }
+            } else {
+                // Glob matching (simple)
+                const pattern = rule.pattern.replace(/\*/g, '.*');
+                if (new RegExp(`^${pattern}$`).test(host)) return 'out-of-scope';
+            }
+        }
+
+        // If no include rules, everything is neutral (captured)
+        if (includeRules.length === 0) return 'neutral';
+
+        // Check include
+        for (const rule of includeRules) {
+            if (rule.isRegex) {
+                try {
+                    if (new RegExp(rule.pattern).test(host)) return 'in-scope';
+                } catch { /* invalid regex */ }
+            } else {
+                const pattern = rule.pattern.replace(/\*/g, '.*');
+                if (new RegExp(`^${pattern}$`).test(host)) return 'in-scope';
+            }
+        }
+
+        return 'out-of-scope'; // Include rules exist but host doesn't match any
+    }, [scopeRules]);
+
+    // Add host to scope (Include or Exclude)
+    const addHostToScope = useCallback(async (host: string, ruleType: 'Include' | 'Exclude') => {
+        try {
+            await addScopeRule({
+                variables: {
+                    ruleType,
+                    pattern: `*${host}*`,
+                    isRegex: false
+                }
+            });
+            toast.success(`${host} added to ${ruleType === 'Include' ? 'Scope' : 'Out-of-Scope'}`);
+            refetchScope();
+        } catch (err: any) {
+            toast.error(`Failed to add rule: ${err.message}`);
+        }
+        setContextMenu(null);
+    }, [addScopeRule, refetchScope]);
+
+    // Remove host from scope (delete all rules matching this host)
+    const [deleteScopeRule] = useMutation(DELETE_SCOPE_RULE);
+    const removeHostFromScope = useCallback(async (host: string) => {
+        try {
+            // Find rules that match this host
+            const matchingRules = scopeRules.filter(rule => {
+                if (rule.isRegex) {
+                    try {
+                        return new RegExp(rule.pattern).test(host);
+                    } catch { return false; }
+                }
+                const pattern = rule.pattern.replace(/\*/g, '.*');
+                return new RegExp(`^${pattern}$`).test(host);
+            });
+
+            // Delete all matching rules
+            for (const rule of matchingRules) {
+                await deleteScopeRule({ variables: { id: rule.id } });
+            }
+
+            if (matchingRules.length > 0) {
+                toast.success(`Removed ${matchingRules.length} scope rule(s) for ${host}`);
+                refetchScope();
+            } else {
+                toast.info(`No scope rules found for ${host}`);
+            }
+        } catch (err: any) {
+            toast.error(`Failed to remove rule: ${err.message}`);
+        }
+        setContextMenu(null);
+    }, [scopeRules, deleteScopeRule, refetchScope]);
 
     // Phase 5: Pagination
     const limit = 10000;
@@ -154,9 +251,20 @@ export const TrafficTreePage = () => {
 
         const raw = formatRequestRaw(fullReq);
         let name = 'New Request';
+
+        // Ensure HTTPS is used for security testing targets
+        // Most modern web apps use HTTPS, and HTTP requests will fail on HTTPS-only servers
+        let targetUrl = fullReq.url;
         try {
             const url = new URL(fullReq.url);
             name = `${fullReq.method} ${url.pathname}`;
+
+            // Convert http:// to https:// for security testing
+            if (url.protocol === 'http:') {
+                url.protocol = 'https:';
+                targetUrl = url.toString();
+                console.log(`[TrafficTree] Converted URL from HTTP to HTTPS: ${targetUrl}`);
+            }
         } catch {
             name = `${fullReq.method} ${fullReq.url}`;
         }
@@ -166,7 +274,7 @@ export const TrafficTreePage = () => {
         await addTask({
             name,
             request: raw,
-            targetUrl: fullReq.url
+            targetUrl: targetUrl
         });
 
         navigate('/repeater');
@@ -220,6 +328,36 @@ export const TrafficTreePage = () => {
         return () => window.removeEventListener('click', handleClick);
     }, []);
 
+    // Keyboard shortcuts for scope management
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Get host from context menu OR selected host
+            const targetHost = contextMenu?.host || selectedHost;
+            if (!targetHost) return;
+
+            // Cmd+S or Ctrl+S = Add to Scope (Include)
+            if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 's') {
+                e.preventDefault();
+                addHostToScope(targetHost, 'Include');
+            }
+
+            // Cmd+Shift+E or Ctrl+Shift+E = Add to Out-of-Scope (Exclude)
+            if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'e') {
+                e.preventDefault();
+                addHostToScope(targetHost, 'Exclude');
+            }
+
+            // Cmd+R or Ctrl+R = Remove from Scope
+            if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'r') {
+                e.preventDefault();
+                removeHostFromScope(targetHost);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [contextMenu, selectedHost, addHostToScope, removeHostFromScope]);
+
     return (
         <div className="h-screen flex flex-col bg-[#0B0D11] text-slate-200 overflow-hidden font-sans">
             {/* Custom Context Menu */}
@@ -230,6 +368,32 @@ export const TrafficTreePage = () => {
                 >
                     {contextMenu.host && (
                         <>
+                            {/* Scope Management Options */}
+                            <button
+                                onClick={() => addHostToScope(contextMenu.host!, 'Include')}
+                                className="w-full flex items-center gap-3 px-3 py-2 text-[11px] font-bold text-emerald-400 hover:bg-emerald-500/10 transition-colors text-left"
+                            >
+                                <Target size={12} />
+                                ADD TO SCOPE
+                                <span className="ml-auto text-[9px] text-white/30">⌘S</span>
+                            </button>
+                            <button
+                                onClick={() => addHostToScope(contextMenu.host!, 'Exclude')}
+                                className="w-full flex items-center gap-3 px-3 py-2 text-[11px] font-bold text-red-400 hover:bg-red-500/10 transition-colors text-left"
+                            >
+                                <ShieldOff size={12} />
+                                ADD TO OUT-OF-SCOPE
+                                <span className="ml-auto text-[9px] text-white/30">⌘⇧E</span>
+                            </button>
+                            <button
+                                onClick={() => removeHostFromScope(contextMenu.host!)}
+                                className="w-full flex items-center gap-3 px-3 py-2 text-[11px] font-bold text-orange-400 hover:bg-orange-500/10 transition-colors text-left"
+                            >
+                                <Trash2 size={12} />
+                                REMOVE FROM SCOPE
+                                <span className="ml-auto text-[9px] text-white/30">⌘R</span>
+                            </button>
+                            <div className="h-px bg-white/5 my-1" />
                             <button
                                 onClick={() => fetchAllForDomain(contextMenu.host!)}
                                 className="w-full flex items-center gap-3 px-3 py-2 text-[11px] font-bold text-slate-300 hover:bg-cyan-500/10 hover:text-cyan-400 transition-colors text-left"
@@ -315,6 +479,8 @@ export const TrafficTreePage = () => {
                             handleContextMenu={handleContextMenu}
                             handleRequestContextMenu={handleRequestContextMenu}
                             loadingDomain={loadingDomain}
+                            getHostScopeStatus={getHostScopeStatus}
+                            onHostSelect={setSelectedHost}
                         />
                     </div>
                     <button

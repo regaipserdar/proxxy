@@ -385,6 +385,104 @@ impl RecordingService {
         Ok(())
     }
 
+    /// Open HTML/JSON content in the managed browser
+    /// If browser is not open, launches one first
+    /// If browser is open, opens a new tab with the content
+    pub async fn open_in_browser(
+        &self,
+        content: String,
+        content_type: String,
+        base_url: Option<String>,
+        proxy_port: Option<u16>,
+    ) -> Result<(), String> {
+        info!("🌐 Opening content in browser (type: {}, base: {:?})", content_type, base_url);
+        
+        // Check if browser is already open
+        let browser_exists = self.browser_manager.get_browser().await.is_some();
+        
+        if !browser_exists {
+            // Need to launch browser first
+            info!("   📱 No browser open, launching...");
+            
+            // Write CA cert to temp file
+            let ca_cert_pem = self.ca.get_ca_cert_pem()
+                .map_err(|e| format!("CA certificate not available: {:?}", e))?;
+            
+            let ca_cert_path = self.write_ca_cert_to_temp(&ca_cert_pem)?;
+            *self.ca_cert_path.write().await = Some(ca_cert_path.clone());
+
+            // Configure browser options
+            let mut options = BrowserOptions::headed()
+                .headless(false);
+            
+            options.ignore_ssl_errors = true;
+            options.ca_cert_path = Some(ca_cert_path);
+
+            // Add proxy if port specified
+            if let Some(port) = proxy_port {
+                options.proxy = Some(ProxyConfig::new("127.0.0.1", port));
+                info!("   🔗 Proxy: 127.0.0.1:{}", port);
+            }
+
+            // Launch browser
+            self.browser_manager.launch(options).await
+                .map_err(|e| format!("Browser launch failed: {:?}", e))?;
+            info!("   ✅ Browser launched");
+        }
+        
+        // Open new tab and inject content
+        if let Some(browser_arc) = self.browser_manager.get_browser().await {
+            if let Some(browser_guard) = browser_arc.read().await.as_ref() {
+                // For HTML content with base URL, inject <base> tag and navigate
+                if content_type.contains("html") && base_url.is_some() {
+                    let base = base_url.unwrap();
+                    
+                    // Inject <base> tag into HTML head for proper relative URL resolution
+                    let modified_content = if content.to_lowercase().contains("<head>") {
+                        content.replacen("<head>", &format!("<head><base href=\"{}\">", base), 1)
+                            .replacen("<HEAD>", &format!("<HEAD><base href=\"{}\">", base), 1)
+                    } else if content.to_lowercase().contains("<html>") {
+                        content.replacen("<html>", &format!("<html><head><base href=\"{}\"></head>", base), 1)
+                            .replacen("<HTML>", &format!("<HTML><head><base href=\"{}\"></head>", base), 1)
+                    } else {
+                        format!("<head><base href=\"{}\"></head>{}", base, content)
+                    };
+                    
+                    // Create new page and inject HTML using data URL with base tag
+                    use base64::{Engine as _, engine::general_purpose::STANDARD};
+                    let base64_content = STANDARD.encode(modified_content.as_bytes());
+                    let data_url = format!("data:text/html;base64,{}", base64_content);
+                    
+                    browser_guard.browser().new_page(&data_url).await
+                        .map_err(|e| format!("Failed to open new tab: {:?}", e))?;
+                } else if content_type.contains("html") {
+                    // HTML without base URL - use data URL directly
+                    use base64::{Engine as _, engine::general_purpose::STANDARD};
+                    let base64_content = STANDARD.encode(content.as_bytes());
+                    let data_url = format!("data:text/html;base64,{}", base64_content);
+                    browser_guard.browser().new_page(&data_url).await
+                        .map_err(|e| format!("Failed to open new tab: {:?}", e))?;
+                } else {
+                    // For JSON/text, use data URL (no relative resources to worry about)
+                    use base64::{Engine as _, engine::general_purpose::STANDARD};
+                    let mime_type = if content_type.contains("json") {
+                        "application/json"
+                    } else {
+                        "text/plain"
+                    };
+                    let base64_content = STANDARD.encode(content.as_bytes());
+                    let data_url = format!("data:{};base64,{}", mime_type, base64_content);
+                    browser_guard.browser().new_page(&data_url).await
+                        .map_err(|e| format!("Failed to open new tab: {:?}", e))?;
+                }
+                
+                info!("   ✅ Opened content in new tab");
+            }
+        }
+        
+        Ok(())
+    }
+
     /// Write CA certificate to a temporary file
     fn write_ca_cert_to_temp(&self, pem: &str) -> Result<String, String> {
         let temp_dir = std::env::temp_dir();

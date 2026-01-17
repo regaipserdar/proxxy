@@ -74,9 +74,9 @@ export const parseRawRequest = (raw: string) => {
     let url = path;
     const host = headers['Host'] || headers['host'];
     if (path.startsWith('/') && host) {
-        // We assume https if port 443 or similar, but default to http
-        // Orchestrator/Agent usually handles the actual connection.
-        url = `http://${host}${path}`;
+        // Default to https since most security testing targets use TLS
+        // The agent's reqwest client supports both http and https
+        url = `https://${host}${path}`;
     }
 
     return {
