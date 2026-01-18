@@ -42,6 +42,7 @@ impl AgentRegistry {
         id: String,
         name: String,
         hostname: String,
+        version: String,
         command_tx: mpsc::Sender<Result<InterceptCommand, Status>>,
     ) {
         let agent = AgentData {
@@ -52,7 +53,7 @@ impl AgentRegistry {
             port: 9095,                       // Placeholder, normally sent in registration
             status: "Online".to_string(),
             last_heartbeat: chrono::Utc::now().to_rfc3339(),
-            version: "0.1.0".to_string(),
+            version,
             capabilities: vec!["HTTP".to_string(), "HTTPS".to_string()],
             cpu_usage: 0.0,
             memory_usage_mb: 0.0,

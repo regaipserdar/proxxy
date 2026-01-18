@@ -337,15 +337,21 @@ export const FlowRecorderView = () => {
     };
 
     const handleReplayFlow = async (profileId: string) => {
+        console.log('[Replay] Agents available:', agents);
+
         if (agents.length === 0) {
-            alert('No agents available for replay');
+            alert('No agents available for replay. Make sure an agent is connected.');
             return;
         }
 
-        // Use first online agent
+        // Use first online agent, or fallback to any agent
         const onlineAgent = agents.find((a: any) => a.status?.toLowerCase() === 'online');
-        if (!onlineAgent) {
-            alert('No online agent available');
+        const selectedAgent = onlineAgent || agents[0]; // Fallback to first agent if none are "online"
+
+        console.log('[Replay] Selected agent:', selectedAgent);
+
+        if (!selectedAgent) {
+            alert('No agent available');
             return;
         }
 
@@ -354,7 +360,7 @@ export const FlowRecorderView = () => {
                 variables: {
                     input: {
                         profileId,
-                        agentId: onlineAgent.id,
+                        agentId: selectedAgent.id,
                         headed: true,
                     }
                 }

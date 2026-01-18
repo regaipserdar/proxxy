@@ -5,8 +5,10 @@ use crate::pb::{
 };
 use crate::AgentRegistry;
 use crate::models::settings::InterceptionConfig;
+use crate::recording_service::RecordingService;
 use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc, RwLock};
+use std::net::SocketAddr;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status, Streaming};
 use tracing::{debug, error, info, warn};
@@ -23,6 +25,8 @@ pub struct ProxyServiceImpl {
     ca: Arc<CertificateAuthority>,
     #[allow(dead_code)] // Reserved for future interception implementation
     interception: Arc<RwLock<InterceptionConfig>>,
+    /// Recording service for traffic-based navigation detection
+    recording_service: Arc<RecordingService>,
 }
 
 impl ProxyServiceImpl {
@@ -33,6 +37,7 @@ impl ProxyServiceImpl {
         db: Arc<Database>,
         ca: Arc<CertificateAuthority>,
         interception: Arc<RwLock<InterceptionConfig>>,
+        recording_service: Arc<RecordingService>,
     ) -> Self {
         Self {
             agent_registry,
@@ -41,7 +46,55 @@ impl ProxyServiceImpl {
             db,
             ca,
             interception,
+            recording_service,
         }
+    }
+
+    async fn discover_agent_info(
+        &self,
+        agent_id: &str,
+        remote_addr: SocketAddr,
+    ) -> Option<crate::database::AgentInfo> {
+        let ip = remote_addr.ip();
+        // Try common admin ports (9091 is default)
+        let ports = vec![9091];
+
+        for port in ports {
+            let url = format!("http://{}:{}/info", ip, port);
+            debug!(
+                "   🔍 Attempting identity discovery for {} at {}",
+                agent_id, url
+            );
+
+            let client = match reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(2))
+                .build()
+            {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+
+            match client.get(&url).send().await {
+                Ok(resp) => {
+                    if let Ok(info) = resp.json::<serde_json::Value>().await {
+                        let name = info["name"].as_str().unwrap_or("Unknown").to_string();
+                        let version = info["version"].as_str().unwrap_or("0.1.0").to_string();
+                        let hostname = info["hostname"].as_str().unwrap_or("unknown").to_string();
+
+                        info!("   ✅ Discovered agent identity: {} (v{})", name, version);
+                        return Some(crate::database::AgentInfo {
+                            name,
+                            hostname,
+                            version,
+                        });
+                    }
+                }
+                Err(e) => {
+                    debug!("   ✗ Discovery failed at {}: {}", url, e);
+                }
+            }
+        }
+        None
     }
 }
 
@@ -106,34 +159,69 @@ impl ProxyService for ProxyServiceImpl {
         };
 
         info!("📡 Agent {} connected for traffic streaming", agent_id);
+        let remote_addr = request.remote_addr();
 
         let mut inbound = request.into_inner();
         let (tx, rx) = mpsc::channel(100);
 
         // Register the command channel
-        let agent_name = match self.db.get_agent_name(&agent_id).await {
-            Ok(Some(n)) => {
-                info!("   ✓ Found agent name in DB: {}", n);
-                n
+        let agent_info = match self.db.get_agent_info(&agent_id).await {
+            Ok(Some(info)) => {
+                info!("   ✓ Found agent info in DB: {} (v{})", info.name, info.version);
+                info
             }
             Ok(None) => {
-                warn!("   ⚠️  Agent {} not found in DB, using 'Unknown'", agent_id);
-                "Unknown".to_string()
+                warn!("   ⚠️  Agent {} not found in DB, attempting discovery...", agent_id);
+                
+                let discovered = if let Some(addr) = remote_addr {
+                    self.discover_agent_info(&agent_id, addr).await
+                } else {
+                    None
+                };
+
+                match discovered {
+                    Some(info) => {
+                        // Save discovered info to DB for next time
+                        if let Err(e) = self.db.upsert_agent(&agent_id, &info.name, &info.hostname, &info.version).await {
+                             warn!("   ✗ Failed to save discovered agent info to DB: {}", e);
+                        }
+                        info
+                    },
+                    None => {
+                        warn!("   ⚠️  Discovery failed for agent {}, using defaults", agent_id);
+                        crate::database::AgentInfo {
+                            name: "Unknown".to_string(),
+                            hostname: "unknown".to_string(),
+                            version: "0.1.0".to_string(), // Default fallback
+                        }
+                    }
+                }
             }
             Err(e) => {
-                warn!("   ✗ Failed to fetch agent name: {}", e);
-                "Unknown".to_string()
+                warn!("   ✗ Failed to fetch agent info: {}", e);
+                crate::database::AgentInfo {
+                    name: "Unknown".to_string(),
+                    hostname: "unknown".to_string(),
+                    version: "0.1.0".to_string(), // Default fallback
+                }
             }
         };
 
-        self.agent_registry
-            .register_agent(agent_id.clone(), agent_name, "unknown".to_string(), tx);
+        self.agent_registry.register_agent(
+            agent_id.clone(),
+            agent_info.name,
+            agent_info.hostname,
+            agent_info.version,
+            tx,
+        );
         info!("   ✓ Agent registered in session manager");
 
         let broadcast = self.broadcast_tx.clone();
         let db = self.db.clone();
         let agent_id_cl = agent_id.clone();
         let registry = self.agent_registry.clone();
+        let recording_svc = self.recording_service.clone();
+        
         // Spawn task to handle inbound traffic events
         tokio::spawn(async move {
             let mut event_count = 0;
@@ -143,6 +231,22 @@ impl ProxyService for ProxyServiceImpl {
                     "📦 Traffic event #{} from {}: {:?}",
                     event_count, agent_id_cl, event.request_id
                 );
+
+                // PROXY-BASED NAVIGATION DETECTION - DISABLED
+                // Browser-side PerformanceObserver is now the authoritative source
+                // Proxy signals were causing noise (googleapis, AJAX, etc.)
+                // See: recording_service.rs JavaScript for browser-based navigation detection
+                // 
+                // if let Some(traffic_event::Event::Request(ref req)) = event.event {
+                //     if recording_svc.is_recording().await {
+                //         if req.method.to_uppercase() == "GET" {
+                //             let accept_header = req.headers.as_ref()
+                //                 .and_then(|h| h.headers.get("accept").or_else(|| h.headers.get("Accept")))
+                //                 .map(|s| s.as_str());
+                //             recording_svc.add_navigation_event(&req.url, accept_header, 200).await;
+                //         }
+                //     }
+                // }
 
                 // SCOPE CHECK - Determine if we should record and broadcast this event
                 let rules = db.scope_rules_cache.read().await;

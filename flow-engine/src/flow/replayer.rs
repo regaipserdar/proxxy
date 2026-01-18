@@ -126,17 +126,32 @@ impl FlowReplayer {
         let controller = PageController::new(page);
         
         // Navigate to start URL first
-        debug!("Navigating to start URL: {}", profile.start_url);
+        info!("📍 Navigating to start URL: {}", profile.start_url);
         controller.navigate(&profile.start_url).await
             .map_err(|e| FlowEngineError::Navigation(format!("Failed to navigate to start URL {}: {}", profile.start_url, e)))?;
         
         // Wait for page to be fully loaded before executing steps
-        debug!("Waiting for page to load...");
+        info!("⏳ Waiting for page to load...");
         controller.wait_for_condition(&WaitCondition::PageLoaded).await
             .map_err(|e| FlowEngineError::Navigation(format!("Page load wait failed: {}", e)))?;
         
-        // Additional settle time for dynamic content
-        tokio::time::sleep(Duration::from_millis(500)).await;
+        // Log current URL after navigation
+        if let Ok(url) = controller.get_url().await {
+            info!("✅ Page loaded, current URL: {}", url);
+        }
+        
+        // Additional settle time for dynamic content (increased for complex pages)
+        tokio::time::sleep(Duration::from_millis(1500)).await;
+        
+        // If there are steps, wait a bit longer for the first element to appear
+        // This handles dynamic forms that render after page load
+        if let Some(first_step) = profile.steps.first() {
+            if let Some(selector) = self.get_step_selector(first_step) {
+                info!("⌛ Waiting for first element: {}", selector.value);
+                // Give extra time for form to render (up to 5 seconds via retry logic)
+                tokio::time::sleep(Duration::from_millis(500)).await;
+            }
+        }
         
         let mut extracted_data = HashMap::new();
 
@@ -145,10 +160,14 @@ impl FlowReplayer {
 
         // Execute each step
         for (i, step) in profile.steps.iter().enumerate() {
-            debug!("Executing step {}/{}: {:?}", i + 1, total_steps, step);
+            info!("▶️  Executing step {}/{}: {:?}", i + 1, total_steps, step);
 
             if let Err(e) = self.execute_step(&controller, step, &mut extracted_data).await {
-                warn!("Step {} failed: {}", i + 1, e);
+                // Log the current URL when step fails to understand where we are
+                if let Ok(url) = controller.get_url().await {
+                    warn!("❌ Step {} failed on URL: {}", i + 1, url);
+                }
+                warn!("❌ Step {} failed: {}", i + 1, e);
 
                 let duration_ms = start_time.elapsed().as_millis() as u64;
                 let final_url = controller.get_url().await.ok();
@@ -258,10 +277,31 @@ impl FlowReplayer {
             }
 
             FlowStep::Submit { selector, wait_for_navigation } => {
-                controller.click(selector).await?;
-                if *wait_for_navigation {
-                    tokio::time::sleep(Duration::from_millis(1000)).await;
-                    controller.wait_for_condition(&WaitCondition::PageLoaded).await?;
+                // Submit step might fail if a previous Click on a submit button already
+                // triggered the form submission. In that case, we should check if navigation
+                // already happened and skip the submit gracefully.
+                match controller.find_element_quick(selector).await {
+                    Ok(_element) => {
+                        // Form still exists, click to submit
+                        controller.click(selector).await?;
+                        if *wait_for_navigation {
+                            tokio::time::sleep(Duration::from_millis(1000)).await;
+                            controller.wait_for_condition(&WaitCondition::PageLoaded).await?;
+                        }
+                    }
+                    Err(_) => {
+                        // Form not found - if wait_for_navigation is true, the form was likely
+                        // already submitted by a previous button click. This is OK.
+                        if *wait_for_navigation {
+                            info!("Submit step: form not found, assuming already submitted. Waiting for page load.");
+                            controller.wait_for_condition(&WaitCondition::PageLoaded).await?;
+                        } else {
+                            // Form should exist but doesn't - this is an error
+                            return Err(FlowEngineError::ElementNotFound { 
+                                selector: selector.value.clone() 
+                            });
+                        }
+                    }
                 }
             }
 
@@ -390,6 +430,19 @@ impl FlowReplayer {
             result = result.replace(&format!("{{{{{}}}}}", key), value);
         }
         result
+    }
+    
+    /// Get the selector from a step (if applicable)
+    fn get_step_selector<'a>(&self, step: &'a FlowStep) -> Option<&'a crate::flow::model::SmartSelector> {
+        match step {
+            FlowStep::Click { selector, .. } => Some(selector),
+            FlowStep::Type { selector, .. } => Some(selector),
+            FlowStep::Submit { selector, .. } => Some(selector),
+            FlowStep::Hover { selector } => Some(selector),
+            FlowStep::Select { selector, .. } => Some(selector),
+            FlowStep::Extract { selector, .. } => Some(selector),
+            _ => None,
+        }
     }
 }
 

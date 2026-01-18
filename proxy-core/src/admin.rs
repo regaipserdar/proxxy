@@ -28,6 +28,14 @@ struct HealthResponse {
     status: String,
 }
 
+#[derive(Serialize, Clone)]
+pub struct AgentInfo {
+    pub agent_id: String,
+    pub name: String,
+    pub version: String,
+    pub hostname: String,
+}
+
 #[derive(Serialize)]
 struct MetricsResponse {
     total_requests: u64,
@@ -48,9 +56,11 @@ struct BodyCaptureMetrics {
     total_bytes_captured: u64,
 }
 
-pub async fn start_admin_server(port: u16, metrics: Arc<Metrics>) -> Result<()> {
+pub async fn start_admin_server(port: u16, metrics: Arc<Metrics>, info: AgentInfo) -> Result<()> {
+    let info_cloned = info.clone();
     let app = Router::new()
         .route("/health", get(health_handler))
+        .route("/info", get(move || async { Json(info_cloned) }))
         .route("/metrics", get(move || metrics_handler(metrics)));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));

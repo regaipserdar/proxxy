@@ -284,7 +284,7 @@ pub async fn run_agent(args: Args) -> Result<(), Box<dyn std::error::Error>> {
 
     // Spawn client run loop for traffic streaming
     let client_for_run =
-        OrchestratorClient::new(args.orchestrator_url.clone(), agent_id.clone(), agent_name);
+        OrchestratorClient::new(args.orchestrator_url.clone(), agent_id.clone(), agent_name.clone());
 
     tokio::spawn(async move {
         // client.run will re-register as part of its loop, which is fine (idempotent).
@@ -304,10 +304,16 @@ pub async fn run_agent(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let ca = CertificateAuthority::from_pem(&ca_cert, &ca_key)
         .map_err(|e| ProxyError::Configuration(format!("Failed to init CA from network: {}", e)))?;
 
+    let hostname = hostname::get()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+
     // Create the proxy server with body capture configuration
     let proxy_server = ProxyServer::new(config, ca)
         .with_log_sender(tx)
-        .with_body_capture_config(body_capture_config);
+        .with_body_capture_config(body_capture_config)
+        .with_agent_info(agent_id, agent_name, env!("CARGO_PKG_VERSION").to_string(), hostname);
 
     tracing::info!("Starting proxy server...");
 

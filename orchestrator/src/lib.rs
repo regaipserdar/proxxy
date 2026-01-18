@@ -7,7 +7,7 @@ use serde::Serialize;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
-use tracing::{info, warn};
+use tracing::{info, warn, debug};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 use axum::http::Method;
@@ -206,6 +206,9 @@ impl Orchestrator {
             }
         });
 
+        // Initialize RecordingService (before proxy_service - needed for traffic-based navigation)
+        let recording_service = Arc::new(crate::recording_service::RecordingService::new(ca.clone()));
+
         let proxy_service = crate::server::ProxyServiceImpl::new(
             agent_registry.clone(),
             broadcast_tx.clone(),
@@ -213,6 +216,7 @@ impl Orchestrator {
             db.clone(),
             ca.clone(),
             interception.clone(),
+            recording_service.clone(),
         );
 
         // Initialize RepeaterManager
@@ -236,9 +240,6 @@ impl Orchestrator {
 
         // Initialize SessionManager
         let session_manager = Arc::new(crate::session_integration::SessionManager::new());
-
-        // Initialize RecordingService
-        let recording_service = Arc::new(crate::recording_service::RecordingService::new(ca.clone()));
 
         // Create broadcast channel for repeater executions
         let (repeater_broadcast_tx, _repeater_broadcast_rx) = tokio::sync::broadcast::channel::<RepeaterExecutionGql>(100);
@@ -681,7 +682,8 @@ async fn connection_logging(
     if let Some(client) = headers.get("X-Proxxy-Client") {
         if let Ok(client_str) = client.to_str() {
             if client_str == "GUI" {
-                info!("🖥️  GUI Connected: {} {}", method, uri);
+                // Use debug level to avoid spamming logs with every GraphQL poll
+                debug!("🖥️  GUI Connected: {} {}", method, uri);
             }
         }
     } else if let Some(upgrade) = headers.get("upgrade") {

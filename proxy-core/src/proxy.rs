@@ -17,6 +17,10 @@ pub struct ProxyServer {
     metrics: Arc<Metrics>,
     log_sender: Option<tokio::sync::mpsc::Sender<crate::pb::TrafficEvent>>,
     body_capture_config: Option<BodyCaptureConfig>,
+    agent_id: String,
+    agent_name: String,
+    agent_version: String,
+    agent_hostname: String,
 }
 
 impl ProxyServer {
@@ -27,6 +31,10 @@ impl ProxyServer {
             metrics: Arc::new(Metrics::default()),
             log_sender: None,
             body_capture_config: None,
+            agent_id: "unknown".to_string(),
+            agent_name: "unknown".to_string(),
+            agent_version: "unknown".to_string(),
+            agent_hostname: "unknown".to_string(),
         }
     }
 
@@ -43,6 +51,14 @@ impl ProxyServer {
         self
     }
 
+    pub fn with_agent_info(mut self, id: String, name: String, version: String, hostname: String) -> Self {
+        self.agent_id = id;
+        self.agent_name = name;
+        self.agent_version = version;
+        self.agent_hostname = hostname;
+        self
+    }
+
     pub async fn run(self) -> Result<()> {
         let addr = SocketAddr::from(([0, 0, 0, 0], self.config.listen_port));
         info!("Starting proxy server on {}", addr);
@@ -50,8 +66,14 @@ impl ProxyServer {
         // Start Admin Server
         let admin_port = self.config.admin_port;
         let metrics = self.metrics.clone();
+        let info = crate::admin::AgentInfo {
+            agent_id: self.agent_id.clone(),
+            name: self.agent_name.clone(),
+            version: self.agent_version.clone(),
+            hostname: self.agent_hostname.clone(),
+        };
         tokio::spawn(async move {
-            if let Err(e) = start_admin_server(admin_port, metrics).await {
+            if let Err(e) = start_admin_server(admin_port, metrics, info).await {
                 error!("Admin server failed: {}", e);
             }
         });

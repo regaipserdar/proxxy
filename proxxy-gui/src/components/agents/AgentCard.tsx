@@ -54,7 +54,7 @@ export function AgentCard({ agent }: AgentCardProps) {
                             </div>
                             <div className="min-w-0">
                                 <h3 className="text-sm font-black text-white truncate tracking-tight group-hover:text-indigo-400 transition-colors uppercase">
-                                    {agent.name || agent.id.substring(0, 8)}
+                                    {(!agent.name || agent.name.toLowerCase() === 'unknown') ? agent.id : agent.name}
                                 </h3>
                                 <p className="text-[10px] text-slate-500 font-mono font-medium truncate uppercase tracking-tighter">
                                     {agent.hostname}

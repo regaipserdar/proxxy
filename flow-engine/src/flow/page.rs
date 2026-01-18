@@ -6,7 +6,7 @@ use crate::error::{FlowEngineError, FlowResult};
 use crate::flow::model::{SmartSelector, SelectorType, WaitCondition};
 use chromiumoxide::Page;
 use std::time::Duration;
-use tracing::{debug, info};
+use tracing::{debug, info, warn, error};
 
 /// Default timeout for operations
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
@@ -250,9 +250,9 @@ impl PageController {
     async fn find_element_with_fallback(&self, selector: &SmartSelector) -> FlowResult<chromiumoxide::Element> {
         let css = self.selector_to_css(selector).await?;
         
-        // Retry with exponential backoff - wait up to 10 seconds for element
-        let max_attempts = 10;
-        let mut delay = Duration::from_millis(200);
+        // Retry with exponential backoff - wait up to 15-20 seconds for element
+        let max_attempts = 15;
+        let mut delay = Duration::from_millis(500);
         
         for attempt in 1..=max_attempts {
             // Try primary selector
@@ -301,6 +301,57 @@ impl PageController {
             }
         }
 
+        // Debug: Log what we see on the page when element not found
+        error!("🔍 DEBUG: Element search failed for selector: {}", css);
+        
+        if let Ok(url) = self.page.evaluate("window.location.href").await {
+            if let Ok(url_str) = url.into_value::<String>() {
+                error!("   📍 Current page URL: {}", url_str);
+            }
+        }
+        if let Ok(title) = self.page.evaluate("document.title").await {
+            if let Ok(title_str) = title.into_value::<String>() {
+                error!("   📄 Page title: {}", title_str);
+            }
+        }
+        // Log available forms and inputs for debugging
+        if let Ok(forms) = self.page.evaluate("document.querySelectorAll('form').length").await {
+            if let Ok(count) = forms.into_value::<i64>() {
+                error!("   📋 Page has {} form(s)", count);
+            }
+        }
+        if let Ok(inputs) = self.page.evaluate("document.querySelectorAll('input').length").await {
+            if let Ok(count) = inputs.into_value::<i64>() {
+                error!("   ⌨️  Page has {} input(s)", count);
+            }
+        }
+        // Log actual HTML structure of forms for deep debugging
+        if let Ok(html) = self.page.evaluate("Array.from(document.querySelectorAll('form')).map(f => f.outerHTML.substring(0, 200)).join('\\n---\\n')").await {
+            if let Ok(html_str) = html.into_value::<String>() {
+                if !html_str.is_empty() {
+                    error!("   🔧 Form HTML snippets:\n{}", html_str);
+                }
+            }
+        }
+
+        Err(FlowEngineError::ElementNotFound { selector: css })
+    }
+
+    /// Quick element check without long retry loop
+    /// Used to quickly determine if an element exists (e.g., for Submit step pre-check)
+    pub async fn find_element_quick(&self, selector: &SmartSelector) -> FlowResult<chromiumoxide::Element> {
+        let css = self.selector_to_css(selector).await?;
+        
+        // Only 3 quick attempts with short delays (~1.5 seconds total)
+        for attempt in 1..=3 {
+            if let Ok(element) = self.page.find_element(&css).await {
+                return Ok(element);
+            }
+            if attempt < 3 {
+                tokio::time::sleep(Duration::from_millis(500)).await;
+            }
+        }
+        
         Err(FlowEngineError::ElementNotFound { selector: css })
     }
 

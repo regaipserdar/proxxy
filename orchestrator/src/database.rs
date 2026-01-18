@@ -26,6 +26,13 @@ pub struct Project {
     pub is_active: bool,
 }
 
+#[derive(Debug, Clone)]
+pub struct AgentInfo {
+    pub name: String,
+    pub hostname: String,
+    pub version: String,
+}
+
 /// Full HTTP transaction with both request and response data
 #[derive(Debug, Clone)]
 pub struct FullTransaction {
@@ -237,16 +244,27 @@ impl Database {
     }
 
     pub async fn get_agent_name(&self, agent_id: &str) -> Result<Option<String>, sqlx::Error> {
+        match self.get_agent_info(agent_id).await? {
+            Some(info) => Ok(Some(info.name)),
+            None => Ok(None),
+        }
+    }
+
+    pub async fn get_agent_info(&self, agent_id: &str) -> Result<Option<AgentInfo>, sqlx::Error> {
         let pool = match self.get_pool().await {
              Ok(p) => p,
              Err(_) => return Ok(None),
         };
-        let row = sqlx::query("SELECT name FROM agents WHERE id = ?")
+        let row = sqlx::query("SELECT name, hostname, version FROM agents WHERE id = ?")
             .bind(agent_id)
             .fetch_optional(&pool)
             .await?;
 
-        Ok(row.map(|r| r.get("name")))
+        Ok(row.map(|r| AgentInfo {
+            name: r.get("name"),
+            hostname: r.get("hostname"),
+            version: r.get("version"),
+        }))
     }
 
     pub async fn mark_agent_offline(&self, agent_id: &str) -> Result<(), sqlx::Error> {
